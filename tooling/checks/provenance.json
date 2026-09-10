@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "commit": "c291e7961a515f6d7af9304e7fd1d257929aef26",
+  "license": "tooling/checks/DSH-LICENSE",
+  "files": [
+    {
+      "path": "tooling/checks/markdown.ts",
+      "source": "scripts/markdown.ts",
+      "sourceSha256": "36a06b42080cc2cb78e43adf51370e09d2d6dd308ea341b496b15fa8bb793e1f",
+      "adjustments": "Pure Markdown AST utilities retained unchanged; no upstream command or repository policy."
+    },
+    {
+      "path": "tooling/checks/links.ts",
+      "source": "scripts/verify-md-links.ts",
+      "sourceSha256": "b7dfc24b86868b8322fe24a55aecee74988e45e9574191e2ce00aeab02690e18",
+      "adjustments": "Removed upstream inventory and command entrypoint; retained pure validators with an explicit caller-owned root."
+    },
+    {
+      "path": "tooling/checks/archive-format.ts",
+      "source": "scripts/archived-agent-notes.ts",
+      "sourceSha256": "27979a3522cb2cbf9358b180d9e9695a37590e392c3e55d7af2499597eb7773b",
+      "adjustments": "Replaced the upstream Note-class import with the PaperMoon enumeration; retained immutable archive format validation."
+    },
+    {
+      "path": "tooling/tests/archive-format.spec.ts",
+      "source": "scripts/archived-agent-notes.spec.ts",
+      "sourceSha256": "a7739841fbeae7d45eeb69a2516533013393831cac6288ade479c0138495f650",
+      "adjustments": "Updated module imports to the independently maintained archive implementation."
+    },
+    {
+      "path": "tooling/tests/links.spec.ts",
+      "source": "scripts/verify-md-links.spec.ts",
+      "sourceSha256": "96eb4bd73e7dda1713e3cc1156088433e3f82e6b7f5a711225b5367e8a0665c7",
+      "adjustments": "Updated module imports to the independently maintained link validator."
+    }
+  ]
+}

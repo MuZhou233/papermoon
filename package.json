@@ -1,0 +1,38 @@
+{
+  "name": "papermoon",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "setup": "tsx tooling/repository/cli.ts setup",
+    "build": "tsx tooling/repository/cli.ts build",
+    "start": "tsx tooling/repository/cli.ts start",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm check:docs && pnpm check:notes",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint tooling plugins vitest.config.ts",
+    "test": "vitest run",
+    "check:docs": "tsx tooling/checks/cli.ts docs",
+    "check:notes": "tsx tooling/checks/cli.ts notes",
+    "check:patches": "tsx tooling/repository/cli.ts check",
+    "docs:record": "tsx tooling/checks/cli.ts record",
+    "note": "tsx tooling/checks/note-cli.ts",
+    "test:smoke": "tsx tooling/tests/smoke.ts"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "4.0.9",
+    "@types/jsdom": "28.0.3",
+    "@types/mdast": "4.0.4",
+    "@types/node": "24.3.0",
+    "js-yaml": "4.2.0",
+    "jsdom": "29.1.1",
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm": "3.1.0",
+    "mermaid": "11.16.0",
+    "micromark-extension-gfm": "3.0.0",
+    "oxlint": "1.76.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  }
+}

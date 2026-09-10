@@ -1,0 +1,37 @@
+name: PaperMoon checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Select trusted archive baseline
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          node --input-type=module <<'JS'
+          import { appendFileSync } from 'node:fs'
+          const base = process.env.PR_BASE || process.env.PUSH_BASE
+          if (base && !/^0+$/.test(base)) {
+            if (!/^[a-f0-9]{40}$/.test(base)) throw new Error('invalid archive baseline')
+            appendFileSync(process.env.GITHUB_ENV, `PAPERMOON_ARCHIVE_BASE_REF=${base}\n`)
+          }
+          JS
+      - run: pnpm check

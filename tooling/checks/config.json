@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "exemptions": {
+    "AGENTS.md": "Machine-facing maintenance instructions.",
+    "docs/AGENTS.md": "Machine-facing maintenance instructions.",
+    ".agents/notes/archived/AGENTS.md": "Machine-facing maintenance instructions.",
+    ".agents/skills/papermoon-docs/SKILL.md": "Machine-facing maintenance instructions.",
+    ".agents/skills/papermoon-notes/SKILL.md": "Machine-facing maintenance instructions.",
+    ".agents/skills/papermoon-checks/SKILL.md": "Machine-facing maintenance instructions."
+  },
+  "budgets": {
+    "AGENTS.md": 1500,
+    "docs/AGENTS.md": 1000,
+    "README.md": 800,
+    "docs/architecture.md": 1200,
+    ".agents/notes/README.md": 2000
+  },
+  "typeExcerpts": []
+}

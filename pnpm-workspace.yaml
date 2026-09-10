@@ -1,0 +1,5 @@
+packages:
+  - plugins/*
+allowBuilds:
+  esbuild@0.28.2: true
+verifyDepsBeforeRun: error

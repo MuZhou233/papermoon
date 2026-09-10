@@ -1,0 +1,8 @@
+node_modules/
+.papermoon/
+.env
+.env.*
+!.env.example
+coverage/
+*.tsbuildinfo
+.DS_Store
