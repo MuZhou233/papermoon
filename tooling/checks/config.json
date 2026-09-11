@@ -6,7 +6,8 @@
     ".agents/notes/archived/AGENTS.md": "Machine-facing maintenance instructions.",
     ".agents/skills/papermoon-docs/SKILL.md": "Machine-facing maintenance instructions.",
     ".agents/skills/papermoon-notes/SKILL.md": "Machine-facing maintenance instructions.",
-    ".agents/skills/papermoon-checks/SKILL.md": "Machine-facing maintenance instructions."
+    ".agents/skills/papermoon-checks/SKILL.md": "Machine-facing maintenance instructions.",
+    ".agents/skills/bilingual-syntax-style-guide/SKILL.md": "Machine-facing skill with Chinese and English guidance in one user-supplied body."
   },
   "budgets": {
     "AGENTS.md": 1500,

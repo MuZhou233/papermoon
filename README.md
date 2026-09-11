@@ -2,7 +2,11 @@
 
 English | [中文](README.zh.md)
 
-PaperMoon maintains its own plugins and tools around a pinned DSH Git submodule. The shipped launcher opens the original DSH Web application; the patch series is empty and no product plugin is installed.
+PaperMoon is a DSH distribution for AI-driven interactive storytelling, providing a frontend for LLM-driven text adventure games and roleplay.
+
+## Current implementation
+
+The repository provides a maintenance framework and a launcher for the original DSH Web application. Product-specific features have not been added.
 
 ## Start
 
@@ -15,10 +19,12 @@ pnpm build
 pnpm start -- --no-open
 ```
 
-Use `pnpm run setup`, not pnpm's built-in `pnpm setup` shell-configuration command. Setup discards unexported source edits inside the managed submodule. It preserves ignored configuration and main-repository data. Build is explicit; start never installs, builds or resets sources.
+Use `pnpm run setup`, not pnpm's built-in `pnpm setup` shell-configuration command. Setup discards source edits in the DSH submodule that have not been exported as patches. It preserves Git-ignored configuration and main-repository data. Run the build separately; start never installs dependencies, builds or resets sources.
 
 Runtime data defaults to `.papermoon/dsh` and `.papermoon/agents`. Explicit `DSH_HOME` and `DSH_AGENTS_HOME` override these paths. DSH resolves credentials using its normal environment and configuration mechanism; the root `.env` is ignored by Git. The default session workspace is the PaperMoon root.
 
 ## Maintain
 
-[Development](docs/development.md) explains commands and failures. [Architecture](docs/architecture.md) assigns ownership. [Testing](docs/testing.md) defines evidence. [Patch maintenance](patches/README.md) describes DSH customization; [Agent Notes](.agents/notes/README.md) preserve main-repository decisions.
+Plugins and tooling are maintained in this repository; the `dsh/` Git submodule pins the upstream version.
+
+[Development](docs/development.md) covers commands and troubleshooting. [Architecture](docs/architecture.md) explains which repository maintains each part, and [Testing](docs/testing.md) lists the required checks. [Patch maintenance](patches/README.md) explains how to customize DSH; [Agent Notes](.agents/notes/README.md) record main-repository decisions and their reasons.

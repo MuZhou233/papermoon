@@ -2,18 +2,22 @@
 
 English | [中文](architecture.zh.md)
 
+## Product and DSH
+
+DSH provides the general agent runtime and application infrastructure. PaperMoon's product design builds on these capabilities through its own plugins, configuration and necessary patches. Frontend describes the distribution's user-facing purpose; its implementation can include browser code and server-side logic. The [product introduction](../README.md) describes the intended experiences, and the [positioning decision](../.agents/notes/implemented/architecture/2026-09-12-product-positioning.md) records the relationship with DSH and its rationale.
+
 ## Responsibilities
 
-The main repository owns plugins, tooling, documentation, dependencies and CI. The Gitlink at `dsh/` pins the official implementation; it is not a main workspace package. Effective DSH changes are stored as patches and delivered under submodule standards. Patch tooling itself is main-repository code. Mixed changes carry separate evidence for their two owners.
+The main repository maintains plugins, tooling, documentation, dependencies and CI. The Gitlink at `dsh/` pins an official DSH commit; the submodule is not a package in the main workspace. Changes applied to DSH are stored as patches and follow the submodule’s delivery standards. The tools that manage those patches follow main-repository standards. When a change affects both repositories, validate each part under its own rules.
 
 The main rules are self-contained. Consuming a DSH interface does not import its package structure, runtime design rules, SDK requirements or organization workflows into main-repository policy. The [maintenance decision](../.agents/notes/implemented/process/2026-09-11-independent-maintenance.md) records this choice.
 
-## Launch and data
+## Current launch and data
 
-The launcher executes DSH's official built CLI with the standard Web profile and the PaperMoon root as its working directory. Dependency installation and build run inside the submodule. Installation and build inherit `CI=true` for DSH's supported automated-install path; the development hook installer otherwise rejects the submodule's Git configuration. Patch checks receive their normal environment, and launch does not force this setting.
+The launcher executes DSH's official built CLI with the standard Web profile and the PaperMoon root as its working directory. Dependency installation and build run inside the submodule with `CI=true`, which enables DSH’s supported automated installation behavior. Without that setting, the development hook installer rejects the submodule’s Git configuration. Patch checks and launch inherit the caller’s environment without forcing this setting.
 
-The launcher supplies independent default data homes and delegates configuration, authentication, model behavior and UI to DSH. No separate server, profile composition or application API is introduced. [Development](development.md) owns the command interface.
+The current foundation uses the original DSH Web application, including its configuration, authentication, model behavior and UI. The launcher supplies independent default data homes. [Development](development.md) documents the command interface.
 
 ## Maintenance tools
 
-Main checks read main-owned files and fixtures, excluding the submodule, dependency directories and runtime data. Adapted checkers live independently in `tooling/checks/`; they retain their original license and provenance. The [checker guide](../tooling/checks/README.md) owns their configuration and limitations.
+Main checks read main-owned files and fixtures, excluding the submodule, dependency directories and runtime data. Adapted checkers live independently in `tooling/checks/`; they retain their original license and provenance. The [checker guide](../tooling/checks/README.md) explains their configuration and limits.

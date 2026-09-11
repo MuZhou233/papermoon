@@ -1,6 +1,6 @@
 # PaperMoon maintenance
 
-PaperMoon owns its plugins, launchers, tooling and documentation. Read [architecture](docs/architecture.md) for repository responsibilities and [development](docs/development.md) for commands.
+PaperMoon is a DSH distribution for AI-driven interactive storytelling. Read [architecture](docs/architecture.md) for its product role and repository responsibilities, and [development](docs/development.md) for commands.
 
 ## Ownership
 
@@ -21,5 +21,7 @@ Run [relevant checks](docs/testing.md) and report commands actually executed. CI
 Use explicit commands and CI; do not install a separate main-repository Git hook system. Never commit credentials, runtime data or generated dependency directories. Keep exactly one trailing newline in text files. Do not push unless requested.
 
 ## Workflow entrypoints
+
+Use the [bilingual writing guide](.agents/skills/bilingual-syntax-style-guide/SKILL.md) when writing, rewriting or polishing Chinese and English prose.
 
 Use [documentation maintenance](.agents/skills/papermoon-docs/SKILL.md) for bilingual edits, [Note maintenance](.agents/skills/papermoon-notes/SKILL.md) for lifecycle decisions, and [delivery checks](.agents/skills/papermoon-checks/SKILL.md) to distinguish parent and patch evidence.

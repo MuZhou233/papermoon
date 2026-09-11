@@ -6,7 +6,7 @@ English | [中文](2026-09-11-submodule-launch.zh.md)
 
 ## Problem
 
-A reproducible application base must coexist with independently maintained product plugins and preserve user runtime data during source reconstruction.
+PaperMoon must be able to reconstruct the application source while maintaining product plugins independently. Reconstructing source must preserve users’ runtime data.
 
 ## Decision
 

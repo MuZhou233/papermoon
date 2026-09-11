@@ -6,7 +6,7 @@ English | [中文](2026-09-11-independent-maintenance.zh.md)
 
 ## Problem
 
-PaperMoon needs complete maintenance infrastructure without coupling each product iteration to DSH internal delivery rules.
+PaperMoon needs a complete set of maintenance tools and rules. Product work in the main repository should not have to follow DSH’s internal delivery requirements.
 
 ## Decision
 
@@ -14,7 +14,7 @@ The main repository owns its engineering rules, bilingual documentation, adapted
 
 ## Alternatives considered
 
-Blanket inheritance would make framework-internal policies govern unrelated main code. Calling private submodule checkers would couple maintenance upgrades to runtime upgrades. Deferring archive checks would leave existing decisions without enforced lifecycle protection.
+Inheriting all DSH rules would apply its internal policies to unrelated main-repository code. Calling private submodule checkers would tie maintenance-tool upgrades to runtime upgrades. Deferring archive checks would allow sealed decisions to be changed without detection.
 
 ## Consequences
 

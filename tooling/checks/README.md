@@ -8,7 +8,7 @@ The main checks implement PaperMoon's selected maintenance rules. They never imp
 
 ## Configuration and commands
 
-`config.json` contains exact pairing exemptions with reasons, English word budgets and registered type excerpts. Main Markdown files are discovered automatically. Stale exemptions, orphan translations and missing budget targets fail. Symlinked main sources are rejected; dependencies, DSH and runtime data are not followed.
+`config.json` registers pairing exemptions by file path and reason, English word limits and type excerpts. The checker discovers main-repository Markdown files automatically. It rejects exemptions for missing files, translations without source documents and word-limit entries for missing documents. It also rejects symlinked sources and excludes dependencies, DSH and runtime data.
 
 ```sh
 pnpm check:docs
@@ -17,10 +17,10 @@ pnpm docs:record README.md docs/development.md
 pnpm note --help
 ```
 
-Recording rewrites only the selected active bilingual sidecars after structural validation. Review language quality first. Archive records can only be created by the archival operation. English and Chinese maintain corresponding structure and technical literals; hashes acknowledge reviewed content, not semantic equivalence.
+Review both languages before recording their hashes. The recording command checks structure, then updates only the selected active documents’ pairing files. Only the archive command creates archive records. English and Chinese documents must have matching structure and literal technical content; the hashes identify the reviewed text but do not prove that the translations agree.
 
 TypeScript examples use the main compiler configuration and resolve imports relative to the document without writing source files. A `ts type-equiv Name` fence must have a `typeExcerpts` entry with `document`, `symbol` and `source`; interfaces, type aliases and enums are compared as declarations without comments or export modifiers.
 
 ## Limits
 
-Checks enforce machine-verifiable structure, not editorial quality, appropriate test selection or the semantic completeness of a consolidated Note. Main checks do not implement DSH SDK, generated-catalog, package-structure or live-model policies. [Testing](../../docs/testing.md) assigns human review and integration evidence.
+Checks verify document structure. Reviewers assess writing quality, test selection and whether consolidated Notes preserve the original reasoning. Main checks do not enforce DSH’s SDK, generated-catalog, package-structure or live-model policies. [Testing](../../docs/testing.md) explains the human review and integration checks required for delivery.
