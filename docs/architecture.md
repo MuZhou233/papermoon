@@ -18,6 +18,10 @@ The launcher executes DSH's official built CLI with the standard Web profile and
 
 The current foundation uses the original DSH Web application, including its configuration, authentication, model behavior and UI. The launcher supplies independent default data homes. [Development](development.md) documents the command interface.
 
+## Script storage
+
+The [storage module](../plugins/story-storage/README.md) owns product data in an independent SQLite database and exports a loadable Cordis adapter. Its core has no DSH dependency. The default Web profile does not mount it. The [storage decision](../.agents/notes/implemented/architecture/2026-09-12-script-storage.md) records the ownership and transaction choices.
+
 ## Maintenance tools
 
 Main checks read main-owned files and fixtures, excluding the submodule, dependency directories and runtime data. Adapted checkers live independently in `tooling/checks/`; they retain their original license and provenance. The [checker guide](../tooling/checks/README.md) explains their configuration and limits.

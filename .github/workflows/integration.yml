@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - dsh
+      - plugins/story-storage/src/**
+      - plugins/story-storage/integration/**
+      - plugins/story-storage/tsconfig.build.json
+      - plugins/story-storage/package.json
       - .gitmodules
       - patches/*.patch
       - patches/series.json
@@ -13,11 +17,16 @@ on:
       - .node-version
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - tsconfig.json
       - .github/workflows/integration.yml
   push:
     branches: [main]
     paths:
       - dsh
+      - plugins/story-storage/src/**
+      - plugins/story-storage/integration/**
+      - plugins/story-storage/tsconfig.build.json
+      - plugins/story-storage/package.json
       - .gitmodules
       - patches/*.patch
       - patches/series.json
@@ -28,6 +37,7 @@ on:
       - .node-version
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - tsconfig.json
       - .github/workflows/integration.yml
 permissions:
   contents: read
@@ -52,4 +62,5 @@ jobs:
       - run: pnpm run setup
       - run: pnpm build
       - run: pnpm check:patches
+      - run: pnpm check:plugins:dsh
       - run: pnpm test:smoke

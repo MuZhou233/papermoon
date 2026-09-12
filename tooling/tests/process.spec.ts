@@ -68,6 +68,24 @@ describe('launcher process ownership', () => {
     expect(JSON.parse(readFileSync(join(root, 'launch.json'), 'utf8'))).toEqual({cwd: root, args: ['--profile', 'web', '--port', '0', '--no-open'], home: join(root, '.papermoon/dsh'), agents: join(root, '.papermoon/agents')})
     expect(processExitCode(new ProcessFailure({code: null, signal: 'SIGTERM', cancelled: false}, 'fixture'))).toBe(143)
   })
+  it('builds main plugins before DSH and stops before DSH when plugin compilation fails', async () => {
+    const root = make(); const upstream = make(); commit(upstream)
+    git(root, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', upstream, 'dsh'])
+    put(root, 'pnpm.cjs', 'const fs=require("node:fs");fs.appendFileSync(process.env.RECORD,JSON.stringify({cwd:process.cwd(),args:process.argv.slice(2)})+"\\n");if(process.env.FAIL_PLUGIN && process.argv[3]==="build:plugins")process.exit(19)')
+    vi.stubEnv('npm_execpath', join(root, 'pnpm.cjs'))
+    vi.stubEnv('RECORD', join(root, 'build.jsonl'))
+    await main(['build'], root)
+    const commands = readFileSync(join(root, 'build.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line))
+    expect(commands).toEqual([
+      {cwd: root, args: ['run', 'build:plugins']},
+      {cwd: join(root, 'dsh'), args: ['run', 'clean']},
+      {cwd: join(root, 'dsh'), args: ['run', 'build']},
+    ])
+    vi.stubEnv('FAIL_PLUGIN', '1')
+    vi.stubEnv('RECORD', join(root, 'failed.jsonl'))
+    await expect(main(['build'], root)).rejects.toMatchObject({result: {code: 19}})
+    expect(readFileSync(join(root, 'failed.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1)
+  })
   it('does not launch work after an already received cancellation', async () => {
     const root = make(); const controller = new AbortController(); controller.abort()
     await expect(runProcess(process.execPath, ['-e', 'process.exit(0)'], root, process.env, controller.signal)).rejects.toThrow()

@@ -9,7 +9,9 @@
 | 命令 | 效果 |
 |---|---|
 | `pnpm run setup` | 重置 DSH、应用已登记补丁、安装锁定的 DSH 依赖 |
-| `pnpm build` | 清理 DSH 声明的构建产物并执行其官方构建 |
+| `pnpm build` | 构建主库插件，再清理 DSH 声明的产物并运行官方构建 |
+| `pnpm build:plugins` | 无需 DSH 即可构建主库插件 |
+| `pnpm check:plugins:dsh` | 使用已构建的 DSH Cordis 检查存储插件类型与生命周期 |
 | `pnpm start -- --port 3081 --no-open` | 启动原版 Web；参数分别通过 argv 传递 |
 | `pnpm check` | 主库类型、lint、测试、文档与 Note 检查 |
 | `pnpm check:docs` | 主库文档与检查器来源检查 |

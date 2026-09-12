@@ -6,7 +6,7 @@ PaperMoon is a DSH distribution for AI-driven interactive storytelling, providin
 
 ## Current implementation
 
-The repository provides a maintenance framework and a launcher for the original DSH Web application. Product-specific features have not been added.
+The repository provides a maintenance framework, the original DSH Web launcher and a [script storage module](plugins/story-storage/README.md) for future product features. Storage has a programmatic API and a loadable service plugin; it has no Web controls yet.
 
 ## Start
 

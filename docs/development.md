@@ -9,7 +9,9 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | Command | Effect |
 |---|---|
 | `pnpm run setup` | Reset DSH, apply registered patches, install locked DSH dependencies |
-| `pnpm build` | Clean declared DSH build outputs and run its official build |
+| `pnpm build` | Build main plugins, then clean declared DSH outputs and run its official build |
+| `pnpm build:plugins` | Build main plugins without DSH |
+| `pnpm check:plugins:dsh` | Check built storage plugin types and lifecycle against built DSH Cordis |
 | `pnpm start -- --port 3081 --no-open` | Start original Web; pass arguments as separate argv elements |
 | `pnpm check` | Main type, lint, tests, docs and Notes |
 | `pnpm check:docs` | Main documentation and checker provenance |

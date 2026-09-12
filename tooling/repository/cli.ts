@@ -32,6 +32,7 @@ export async function main(args: string[], root = repositoryRoot, signal?: Abort
       await pnpm(submodule(root), ['install', '--frozen-lockfile'], signal, { ...process.env, CI: 'true' })
       break
     case 'build': {
+      await pnpm(root, ['run', 'build:plugins'], signal)
       const directory = submodule(root)
       await pnpm(directory, ['run', 'clean'], signal, { ...process.env, CI: 'true' })
       await pnpm(directory, ['run', 'build'], signal, { ...process.env, CI: 'true' })

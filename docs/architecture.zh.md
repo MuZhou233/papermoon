@@ -18,6 +18,10 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 当前运行的是原版 DSH Web，配置、认证、模型行为和 UI 均沿用该应用。启动器提供独立的默认数据目录。[开发指南](development.zh.md)说明命令接口。
 
+## 剧本存储
+
+[存储模块](../plugins/story-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH，默认 Web profile 不挂载该插件。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-script-storage.zh.md)记录归属和事务选择。
+
 ## 维护工具
 
 主库检查只读取自有文件和夹具，排除子模块、依赖目录和运行数据。适配后的检查器在 `tooling/checks/` 独立维护，保留原始许可和来源记录。[检查器指南](../tooling/checks/README.zh.md)说明配置方式和检查范围。

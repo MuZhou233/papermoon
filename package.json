@@ -17,7 +17,9 @@
     "check:patches": "tsx tooling/repository/cli.ts check",
     "docs:record": "tsx tooling/checks/cli.ts record",
     "note": "tsx tooling/checks/note-cli.ts",
-    "test:smoke": "tsx tooling/tests/smoke.ts"
+    "test:smoke": "tsx tooling/tests/smoke.ts",
+    "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json",
+    "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",

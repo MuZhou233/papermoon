@@ -51,6 +51,8 @@ importers:
         specifier: 4.1.8
         version: 4.1.8(@types/node@24.3.0)(jsdom@29.1.1)(vite@8.2.2(@types/node@24.3.0)(esbuild@0.28.2)(tsx@4.22.4))
 
+  plugins/story-storage: {}
+
 packages:
 
   '@antfu/install-pkg@2.0.1':

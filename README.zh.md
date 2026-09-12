@@ -6,7 +6,7 @@ PaperMoon 是面向 AI 互动叙事的 DSH 发行版，为 LLM 驱动的文字�
 
 ## 当前进度
 
-目前已建立维护框架和原版 DSH Web 启动入口，尚未加入产品专用功能。
+目前已建立维护框架、原版 DSH Web 启动入口，以及供后续产品功能使用的[剧本存储模块](plugins/story-storage/README.zh.md)。存储提供程序接口和可加载的服务插件，尚无 Web 操作界面。
 
 ## 启动
 
