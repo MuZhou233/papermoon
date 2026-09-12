@@ -17,5 +17,7 @@ try {
   ])
   assert.deepEqual(decodeContent(encodeContent(content)), content)
   assert.deepEqual(lookupTranslation(content, 'empty', 'en'), { kind: 'missing', reason: 'translation' })
-  console.log('PaperMoon core: emitted pure entry imports and content operations passed')
+  const { resolveWriterContext, createWriterTemplate } = await import('../../writers/lib/model.js')
+  assert.deepEqual(resolveWriterContext(createWriterTemplate('Writer')).messages, [])
+  console.log('PaperMoon: emitted pure core and writer-context imports passed')
 } finally { guard.deregister() }

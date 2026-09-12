@@ -7,3 +7,7 @@
       name: '../../plugins/story-core/lib/plugin.js'
     - id: papermoon-story-editor
       name: '../../plugins/story-editor/lib/index.js'
+    - id: papermoon-writers
+      name: '../../plugins/writers/lib/index.js'
+      config:
+        path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/writers.sqlite'"

@@ -26,6 +26,15 @@
       ],
       "@papermoon/ui": [
         "./packages/ui/src/index.ts"
+      ],
+      "@papermoon/story-tools": [
+        "./plugins/story-tools/src/index.ts"
+      ],
+      "@papermoon/story-tools/catalog": [
+        "./plugins/story-tools/src/catalog.ts"
+      ],
+      "@papermoon/writers": [
+        "./plugins/writers/src/model.ts"
       ]
     },
     "jsx": "react-jsx",

@@ -57,6 +57,12 @@
       "source": "packages/client/ui-primitives/src/Modal.module.css",
       "sha256": "0e1de6a6cfcd5333e6b02c8b2583c09ad90f98a618f3b80ec60acfc5c59ee68c",
       "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/PromptTrace.module.css",
+      "source": "packages/client/ui-trajectory/src/client/TrajectoryTable.module.css",
+      "sha256": "74bd596bc3f5e0a7b27d18fac32c58bf72763cb7a001869820dbb5902dae8692",
+      "adjustments": "Table rows, role colors, selection and detail-pane geometry adapted for static prompt context. No runtime events, tool inspection, metrics or Session state."
     }
   ]
 }

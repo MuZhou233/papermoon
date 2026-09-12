@@ -31,3 +31,7 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 ## 人工创作
 
 [编辑器插件](../plugins/story-editor/README.zh.md)维护面向用户的操作和页面。[UI 库](../packages/ui/README.zh.md)维护注明来源的组件副本与编辑控件，仅复用 DSH 的主题和宿主接口。[界面设计决定](../.agents/notes/implemented/architecture/2026-09-12-manual-script-editor.zh.md)记录接入方式和本地缓冲区设计。
+
+## 编剧配置与工具
+
+[编剧管理](../plugins/writers/README.zh.md)在独立数据库中维护提示词配置，并提供纯起始上下文解析。[剧本工具](../plugins/story-tools/README.zh.md)维护逻辑核心之上的模型操作，注册到调用方提供的 DSH scope。管理页展示同一份工具目录，不创建会话或调用模型。[设计记录](../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.zh.md)说明这些职责。

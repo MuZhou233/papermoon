@@ -11,11 +11,11 @@
 | `pnpm run setup` | 重置 DSH、应用已登记补丁、安装锁定的 DSH 依赖 |
 | `pnpm build` | 构建主库插件，再清理 DSH 声明的产物并运行官方构建 |
 | `pnpm build:plugins` | 无需 DSH 即可构建主库插件 |
-| `pnpm check:plugins:pure` | 阻止导入 Node 内置模块和 Cordis，检查构建后的核心纯入口 |
-| `pnpm check:plugins:dsh` | 使用已构建的 DSH Cordis 检查存储与核心插件类型及生命周期 |
+| `pnpm check:plugins:pure` | 阻止导入 Node 内置模块和 Cordis，检查构建后的核心与编剧上下文纯入口 |
+| `pnpm check:plugins:dsh` | 使用真实 DSH Cordis 检查存储、核心、编剧服务的生命周期及独立 scope 工具 |
 | `pnpm start -- --port 3081 --no-open` | 在 Web 上启动 PaperMoon；参数分别通过 argv 传递 |
 | `pnpm start:dsh -- --port 3081 --no-open` | 启动原版 Web，不加载产品插件 |
-| `pnpm test:editor` | 在 Chromium 中通过临时 Web 进程验证编辑器 |
+| `pnpm test:editor` | 在 Chromium 中通过临时 Web 进程验证编辑器和编剧管理 |
 | `pnpm check` | 主库类型、lint、测试、文档与 Note 检查 |
 | `pnpm check:docs` | 主库文档与检查器来源检查 |
 | `pnpm check:notes` | 活跃 Note 与不可变归档检查 |
@@ -24,7 +24,7 @@
 
 setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保留命令。自动化脚本也使用前一种写法。
 
-[PaperMoon 组合配置](../profiles/papermoon/cordis.patch.yml)通过官方 profile 叠加机制挂载存储、核心和编辑器插件。它是配置，不是源码补丁。启动不会重建插件；修改主库插件或 UI 源码后，运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
+[PaperMoon 组合配置](../profiles/papermoon/cordis.patch.yml)通过官方 profile 叠加机制挂载存储、核心、编辑器和编剧管理插件。它是配置，不是源码补丁。启动不会重建插件；修改主库插件或 UI 源码后，运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
 
 ## 编辑与升级
 
@@ -37,3 +37,5 @@ setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保�
 缺少构建产物时，启动器会提示先构建。更新已有产物也需要重新运行构建命令。补丁应用失败时，初始化会恢复 Gitlink 指定的源码并停止，修复补丁后再试。补丁验证会拒绝未知的检查脚本、未登记文件和源码差异。
 
 初始化不会启动服务。Web 在当前终端中运行，收到中断或终止信号后停止。启动测试使用临时数据和随机分配的本机回环端口，结束时等待进程退出。[测试规范](testing.zh.md)说明交付证据。
+
+编剧配置沿用 `PAPERMOON_DATA_DIR` 指定的产品数据目录，使用独立的 `writers.sqlite`。profile 不将剧本工具注册到全局。客户端插件共用 `tooling/repository/build-clients.ts` 的打包过程。

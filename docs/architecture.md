@@ -31,3 +31,7 @@ Main checks read main-owned files and fixtures, excluding the submodule, depende
 ## Manual authoring
 
 The [editor plugin](../plugins/story-editor/README.md) owns user-facing operations and pages. The [UI library](../packages/ui/README.md) maintains attributed component copies and editor controls, sharing only DSH theme and host interfaces. The [interface decision](../.agents/notes/implemented/architecture/2026-09-12-manual-script-editor.md) records the integration and local-buffer design.
+
+## Writer definitions and tools
+
+[Writer management](../plugins/writers/README.md) owns prompt definitions in a separate database and provides a pure initial-context resolver. [Script tools](../plugins/story-tools/README.md) maintain model-facing operations over the logic core and register into caller-owned DSH scopes. The management page displays their shared catalog; it does not create sessions or invoke models. The [decision](../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.md) records these responsibilities.

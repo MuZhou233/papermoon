@@ -11,6 +11,13 @@ on:
       - plugins/story-core/integration/**
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
+      - plugins/writers/src/**
+      - plugins/writers/tsconfig.build.json
+      - plugins/writers/package.json
+      - plugins/story-tools/src/**
+      - plugins/story-tools/integration/**
+      - plugins/story-tools/tsconfig.build.json
+      - plugins/story-tools/package.json
       - plugins/story-editor/src/**
       - plugins/story-editor/e2e/**
       - plugins/story-editor/playwright.config.ts
@@ -42,6 +49,13 @@ on:
       - plugins/story-core/integration/**
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
+      - plugins/writers/src/**
+      - plugins/writers/tsconfig.build.json
+      - plugins/writers/package.json
+      - plugins/story-tools/src/**
+      - plugins/story-tools/integration/**
+      - plugins/story-tools/tsconfig.build.json
+      - plugins/story-tools/package.json
       - plugins/story-editor/src/**
       - plugins/story-editor/e2e/**
       - plugins/story-editor/playwright.config.ts
