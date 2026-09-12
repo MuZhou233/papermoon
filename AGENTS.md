@@ -16,7 +16,7 @@ Update the owning documentation and tests with behavior. Every non-trivial main-
 
 Human-facing documentation is bilingual. Follow [documentation rules](docs/AGENTS.md). Derived checker code retains its [provenance](tooling/checks/README.md) and license. Do not import historical product files, prompts, or data formats into this repository.
 
-Run [relevant checks](docs/testing.md) and report commands actually executed. CI checks the complete main repository. Product experience remains a separate user-feedback judgment; main-repository delivery does not require live-model recordings, GIFs or per-file coverage quotas. DSH patches retain their own evidence requirements.
+Before committing, follow the [pre-commit review](docs/testing.md#before-committing) and report checks actually performed. CI checks the complete main repository. Product experience remains a separate user-feedback judgment; main-repository delivery does not require live-model recordings, GIFs or per-file coverage quotas. DSH patches retain their own evidence requirements.
 
 Use explicit commands and CI; do not install a separate main-repository Git hook system. Never commit credentials, runtime data or generated dependency directories. Keep exactly one trailing newline in text files. Do not push unless requested.
 
