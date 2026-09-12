@@ -12,7 +12,7 @@
     "start": "tsx tooling/repository/cli.ts start",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm check:docs && pnpm check:notes",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint tooling plugins vitest.config.ts",
+    "lint": "oxlint tooling plugins packages vitest.config.ts",
     "test": "vitest run",
     "check:docs": "tsx tooling/checks/cli.ts docs",
     "check:notes": "tsx tooling/checks/cli.ts notes",
@@ -20,9 +20,11 @@
     "docs:record": "tsx tooling/checks/cli.ts record",
     "note": "tsx tooling/checks/note-cli.ts",
     "test:smoke": "tsx tooling/tests/smoke.ts",
-    "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json && tsc -p plugins/story-core/tsconfig.build.json",
+    "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json && tsc -p plugins/story-core/tsconfig.build.json && tsx tooling/repository/build-editor.ts",
     "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts && tsc -p plugins/story-core/integration/tsconfig.json && node --import tsx/esm plugins/story-core/integration/cordis.ts",
-    "check:plugins:pure": "node plugins/story-core/integration/pure-import.mjs"
+    "check:plugins:pure": "node plugins/story-core/integration/pure-import.mjs",
+    "start:dsh": "tsx tooling/repository/cli.ts start-dsh",
+    "test:editor": "playwright test --config plugins/story-editor/playwright.config.ts"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",
@@ -38,6 +40,13 @@
     "oxlint": "1.76.0",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.8",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@types/react": "18.3.24",
+    "@types/react-dom": "18.3.7",
+    "esbuild": "0.28.2",
+    "@playwright/test": "1.61.1",
+    "@testing-library/react": "16.3.0"
   }
 }

@@ -2,7 +2,7 @@
 import { lstatSync, readdirSync, readFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
-const excluded = new Set(['node_modules', '.git', 'coverage'])
+const excluded = new Set(['node_modules', '.git', 'coverage', 'test-results', 'playwright-report'])
 const rootExcluded = new Set(['dsh', '.papermoon'])
 
 export function repoFiles(root: string, directory = ''): string[] {

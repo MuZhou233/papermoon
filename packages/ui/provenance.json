@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "commit": "c291e7961a515f6d7af9304e7fd1d257929aef26",
+  "license": "DSH-LICENSE",
+  "files": [
+    {
+      "path": "src/Button.tsx",
+      "source": "packages/client/ui-primitives/src/Button.tsx",
+      "sha256": "5f1db06042fa372c45d777feffaab3b1d0c9395a89fa00b735bd9cbc8a389371",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/Button.module.css",
+      "source": "packages/client/ui-primitives/src/Button.module.css",
+      "sha256": "a32017eff252569cef883d7d3308b2ca01fc41b167b568ad00b923603a902f99",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/Input.tsx",
+      "source": "packages/client/ui-primitives/src/Input.tsx",
+      "sha256": "dcb73dad681f3f37975c08ed3aa97922a1f5337548b406806324877a5d398c51",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/Input.module.css",
+      "source": "packages/client/ui-primitives/src/Input.module.css",
+      "sha256": "f13333abf03b98d52bd65702ac34fbbf00b3c4fc3d8985b793d5e912a3e22b2e",
+      "adjustments": "Independent component copy; a fixed outer border owns hover and focus styling without a nested input outline."
+    },
+    {
+      "path": "src/Menu.tsx",
+      "source": "packages/client/ui-primitives/src/Menu.tsx",
+      "sha256": "905ce9ef6ff3e2ee3fef051ddea8383cd9988be0a81cf68c34e83d3ff5149094",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/Menu.module.css",
+      "source": "packages/client/ui-primitives/src/Menu.module.css",
+      "sha256": "281d01fd38a35f72bb2f6827873512d5ee3511a0f04553f1d532d886dfd78b91",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/pointer-grace.ts",
+      "source": "packages/client/ui-primitives/src/pointer-grace.ts",
+      "sha256": "cba1529e052cf3ea09fd3851990219e2b80d61fa4b3d35da490f28ba9f9965c6",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/Modal.tsx",
+      "source": "packages/client/ui-primitives/src/Modal.tsx",
+      "sha256": "1c2ed7f8b9ef84b892b4f0a69570db2379ecaa07fb46fe71008443e2388a4a53",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    },
+    {
+      "path": "src/Modal.module.css",
+      "source": "packages/client/ui-primitives/src/Modal.module.css",
+      "sha256": "0e1de6a6cfcd5333e6b02c8b2583c09ad90f98a618f3b80ec60acfc5c59ee68c",
+      "adjustments": "Independent component copy; local accessibility and visual adjustments are maintained here."
+    }
+  ]
+}

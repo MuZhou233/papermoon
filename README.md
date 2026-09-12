@@ -6,7 +6,7 @@ PaperMoon is a DSH distribution for AI-driven interactive storytelling, providin
 
 ## Current implementation
 
-The repository provides a maintenance framework, the original DSH Web launcher and a [script storage module](plugins/story-storage/README.md) for future product features. Storage has a programmatic API and a loadable service plugin; it has no Web controls yet.
+The [manual editor](plugins/story-editor/README.md) provides a script overview, program and multilingual-text editing, immutable revisions, comparison, copying and restoration. It uses the [logic core](plugins/story-core/README.md) and independent [storage](plugins/story-storage/README.md). Compilation and model-driven authoring are not available yet.
 
 ## Start
 
@@ -21,7 +21,7 @@ pnpm start -- --no-open
 
 Use `pnpm run setup`, not pnpm's built-in `pnpm setup` shell-configuration command. Setup discards source edits in the DSH submodule that have not been exported as patches. It preserves Git-ignored configuration and main-repository data. Run the build separately; start never installs dependencies, builds or resets sources.
 
-Runtime data defaults to `.papermoon/dsh` and `.papermoon/agents`. Explicit `DSH_HOME` and `DSH_AGENTS_HOME` override these paths. DSH resolves credentials using its normal environment and configuration mechanism; the root `.env` is ignored by Git. The default session workspace is the PaperMoon root.
+DSH runtime data defaults to `.papermoon/dsh` and `.papermoon/agents`. Explicit `DSH_HOME` and `DSH_AGENTS_HOME` override these paths. Script storage defaults to `.papermoon/story.sqlite`; `PAPERMOON_DATA_DIR` overrides its parent directory. DSH resolves credentials using its normal environment and configuration mechanism; the root `.env` is ignored by Git. The default session workspace is the PaperMoon root.
 
 ## Maintain
 

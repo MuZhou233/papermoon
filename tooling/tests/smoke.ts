@@ -9,7 +9,7 @@ import { repositoryRoot } from '../repository/cli.ts'
 
 export async function smoke(root: string): Promise<void> {
   const temp = mkdtempSync(join(tmpdir(), 'papermoon-web-'))
-  const child = spawn(process.execPath, ['--import', 'tsx/esm', 'tooling/repository/cli.ts', 'start', '--port', '0', '--no-open'], {
+  const child = spawn(process.execPath, ['--import', 'tsx/esm', 'tooling/repository/cli.ts', 'start-dsh', '--port', '0', '--no-open'], {
     cwd: root,
     env: { ...process.env, DSH_HOME: join(temp, 'dsh'), DSH_AGENTS_HOME: join(temp, 'agents') },
     stdio: ['ignore', 'pipe', 'pipe'],

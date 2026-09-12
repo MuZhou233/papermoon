@@ -11,6 +11,13 @@ on:
       - plugins/story-core/integration/**
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
+      - plugins/story-editor/src/**
+      - plugins/story-editor/e2e/**
+      - plugins/story-editor/playwright.config.ts
+      - plugins/story-editor/package.json
+      - packages/ui/src/**
+      - packages/ui/package.json
+      - profiles/**
       - .gitmodules
       - patches/*.patch
       - patches/series.json
@@ -35,6 +42,13 @@ on:
       - plugins/story-core/integration/**
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
+      - plugins/story-editor/src/**
+      - plugins/story-editor/e2e/**
+      - plugins/story-editor/playwright.config.ts
+      - plugins/story-editor/package.json
+      - packages/ui/src/**
+      - packages/ui/package.json
+      - profiles/**
       - .gitmodules
       - patches/*.patch
       - patches/series.json
@@ -73,3 +87,5 @@ jobs:
       - run: pnpm check:patches
       - run: pnpm check:plugins:dsh
       - run: pnpm test:smoke
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:editor

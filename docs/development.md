@@ -13,7 +13,9 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | `pnpm build:plugins` | Build main plugins without DSH |
 | `pnpm check:plugins:pure` | Check the built core entry with Node built-ins and Cordis imports blocked |
 | `pnpm check:plugins:dsh` | Check built storage/core plugin types and lifecycle against built DSH Cordis |
-| `pnpm start -- --port 3081 --no-open` | Start original Web; pass arguments as separate argv elements |
+| `pnpm start -- --port 3081 --no-open` | Start PaperMoon over Web; pass arguments as separate argv elements |
+| `pnpm start:dsh -- --port 3081 --no-open` | Start original Web without product plugins |
+| `pnpm test:editor` | Verify the editor in Chromium against a temporary Web process |
 | `pnpm check` | Main type, lint, tests, docs and Notes |
 | `pnpm check:docs` | Main documentation and checker provenance |
 | `pnpm check:notes` | Active Notes and immutable archives |
@@ -21,6 +23,8 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | `pnpm test:smoke` | Start a temporary Web process to verify the build without calling a model |
 
 The package script named setup must be invoked as `pnpm run setup`: `pnpm setup` is reserved by pnpm. Automation uses the explicit script form.
+
+The [PaperMoon composition](../profiles/papermoon/cordis.patch.yml) mounts storage, core and editor plugins through the official profile overlay. It is configuration, not a source patch. Startup does not rebuild plugins; use `pnpm build:plugins` after changing main plugin or UI sources. Browser tests need built DSH artifacts and Chromium, installed with `pnpm exec playwright install chromium`.
 
 ## Editing and upgrading
 

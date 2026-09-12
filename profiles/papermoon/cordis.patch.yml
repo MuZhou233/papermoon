@@ -1,0 +1,9 @@
+- insert:
+    - id: papermoon-story-storage
+      name: '../../plugins/story-storage/lib/plugin.js'
+      config:
+        path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/story.sqlite'"
+    - id: papermoon-story-core
+      name: '../../plugins/story-core/lib/plugin.js'
+    - id: papermoon-story-editor
+      name: '../../plugins/story-editor/lib/index.js'

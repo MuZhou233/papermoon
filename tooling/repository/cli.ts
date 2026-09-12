@@ -19,11 +19,11 @@ export function launchEnvironment(root: string, inherited: NodeJS.ProcessEnv): N
 export async function main(args: string[], root = repositoryRoot, signal?: AbortSignal): Promise<void> {
   const [command, ...raw] = args
   const rest = raw[0] === '--' ? raw.slice(1) : raw
-  if (rest.includes('--help') && command !== 'start') {
-    console.log('PaperMoon: setup | build | start [Web options] | check\nsetup discards unexported DSH source changes, restores the Gitlink and applies patches. Ignored configuration and main-repository data are preserved.')
+  if (rest.includes('--help') && command !== 'start' && command !== 'start-dsh') {
+    console.log('PaperMoon: setup | build | start [Web options] | start-dsh [Web options] | check\nsetup discards unexported DSH source changes, restores the Gitlink and applies patches. Ignored configuration and main-repository data are preserved.')
     return
   }
-  if (command !== 'start' && rest.length) throw new Error('unexpected arguments')
+  if (command !== 'start' && command !== 'start-dsh' && rest.length) throw new Error('unexpected arguments')
   switch (command) {
     case 'setup':
       signal?.throwIfAborted()
@@ -38,14 +38,15 @@ export async function main(args: string[], root = repositoryRoot, signal?: Abort
       await pnpm(directory, ['run', 'build'], signal, { ...process.env, CI: 'true' })
       break
     }
-    case 'start': {
+    case 'start':
+    case 'start-dsh': {
       const bin = join(submodule(root), 'apps/cli/lib/bin.js')
       if (!existsSync(bin)) throw new Error('DSH is not built; run pnpm build first')
-      await runProcess(process.execPath, [bin, '--profile', 'web', ...rest], root, launchEnvironment(root, process.env), signal)
+      await runProcess(process.execPath, [bin, '--profile', 'web', ...(command === 'start' ? ['--patch', join(root, 'profiles/papermoon/cordis.patch.yml')] : []), ...rest], root, launchEnvironment(root, process.env), signal)
       break
     }
     case 'check': await checkPatches(root, signal); break
-    default: throw new Error('usage: setup | build | start [Web options] | check')
+    default: throw new Error('usage: setup | build | start [Web options] | start-dsh [Web options] | check')
   }
 }
 
@@ -63,7 +64,7 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   process.once('SIGTERM', terminate)
   main(process.argv.slice(2), repositoryRoot, controller.signal).catch(error => {
     if (!received) console.error(String(error))
-    process.exitCode = process.argv[2] === 'start' && error instanceof ProcessFailure
+    process.exitCode = ['start','start-dsh'].includes(process.argv[2] ?? '') && error instanceof ProcessFailure
       ? processExitCode(error)
       : received ? 128 + constants.signals[received] : processExitCode(error)
   }).finally(() => { process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate) })

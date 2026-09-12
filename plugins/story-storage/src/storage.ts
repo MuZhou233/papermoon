@@ -5,7 +5,7 @@ import { Connection } from './database.ts'
 import { databaseError, invalid, StorageError } from './error.ts'
 import { decode, decodeObject, encode, metadata, name, sequence, text } from './json.ts'
 import type {
-  CommitInput, CommitResult, CreateScriptInput, SnapshotRead, ContentRead, ContentRef, CopyInput, Difference, DifferencePage, Draft,
+  ScriptQuery, ScriptSummary, HistoryOptions, CommitInput, CommitResult, CreateScriptInput, SnapshotRead, ContentRead, ContentRef, CopyInput, Difference, DifferencePage, Draft,
   DraftWrite, EntryPage, EntryRead, HistoryEntry, JsonObject, KeyOptions, NamedInput, NamedUpdate,
   Page, PageOptions, Project, ProjectId, Publication, PublicationId, ResolvedRef, Revision, RevisionId, Script, ScriptId,
 } from './types.ts'
@@ -117,6 +117,21 @@ export class StoryStorage {
       return page(this.db.all<ScriptRow>('SELECT * FROM scripts WHERE project_id = ? AND (? IS NULL OR id > ?) ORDER BY id LIMIT ?', projectId, after, after, limit + 1).map(scriptFrom), limit, row => row.id)
     })
   }
+  queryScripts(options: ScriptQuery = {}): Page<ScriptSummary> {
+    const limit = pageSize(options.limit), after = afterId(options)
+    if (options.query !== undefined) text(options.query, 'query')
+    return this.db.transaction(false, () => {
+      const rows = this.db.all<ScriptRow & { project_name: string; latest_ordinal: number }>(`
+        SELECT s.*, p.name AS project_name,
+          COALESCE((SELECT MAX(ordinal) FROM script_revisions WHERE script_id=s.id),0) AS latest_ordinal
+        FROM scripts s JOIN projects p ON p.id=s.project_id
+        WHERE (? IS NULL OR s.project_id=?) AND (? IS NULL OR s.id>?)
+          AND instr(lower(s.name),lower(?))>0
+        ORDER BY s.id LIMIT ?`, options.projectId ?? null, options.projectId ?? null,
+        after, after, options.query ?? '', limit+1)
+      return page(rows.map(row => ({ ...scriptFrom(row), projectName: row.project_name, latestOrdinal: row.latest_ordinal })), limit, row => row.id)
+    })
+  }
   updateScript(id: ScriptId, input: NamedUpdate): Script {
     if (input.name !== undefined) name(input.name)
     const body = input.metadata === undefined ? undefined : metadata(input.metadata)
@@ -195,11 +210,19 @@ export class StoryStorage {
     })
   }
   getRevision(id: RevisionId): Revision { return this.db.transaction(false, () => this.revision(id)) }
-  listRevisions(scriptId: ScriptId, options: PageOptions<number> = {}): Page<HistoryEntry, number> {
-    const limit = pageSize(options.limit); const after = options.after ?? 0; sequence(after)
+  /** Read a revision's position in one script, including logically copied history. */
+  getHistoryEntry(scriptId: ScriptId, revisionId: RevisionId): HistoryEntry {
     return this.db.transaction(false, () => {
       this.script(scriptId)
-      const rows = this.db.all<RevisionRow & {ordinal: number; history_metadata: string}>('SELECT r.*, h.ordinal, h.metadata AS history_metadata FROM script_revisions h JOIN revisions r ON r.id=h.revision_id WHERE h.script_id=? AND h.ordinal>? ORDER BY h.ordinal LIMIT ?', scriptId, after, limit + 1)
+      const membership = this.membership(scriptId, revisionId)
+      return { scriptId, ordinal: membership.ordinal, revision: this.revision(revisionId), metadata: decodeObject(membership.metadata) }
+    })
+  }
+  listRevisions(scriptId: ScriptId, options: HistoryOptions = {}): Page<HistoryEntry, number> {
+    const limit = pageSize(options.limit); const after = options.after ?? (options.descending ? Number.MAX_SAFE_INTEGER : 0); sequence(after)
+    return this.db.transaction(false, () => {
+      this.script(scriptId)
+      const rows = this.db.all<RevisionRow & {ordinal: number; history_metadata: string}>(`SELECT r.*, h.ordinal, h.metadata AS history_metadata FROM script_revisions h JOIN revisions r ON r.id=h.revision_id WHERE h.script_id=? AND h.ordinal${options.descending ? '<' : '>'}? ORDER BY h.ordinal ${options.descending ? 'DESC' : 'ASC'} LIMIT ?`, scriptId, after, limit + 1)
       return page(rows.map(row => ({ scriptId, ordinal: row.ordinal, revision: revisionFrom(row), metadata: decodeObject(row.history_metadata) })), limit, row => row.ordinal)
     })
   }
@@ -333,9 +356,9 @@ export class StoryStorage {
     sequence(current.sequence + 1)
     this.db.run('UPDATE drafts SET sequence=sequence+1, base_revision_id=? WHERE script_id=?', base ?? current.baseRevisionId, id)
   }
-  private membership(scriptId: ScriptId, revisionId: RevisionId): {ordinal: number} {
+  private membership(scriptId: ScriptId, revisionId: RevisionId): {ordinal: number; metadata: string} {
     text(scriptId, 'script ID'); text(revisionId, 'revision ID')
-    return requireRow(this.db.get<{ordinal: number}>('SELECT ordinal FROM script_revisions WHERE script_id=? AND revision_id=?', scriptId, revisionId), 'script revision')
+    return requireRow(this.db.get<{ordinal: number; metadata: string}>('SELECT ordinal, metadata FROM script_revisions WHERE script_id=? AND revision_id=?', scriptId, revisionId), 'script revision')
   }
   private insertScript(projectId: ProjectId, scriptName: string, body: string, origin: string | null, draftBody: string): Script {
     this.project(projectId)

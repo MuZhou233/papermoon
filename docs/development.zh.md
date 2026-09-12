@@ -13,7 +13,9 @@
 | `pnpm build:plugins` | 无需 DSH 即可构建主库插件 |
 | `pnpm check:plugins:pure` | 阻止导入 Node 内置模块和 Cordis，检查构建后的核心纯入口 |
 | `pnpm check:plugins:dsh` | 使用已构建的 DSH Cordis 检查存储与核心插件类型及生命周期 |
-| `pnpm start -- --port 3081 --no-open` | 启动原版 Web；参数分别通过 argv 传递 |
+| `pnpm start -- --port 3081 --no-open` | 在 Web 上启动 PaperMoon；参数分别通过 argv 传递 |
+| `pnpm start:dsh -- --port 3081 --no-open` | 启动原版 Web，不加载产品插件 |
+| `pnpm test:editor` | 在 Chromium 中通过临时 Web 进程验证编辑器 |
 | `pnpm check` | 主库类型、lint、测试、文档与 Note 检查 |
 | `pnpm check:docs` | 主库文档与检查器来源检查 |
 | `pnpm check:notes` | 活跃 Note 与不可变归档检查 |
@@ -21,6 +23,8 @@
 | `pnpm test:smoke` | 启动临时 Web 进程验证构建产物，不调用模型 |
 
 setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保留命令。自动化脚本也使用前一种写法。
+
+[PaperMoon 组合配置](../profiles/papermoon/cordis.patch.yml)通过官方 profile 叠加机制挂载存储、核心和编辑器插件。它是配置，不是源码补丁。启动不会重建插件；修改主库插件或 UI 源码后，运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
 
 ## 编辑与升级
 

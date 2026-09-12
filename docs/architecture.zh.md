@@ -14,16 +14,20 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 当前启动方式与数据
 
-启动器执行 DSH 官方构建后的 CLI，使用标准 Web profile，以 PaperMoon 根目录作为工作目录。安装依赖和构建时，启动器在子模块中设置 `CI=true`，启用 DSH 支持的自动安装方式。未设置时，开发 hook 安装器会拒绝子模块的 Git 配置。补丁检查和启动沿用调用者的环境，不强制设置此变量。
+启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，在标准 Web profile 上加载 PaperMoon 组合配置。子模块内的依赖安装与构建使用 `CI=true`，启用 DSH 支持的自动化安装行为；否则，开发钩子安装器会拒绝子模块的 Git 配置。补丁检查和启动继承调用方环境，不强制设置此变量。
 
-当前运行的是原版 DSH Web，配置、认证、模型行为和 UI 均沿用该应用。启动器提供独立的默认数据目录。[开发指南](development.zh.md)说明命令接口。
+组合配置加入人工剧本编辑器，同时保留 DSH 的配置、认证、对话和设置。启动器提供独立的默认数据目录，也保留原版 Web 命令用于对照。[开发文档](development.zh.md)说明命令接口。
 
 ## 剧本数据
 
-[存储模块](../plugins/story-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH，默认 Web profile 不挂载该插件。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-script-storage.zh.md)记录归属和事务选择。
+[存储模块](../plugins/story-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH。PaperMoon 组合配置挂载该插件，原版 Web 配置不挂载。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-script-storage.zh.md)记录归属和事务选择。
 
 [逻辑核心](../plugins/story-core/README.zh.md)维护程序与多语言文案结构、纯内容编辑和业务 KV 编码。仓库入口通过存储编排操作，Cordis 入口注册内部服务。编译、会话策略及面向用户和模型的接口由模块之外负责。[核心决策](../.agents/notes/implemented/architecture/2026-09-12-script-core.zh.md)记录这一划分。
 
 ## 维护工具
 
 主库检查只读取自有文件和夹具，排除子模块、依赖目录和运行数据。适配后的检查器在 `tooling/checks/` 独立维护，保留原始许可和来源记录。[检查器指南](../tooling/checks/README.zh.md)说明配置方式和检查范围。
+
+## 人工创作
+
+[编辑器插件](../plugins/story-editor/README.zh.md)维护面向用户的操作和页面。[UI 库](../packages/ui/README.zh.md)维护注明来源的组件副本与编辑控件，仅复用 DSH 的主题和宿主接口。[界面设计决定](../.agents/notes/implemented/architecture/2026-09-12-manual-script-editor.zh.md)记录接入方式和本地缓冲区设计。

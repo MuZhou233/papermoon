@@ -1,6 +1,6 @@
 /** Persistent business operations; only the storage service owns connections and transactions. */
 import type {
-  StoryStorage, CommitInput, CommitResult, ContentRef, CopyInput, CreateScriptInput as StorageCreate,
+  StoryStorage, ScriptQuery, HistoryOptions, CommitInput, CommitResult, ContentRef, CopyInput, CreateScriptInput as StorageCreate,
   Draft, DraftWrite, JsonObject, NamedInput, NamedUpdate, PageOptions, ProjectId, PublicationId, ResolvedRef, RevisionId, ScriptId,
 } from '@papermoon/story-storage'
 import type {
@@ -35,6 +35,7 @@ export class StoryRepository {
     return this.storage.createScript({ projectId: input.projectId, name: input.name, metadata: input.metadata,
       draftMetadata: input.draftMetadata, initialContent: encodeContent(content) })
   }
+  queryScripts(options: ScriptQuery = {}) { return this.storage.queryScripts(options) }
   getScript(id: ScriptId) { return this.storage.getScript(id) }
   listScripts(projectId: ProjectId, options: PageOptions = {}) { return this.storage.listScripts(projectId, options) }
   updateScript(id: ScriptId, input: NamedUpdate) { return this.storage.updateScript(id, input) }
@@ -74,7 +75,8 @@ export class StoryRepository {
     return { ...this.storage.commitRevision(input), content: snapshot.content }
   }
   getRevision(id: RevisionId) { return this.storage.getRevision(id) }
-  listRevisions(id: ScriptId, options: PageOptions<number> = {}) { return this.storage.listRevisions(id, options) }
+  getHistoryEntry(id: ScriptId, revisionId: RevisionId) { return this.storage.getHistoryEntry(id, revisionId) }
+  listRevisions(id: ScriptId, options: HistoryOptions = {}) { return this.storage.listRevisions(id, options) }
   restoreDraft(input: RestoreDraftInput): DraftSnapshot {
     const before = this.readSnapshot({ kind: 'draft', scriptId: input.scriptId, sequence: input.expectedSequence })
     const source = this.readSnapshot({ kind: 'revision', revisionId: input.revisionId })

@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This module stores projects, scripts, mutable drafts, shared immutable revisions and publication records. It supplies a Node-only API and a Cordis service plugin. The default Web profile does not load it or expose editing controls.
+This module stores projects, scripts, mutable drafts, shared immutable revisions and publication records. It supplies a Node-only API and a Cordis service plugin. The [manual editor](../story-editor/README.md) mounts it through the PaperMoon profile overlay; original Web does not.
 
 ## Ownership and content
 
@@ -38,13 +38,15 @@ The [public types](src/types.ts) describe requests and results; [StoryStorage](s
 |---|---|
 | Lifecycle | constructor, close |
 | Projects | createProject, getProject, listProjects, updateProject, deleteProject |
-| Scripts | createScript, getScript, listScripts, updateScript, copyScript, deleteScript |
+| Scripts | createScript, getScript, listScripts, queryScripts, updateScript, copyScript, deleteScript |
 | Drafts | getDraft, writeDraft, restoreDraft |
-| Revisions | commitRevision, getRevision, listRevisions |
+| Revisions | commitRevision, getRevision, getHistoryEntry, listRevisions |
 | Publications | createPublication, getPublication, listPublications |
 | Content | readContent, readSnapshot, readEntry, listEntries, compare |
 
-Lists default to 100 items and accept limits from 1 to 1000. Project, script and publication lists use stable ID order; history uses ascending ordinals. Metadata pages exclude revision bodies. Catalog pages are not frozen across separate calls: concurrent catalog changes may affect later pages.
+Lists default to 100 items and accept limits from 1 to 1000. Project, script and publication lists use stable ID order; history uses ascending ordinals by default, or descending ordinals with descending enabled. The after cursor follows the selected order. Metadata pages exclude revision bodies. Catalog pages are not frozen across separate calls: concurrent catalog changes may affect later pages.
+
+queryScripts filters across projects or within one project, using literal SQLite name matching. Results include the project name and latest ordinal without loading bodies. getHistoryEntry returns a retained revision’s script-local ordinal and directory metadata; an unrelated revision is rejected.
 
 readSnapshot returns owner attributes and all values in one read transaction, with a draft or revision discriminant. It does not combine separately observed owner metadata and values.
 

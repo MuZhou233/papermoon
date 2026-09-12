@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This package defines authored programs and multilingual text, transforms content snapshots, and adapts business operations to [script storage](../story-storage/README.md). It exposes internal TypeScript APIs and a loadable Cordis service. The default Web profile does not mount it or provide editing controls.
+This package defines authored programs and multilingual text, transforms content snapshots, and adapts business operations to [script storage](../story-storage/README.md). It exposes internal TypeScript APIs and a loadable Cordis service. The [manual editor](../story-editor/README.md) mounts it through the PaperMoon profile overlay; original Web does not.
 
 ## Responsibilities and entries
 
@@ -40,6 +40,8 @@ const content = applyOperations(createContent({ defaultLanguage: 'zh-CN' }), [
 const translation = lookupTranslation(content, 'welcome', 'en')
 if (translation.kind === 'missing') console.log(translation.reason)
 ```
+
+The repository exposes queryScripts for filtered metadata catalogs, getHistoryEntry for exact membership, and ascending or descending listRevisions pages. These queries retain the [storage pagination rules](../story-storage/README.md#api-and-pagination).
 
 ## Editing and history
 

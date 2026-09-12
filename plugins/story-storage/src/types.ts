@@ -60,3 +60,8 @@ export interface CreateScriptInput extends NamedInput { projectId: ProjectId; in
 export type SnapshotRead =
   | { kind: 'draft'; ref: Extract<ResolvedRef, { kind: 'draft' }>; draft: Draft; content: Content }
   | { kind: 'revision'; ref: Extract<ResolvedRef, { kind: 'revision' }>; revision: Revision; content: Content }
+
+/** Catalog queries stay metadata-only and use stable ID order across renames. */
+export interface ScriptQuery extends PageOptions { projectId?: ProjectId; query?: string }
+export interface ScriptSummary extends Script { projectName: string; latestOrdinal: number }
+export interface HistoryOptions extends PageOptions<number> { descending?: boolean }
