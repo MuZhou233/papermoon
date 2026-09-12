@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "setup": "tsx tooling/repository/cli.ts setup",
     "build": "tsx tooling/repository/cli.ts build",
@@ -18,8 +20,9 @@
     "docs:record": "tsx tooling/checks/cli.ts record",
     "note": "tsx tooling/checks/note-cli.ts",
     "test:smoke": "tsx tooling/tests/smoke.ts",
-    "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json",
-    "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts"
+    "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json && tsc -p plugins/story-core/tsconfig.build.json",
+    "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts && tsc -p plugins/story-core/integration/tsconfig.json && node --import tsx/esm plugins/story-core/integration/cordis.ts",
+    "check:plugins:pure": "node plugins/story-core/integration/pure-import.mjs"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",

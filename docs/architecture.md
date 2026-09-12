@@ -18,9 +18,11 @@ The launcher executes DSH's official built CLI with the standard Web profile and
 
 The current foundation uses the original DSH Web application, including its configuration, authentication, model behavior and UI. The launcher supplies independent default data homes. [Development](development.md) documents the command interface.
 
-## Script storage
+## Script data
 
 The [storage module](../plugins/story-storage/README.md) owns product data in an independent SQLite database and exports a loadable Cordis adapter. Its core has no DSH dependency. The default Web profile does not mount it. The [storage decision](../.agents/notes/implemented/architecture/2026-09-12-script-storage.md) records the ownership and transaction choices.
+
+The [logic core](../plugins/story-core/README.md) owns program and multilingual-text structures, pure content edits and business KV encoding. Its repository entry composes operations over storage; its Cordis entry registers the internal service. These entries keep compilation, session policies and user/model interfaces outside the authored-content module. The [core decision](../.agents/notes/implemented/architecture/2026-09-12-script-core.md) records this division.
 
 ## Maintenance tools
 

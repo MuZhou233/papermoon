@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
-    "./plugin": { "types": "./lib/plugin.d.ts", "default": "./lib/plugin.js" }
+    "./plugin": { "types": "./lib/plugin.d.ts", "default": "./lib/plugin.js" },
+    "./value": { "types": "./lib/value.d.ts", "default": "./lib/value.js" }
   },
   "files": ["lib"],
   "engines": { "node": "24.x" }

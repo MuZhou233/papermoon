@@ -14,17 +14,17 @@ JSON objects use deterministic member ordering. Array order and string content a
 
 ## Drafts and revisions
 
-A new draft starts at sequence zero. Every accepted write batch advances its sequence once, including an empty batch. Changes within a batch run in order. Writes, restoration and commits require the expected sequence; a mismatch rejects the whole operation. Project and script metadata updates replace supplied fields without a draft sequence check. Names must contain non-whitespace text and need not be unique.
+A new draft starts at sequence zero. Every accepted write batch advances its sequence once, including an empty batch. Changes within a batch run in order. Writes, restoration and commits require the expected sequence; a mismatch rejects the whole operation. Project and script metadata updates replace supplied fields without a draft sequence check. Names must contain non-whitespace text and need not be unique. createScript accepts initialContent and draftMetadata, storing them with the new script at sequence zero. writeDraft can replace draft metadata atomically with values.
 
-Saving changes only the draft. A commit copies all draft entries into a new revision inside the database, appends its history ordinal, updates the draft's informational base revision and advances its sequence. The draft remains editable. Every independent commit creates a distinct revision, even with identical content or an empty description. Revision metadata, description, source identity and values have no update API.
+Saving changes only the draft. A commit copies all draft entries into a new revision inside the database, appends its history ordinal, updates the draft's informational base revision and advances its sequence. The draft remains editable. Every independent commit creates a distinct revision, even with identical content or an empty description. Revision metadata, description, source identity and values have no update API. Directory entries also have immutable metadata, supplied as historyMetadata when committing. Draft metadata remains on the draft and is not converted to revision metadata.
 
-Restoration replaces the entire draft from any retained revision. It preserves history and does not create a revision. Base revisions, copied-script origins and extra revision references are informational: they do not add history or prevent deletion. These references may outlive their targets.
+Restoration replaces the entire draft from any retained revision. It preserves history and draft metadata and does not create a revision. Base revisions, copied-script origins and extra revision references are informational: they do not add history or prevent deletion. These references may outlive their targets.
 
 ## Copy, publication and deletion
 
-Copy requests explicitly select a source script, a draft sequence or historical revision, a target project, a name, and history/publication scopes. Draft sources carry the complete history when requested; revision sources carry the directory prefix through that revision. Content-only copies have empty history. New drafts start at sequence zero. The new script uses the supplied metadata, or copies the source metadata when none is supplied.
+Copy requests explicitly select a source script, a draft sequence or historical revision, a target project, a name, and history/publication scopes. Draft sources carry the complete history when requested; revision sources carry the directory prefix through that revision. Content-only copies have empty history. New drafts start at sequence zero. A draft source carries its draft metadata; a revision source starts with empty draft metadata. draftMetadata can override either result. The new script uses the supplied metadata, or copies the source metadata when none is supplied.
 
-Copied history retains the same immutable revision IDs and ordinals. Future appends use independent directories. Publication copying requires history copying and includes only publications for retained directory entries. Copies have new publication IDs and preserve the original registration time and metadata. Copying does not modify the source or create a revision.
+Copied history retains the same immutable revision IDs, ordinals and directory-entry metadata. Future appends use independent directories. Publication copying requires history copying and includes only publications for retained directory entries. Copies have new publication IDs and preserve the original registration time and metadata. Copying does not modify the source or create a revision.
 
 Publications may be registered more than once for the same script revision. Only membership is checked. There is no publish approval, revocation or default-version policy.
 
@@ -42,9 +42,11 @@ The [public types](src/types.ts) describe requests and results; [StoryStorage](s
 | Drafts | getDraft, writeDraft, restoreDraft |
 | Revisions | commitRevision, getRevision, listRevisions |
 | Publications | createPublication, getPublication, listPublications |
-| Content | readContent, readEntry, listEntries, compare |
+| Content | readContent, readSnapshot, readEntry, listEntries, compare |
 
 Lists default to 100 items and accept limits from 1 to 1000. Project, script and publication lists use stable ID order; history uses ascending ordinals. Metadata pages exclude revision bodies. Catalog pages are not frozen across separate calls: concurrent catalog changes may affect later pages.
+
+readSnapshot returns owner attributes and all values in one read transaction, with a draft or revision discriminant. It does not combine separately observed owner metadata and values.
 
 Content references identify a revision or a draft, optionally pinned to a sequence. Content results return resolved references. Pass those references into subsequent pages and detail reads to reject changes to the compared draft. Continuing a key or comparison page requires a pinned sequence for every draft reference. Key pages use SQLite BINARY ordering, an exclusive after key, an inclusive lower bound and an exclusive upper bound. A next cursor is returned only when more results exist.
 
@@ -80,9 +82,9 @@ One database contains all projects for a storage instance. The constructor and p
 
 The module uses Node's built-in SQLite connection with DELETE journaling, EXTRA synchronization, foreign keys enabled, zero busy timeout and no automatic vacuum. Busy operations fail immediately. Transactions do not await model calls or external work. Deleted pages may be reused without shrinking the file. Cache and page settings remain at SQLite defaults.
 
-A dedicated application ID and format version identify the database. An empty database receives the schema atomically. Existing databases must match the identity, version and declared schema and pass integrity checks. Unsupported or damaged files are rejected without migration, replacement or repair. Data is not shared with DSH's session database. Backups must use a consistent database backup method or copy the file after all connections close.
+A dedicated application ID and format version 2 identify the database. Version 1 files are rejected without migration, replacement or deletion. An empty database receives the schema atomically. Existing databases must match the identity, version and declared schema and pass integrity checks. Unsupported or damaged files are rejected without migration, replacement or repair. Data is not shared with DSH's session database. Backups must use a consistent database backup method or copy the file after all connections close.
 
-The built package exports `@papermoon/story-storage` and `@papermoon/story-storage/plugin`. The plugin registers papermoonStoryStorage through the host's provide/effect APIs. Its generator effect owns both disposers, unregistering and waiting for dependent consumers before closing the connection. Failed registration also releases the connection. A minimal structural host interface keeps DSH types outside the core; the separate integration check validates it against real Cordis declarations and runtime.
+The built package exports `@papermoon/story-storage`, `@papermoon/story-storage/plugin` and `@papermoon/story-storage/value`. The value entry exports the deterministic encodeJson function and JSON types without loading Node built-ins; business modules can reuse its value rules without opening storage. The plugin registers papermoonStoryStorage through the host's provide/effect APIs. Its generator effect owns both disposers, unregistering and waiting for dependent consumers before closing the connection. Failed registration also releases the connection. A minimal structural host interface keeps DSH types outside the core; the separate integration check validates it against real Cordis declarations and runtime.
 
 ## Build and verification
 

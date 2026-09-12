@@ -36,3 +36,4 @@ jobs:
           JS
       - run: pnpm check
       - run: pnpm build:plugins
+      - run: pnpm check:plugins:pure

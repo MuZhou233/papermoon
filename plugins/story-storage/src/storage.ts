@@ -5,21 +5,21 @@ import { Connection } from './database.ts'
 import { databaseError, invalid, StorageError } from './error.ts'
 import { decode, decodeObject, encode, metadata, name, sequence, text } from './json.ts'
 import type {
-  CommitInput, CommitResult, ContentRead, ContentRef, CopyInput, Difference, DifferencePage, Draft,
+  CommitInput, CommitResult, CreateScriptInput, SnapshotRead, ContentRead, ContentRef, CopyInput, Difference, DifferencePage, Draft,
   DraftWrite, EntryPage, EntryRead, HistoryEntry, JsonObject, KeyOptions, NamedInput, NamedUpdate,
   Page, PageOptions, Project, ProjectId, Publication, PublicationId, ResolvedRef, Revision, RevisionId, Script, ScriptId,
 } from './types.ts'
 
 type NamedRow = { id: string; name: string; metadata: string; created_at: string }
 type ScriptRow = NamedRow & { project_id: ProjectId; origin: string | null }
-type DraftRow = { script_id: ScriptId; sequence: number; base_revision_id: RevisionId | null }
+type DraftRow = { script_id: ScriptId; sequence: number; base_revision_id: RevisionId | null; metadata: string }
 type RevisionRow = { id: RevisionId; description: string; metadata: string; source: string; references_json: string; created_at: string }
 type PublicationRow = { id: PublicationId; script_id: ScriptId; revision_id: RevisionId; metadata: string; created_at: string }
 type EntryRow = { key: string; value: string }
 const now = (): string => new Date().toISOString()
 const projectFrom = (row: NamedRow): Project => ({ id: row.id as ProjectId, name: row.name, metadata: decodeObject(row.metadata), createdAt: row.created_at })
 const scriptFrom = (row: ScriptRow): Script => ({ id: row.id as ScriptId, projectId: row.project_id as ProjectId, name: row.name, metadata: decodeObject(row.metadata), origin: row.origin === null ? null : decodeObject(row.origin), createdAt: row.created_at })
-const draftFrom = (row: DraftRow): Draft => ({ scriptId: row.script_id, sequence: row.sequence, baseRevisionId: row.base_revision_id })
+const draftFrom = (row: DraftRow): Draft => ({ scriptId: row.script_id, sequence: row.sequence, baseRevisionId: row.base_revision_id, metadata: decodeObject(row.metadata) })
 const revisionFrom = (row: RevisionRow): Revision => {
   const source = decodeObject(row.source)
   const references = decode(row.references_json)
@@ -98,10 +98,16 @@ export class StoryStorage {
       this.collectUnreferencedRevisions()
     })
   }
-  createScript(input: NamedInput & { projectId: ProjectId }): Script {
+  createScript(input: CreateScriptInput): Script {
     name(input.name)
     const body = metadata(input.metadata)
-    return this.db.transaction(true, () => this.insertScript(input.projectId, input.name, body, null))
+    const draftBody = metadata(input.draftMetadata)
+    const entries = [...(input.initialContent ?? [])].map(([key, value]) => { text(key, 'key'); return [key, encode(value)] as const })
+    return this.db.transaction(true, () => {
+      const script = this.insertScript(input.projectId, input.name, body, null, draftBody)
+      for (const [key, value] of entries) this.db.run('INSERT INTO draft_entries VALUES (?, ?, ?)', script.id, key, value)
+      return script
+    })
   }
   getScript(id: ScriptId): Script { return this.db.transaction(false, () => this.script(id)) }
   listScripts(projectId: ProjectId, options: PageOptions = {}): Page<Script> {
@@ -133,6 +139,7 @@ export class StoryStorage {
   /** Mutations run in order; an accepted batch, including an empty batch, advances sequence once. */
   writeDraft(input: DraftWrite): Draft {
     sequence(input.expectedSequence)
+    const draftBody = input.metadata === undefined ? undefined : metadata(input.metadata)
     const changes = input.changes.map(change => {
       text(change.key, 'key')
       switch (change.kind) {
@@ -147,6 +154,7 @@ export class StoryStorage {
         if (change.value === undefined) this.db.run('DELETE FROM draft_entries WHERE script_id = ? AND key = ?', input.scriptId, change.key)
         else this.db.run('INSERT INTO draft_entries VALUES (?, ?, ?) ON CONFLICT(script_id, key) DO UPDATE SET value=excluded.value', input.scriptId, change.key, change.value)
       }
+      if (draftBody !== undefined) this.db.run('UPDATE drafts SET metadata=? WHERE script_id=?', draftBody, input.scriptId)
       this.advanceDraft(input.scriptId)
       return this.draft(input.scriptId)
     })
@@ -167,6 +175,7 @@ export class StoryStorage {
   commitRevision(input: CommitInput): CommitResult {
     sequence(input.expectedSequence); text(input.description, 'description')
     const body = metadata(input.metadata)
+    const historyBody = metadata(input.historyMetadata)
     const references = input.references ?? []
     for (const reference of references) text(reference, 'reference')
     const referenceJson = encode(references)
@@ -179,10 +188,10 @@ export class StoryStorage {
       this.db.run('INSERT INTO revision_entries SELECT ?, key, value FROM draft_entries WHERE script_id = ?', id, script.id)
       const ordinal = this.db.get<{ordinal: number}>('SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM script_revisions WHERE script_id = ?', script.id)!.ordinal
       sequence(ordinal)
-      this.db.run('INSERT INTO script_revisions VALUES (?, ?, ?)', script.id, ordinal, id)
+      this.db.run('INSERT INTO script_revisions VALUES (?, ?, ?, ?)', script.id, ordinal, id, historyBody)
       this.advanceDraft(script.id, id)
       const revision = this.revision(id)
-      return { revision, entry: { scriptId: script.id, ordinal, revision }, draft: this.draft(script.id) }
+      return { revision, entry: { scriptId: script.id, ordinal, revision, metadata: decodeObject(historyBody) }, draft: this.draft(script.id) }
     })
   }
   getRevision(id: RevisionId): Revision { return this.db.transaction(false, () => this.revision(id)) }
@@ -190,8 +199,8 @@ export class StoryStorage {
     const limit = pageSize(options.limit); const after = options.after ?? 0; sequence(after)
     return this.db.transaction(false, () => {
       this.script(scriptId)
-      const rows = this.db.all<RevisionRow & {ordinal: number}>('SELECT r.*, h.ordinal FROM script_revisions h JOIN revisions r ON r.id=h.revision_id WHERE h.script_id=? AND h.ordinal>? ORDER BY h.ordinal LIMIT ?', scriptId, after, limit + 1)
-      return page(rows.map(row => ({ scriptId, ordinal: row.ordinal, revision: revisionFrom(row) })), limit, row => row.ordinal)
+      const rows = this.db.all<RevisionRow & {ordinal: number; history_metadata: string}>('SELECT r.*, h.ordinal, h.metadata AS history_metadata FROM script_revisions h JOIN revisions r ON r.id=h.revision_id WHERE h.script_id=? AND h.ordinal>? ORDER BY h.ordinal LIMIT ?', scriptId, after, limit + 1)
+      return page(rows.map(row => ({ scriptId, ordinal: row.ordinal, revision: revisionFrom(row), metadata: decodeObject(row.history_metadata) })), limit, row => row.ordinal)
     })
   }
 
@@ -200,15 +209,17 @@ export class StoryStorage {
     if (!['copy', 'none'].includes(input.history) || !['copy', 'none'].includes(input.publications)) invalid('copy scopes must be explicit')
     if (input.publications === 'copy' && input.history === 'none') invalid('publications require copied history')
     const body = input.metadata === undefined ? undefined : metadata(input.metadata)
+    const draftBody = input.draftMetadata === undefined ? undefined : metadata(input.draftMetadata)
     if (input.source.kind === 'draft') sequence(input.source.expectedSequence)
     else if (input.source.kind !== 'revision') invalid('unknown copy source')
     return this.db.transaction(true, () => {
       const source = this.script(input.sourceScriptId)
       let base: RevisionId | null; let lastOrdinal: number; let valuesSql: string; let valueOwner: string
       let draftSequence: number | null = null
+      let sourceDraftMetadata = metadata()
       if (input.source.kind === 'draft') {
         const draft = this.checkDraft(source.id, input.source.expectedSequence)
-        base = draft.baseRevisionId; draftSequence = draft.sequence
+        base = draft.baseRevisionId; draftSequence = draft.sequence; sourceDraftMetadata = metadata(draft.metadata)
         lastOrdinal = this.db.get<{n: number}>('SELECT COALESCE(MAX(ordinal), 0) AS n FROM script_revisions WHERE script_id=?', source.id)!.n
         valuesSql = 'SELECT key, value FROM draft_entries WHERE script_id=?'; valueOwner = source.id
       } else {
@@ -216,10 +227,10 @@ export class StoryStorage {
         base = input.source.revisionId; lastOrdinal = membership.ordinal
         valuesSql = 'SELECT key, value FROM revision_entries WHERE revision_id=?'; valueOwner = input.source.revisionId
       }
-      const target = this.insertScript(input.targetProjectId, input.name, body ?? metadata(source.metadata), encode({ projectId: source.projectId, scriptId: source.id, scriptName: source.name, kind: input.source.kind, revisionId: base, draftSequence }))
+      const target = this.insertScript(input.targetProjectId, input.name, body ?? metadata(source.metadata), encode({ projectId: source.projectId, scriptId: source.id, scriptName: source.name, kind: input.source.kind, revisionId: base, draftSequence }), draftBody ?? sourceDraftMetadata)
       this.db.run(`INSERT INTO draft_entries SELECT ?, key, value FROM (${valuesSql})`, target.id, valueOwner)
       this.db.run('UPDATE drafts SET base_revision_id=? WHERE script_id=?', base, target.id)
-      if (input.history === 'copy') this.db.run('INSERT INTO script_revisions SELECT ?, ordinal, revision_id FROM script_revisions WHERE script_id=? AND ordinal<=?', target.id, source.id, lastOrdinal)
+      if (input.history === 'copy') this.db.run('INSERT INTO script_revisions SELECT ?, ordinal, revision_id, metadata FROM script_revisions WHERE script_id=? AND ordinal<=?', target.id, source.id, lastOrdinal)
       if (input.publications === 'copy') {
         const rows = this.db.all<PublicationRow>('SELECT p.* FROM publications p JOIN script_revisions h ON h.script_id=p.script_id AND h.revision_id=p.revision_id WHERE p.script_id=? AND h.ordinal<=? ORDER BY p.id', source.id, lastOrdinal)
         for (const row of rows) this.db.run('INSERT INTO publications VALUES (?, ?, ?, ?, ?)', randomUUID(), target.id, row.revision_id, row.metadata, row.created_at)
@@ -253,6 +264,18 @@ export class StoryStorage {
       const ref = this.resolveRef(input); const source = this.contentSource(ref)
       const rows = this.db.all<EntryRow>(`SELECT key, value FROM ${source.table} WHERE ${source.owner}=? ORDER BY key`, source.id)
       return { ref, content: new Map(rows.map(row => [row.key, decode(row.value)])) }
+    })
+  }
+  /** Read the owner and its complete values under the same transaction. */
+  readSnapshot(input: ContentRef): SnapshotRead {
+    return this.db.transaction(false, () => {
+      const ref = this.resolveRef(input)
+      const source = this.contentSource(ref)
+      const rows = this.db.all<EntryRow>(`SELECT key, value FROM ${source.table} WHERE ${source.owner}=? ORDER BY key`, source.id)
+      const content = new Map(rows.map(row => [row.key, decode(row.value)]))
+      return ref.kind === 'draft'
+        ? { kind: 'draft', ref, draft: this.draft(ref.scriptId), content }
+        : { kind: 'revision', ref, revision: this.revision(ref.revisionId), content }
     })
   }
   readEntry(input: ContentRef, key: string): EntryRead {
@@ -314,11 +337,11 @@ export class StoryStorage {
     text(scriptId, 'script ID'); text(revisionId, 'revision ID')
     return requireRow(this.db.get<{ordinal: number}>('SELECT ordinal FROM script_revisions WHERE script_id=? AND revision_id=?', scriptId, revisionId), 'script revision')
   }
-  private insertScript(projectId: ProjectId, scriptName: string, body: string, origin: string | null): Script {
+  private insertScript(projectId: ProjectId, scriptName: string, body: string, origin: string | null, draftBody: string): Script {
     this.project(projectId)
     const id = randomUUID() as ScriptId
     this.db.run('INSERT INTO scripts VALUES (?, ?, ?, ?, ?, ?)', id, projectId, scriptName, body, origin, now())
-    this.db.run('INSERT INTO drafts VALUES (?, 0, NULL)', id)
+    this.db.run('INSERT INTO drafts VALUES (?, 0, NULL, ?)', id, draftBody)
     return this.script(id)
   }
   private collectUnreferencedRevisions(): void {

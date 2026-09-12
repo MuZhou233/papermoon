@@ -4,7 +4,7 @@ English | [中文](testing.zh.md)
 
 ## Main repository
 
-Run focused behavior tests during development and the relevant commands before committing. CI runs the complete main check. Tests cover parser failures, lifecycle transitions, Git baselines, process cancellation and actual patch reconstruction. Main checks neither build nor inspect DSH sources. They do not impose a per-file coverage quota.
+Run focused behavior tests during development and the relevant commands before committing. CI runs the complete main check. Tests cover parser failures, lifecycle transitions, Git baselines, process cancellation and actual patch reconstruction. Main checks neither build nor inspect DSH sources, and they do not impose a per-file coverage quota. Workspace source aliases let plugin tests and documentation examples run without prebuilt plugin artifacts.
 
 Document checks are read-only. Their fixtures exercise both valid and invalid examples even when the live repository has no diagrams, type excerpts or archives. Automated checks verify document structure, content hashes and command results. Reviewers assess translation quality, the reasoning behind alternatives and whether a consolidated Note preserves every meaningful argument.
 
@@ -20,6 +20,6 @@ Source comparison and delivery checks serve different purposes. A patch that app
 
 Tests allocate temporary Git repositories, files and loopback ports and release resources on failure as well as success. Process tests wait for observable readiness rather than assuming fixed startup timing. Tests verify file and process outcomes independently of command self-reports.
 
-The main CI workflow runs checks and builds main plugins without fetching the submodule. The integration workflow runs for Gitlink, patch, launcher, build, storage plugin and related dependency changes. It initializes the submodule, builds, checks patches, runs `pnpm check:plugins:dsh` against real Cordis and runs a temporary Web smoke. Storage unit tests use temporary databases without DSH; the dedicated plugin check uses built artifacts without starting Web or calling a model. Documentation outside the integration path filters does not request a DSH build.
+The main CI workflow runs checks and builds main plugins without fetching the submodule, then executes `pnpm check:plugins:pure` to verify the emitted core imports. The integration workflow runs for Gitlink, patch, launcher, build, storage/core plugins and related dependency changes. It initializes the submodule, builds, checks patches, runs `pnpm check:plugins:dsh` against real Cordis and runs a temporary Web smoke. Storage and business-repository unit tests use temporary databases without DSH; the dedicated plugin check uses built artifacts without starting Web or calling a model. Documentation outside the integration path filters does not request a DSH build.
 
 In CI, archive checks compare against the trusted PR base or the commit before the push. Local checks use HEAD, or an empty baseline after confirming that the repository has no commits. An explicitly supplied baseline that cannot be read is an error. Test fixtures create their own Git history and cannot rewrite the repository’s archive baseline.

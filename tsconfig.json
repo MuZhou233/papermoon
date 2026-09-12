@@ -8,7 +8,13 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@papermoon/story-storage": ["./plugins/story-storage/src/index.ts"],
+      "@papermoon/story-storage/value": ["./plugins/story-storage/src/value.ts"],
+      "@papermoon/story-core": ["./plugins/story-core/src/index.ts"],
+      "@papermoon/story-core/repository": ["./plugins/story-core/src/repository.ts"]
+    }
   },
   "include": ["tooling/**/*.ts", "plugins/*/src/**/*.ts", "plugins/*/tests/**/*.ts", "vitest.config.ts"],
   "exclude": ["dsh", "node_modules"]

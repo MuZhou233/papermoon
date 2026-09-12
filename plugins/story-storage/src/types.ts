@@ -15,14 +15,14 @@ export interface Script {
   /** Informational provenance; it does not retain the source. */
   origin: JsonObject | null
 }
-export interface Draft { scriptId: ScriptId; sequence: number; baseRevisionId: RevisionId | null }
+export interface Draft { scriptId: ScriptId; sequence: number; baseRevisionId: RevisionId | null; metadata: JsonObject }
 export interface Revision {
   id: RevisionId; description: string; metadata: JsonObject; createdAt: string
   source: { projectId: ProjectId; projectName: string; scriptId: ScriptId; scriptName: string; draftSequence: number; baseRevisionId: RevisionId | null }
   /** Informational references, not additional history or retention edges. */
   references: readonly RevisionId[]
 }
-export interface HistoryEntry { scriptId: ScriptId; ordinal: number; revision: Revision }
+export interface HistoryEntry { scriptId: ScriptId; ordinal: number; revision: Revision; metadata: JsonObject }
 export interface Publication { id: PublicationId; scriptId: ScriptId; revisionId: RevisionId; metadata: JsonObject; createdAt: string }
 export interface PageOptions<Cursor = string> { after?: Cursor; limit?: number }
 export interface Page<T, Cursor = string> { items: T[]; next?: Cursor }
@@ -37,9 +37,9 @@ export type EntryValue = { exists: false } | { exists: true; value: JsonValue }
 export interface EntryRead { ref: ResolvedRef; entry: EntryValue }
 export interface EntryPage extends Page<Entry> { ref: ResolvedRef }
 export type Change = { kind: 'set'; key: string; value: JsonValue } | { kind: 'delete'; key: string }
-export interface DraftWrite { scriptId: ScriptId; expectedSequence: number; changes: readonly Change[] }
+export interface DraftWrite { scriptId: ScriptId; expectedSequence: number; changes: readonly Change[]; metadata?: JsonObject }
 export interface CommitInput {
-  scriptId: ScriptId; expectedSequence: number; description: string; metadata?: JsonObject; references?: readonly RevisionId[]
+  scriptId: ScriptId; expectedSequence: number; description: string; metadata?: JsonObject; historyMetadata?: JsonObject; references?: readonly RevisionId[]
 }
 export interface CommitResult { revision: Revision; entry: HistoryEntry; draft: Draft }
 export interface CopyInput {
@@ -48,8 +48,15 @@ export interface CopyInput {
   targetProjectId: ProjectId
   name: string
   metadata?: JsonObject
+  draftMetadata?: JsonObject
   history: 'copy' | 'none'
   publications: 'copy' | 'none'
 }
 export interface Difference { key: string; kind: 'added' | 'removed' | 'modified'; before: EntryValue; after: EntryValue }
 export interface DifferencePage extends Page<Difference> { left: ResolvedRef; right: ResolvedRef }
+/** Initial values and draft attributes are committed with the script at sequence zero. */
+export interface CreateScriptInput extends NamedInput { projectId: ProjectId; initialContent?: Content; draftMetadata?: JsonObject }
+/** Owner attributes and values observed in one database read transaction. */
+export type SnapshotRead =
+  | { kind: 'draft'; ref: Extract<ResolvedRef, { kind: 'draft' }>; draft: Draft; content: Content }
+  | { kind: 'revision'; ref: Extract<ResolvedRef, { kind: 'revision' }>; revision: Revision; content: Content }
