@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-export async function startEditorServer() {
+export async function startEditorServer(extraArgs: readonly string[] = []) {
   const directory = mkdtempSync(join(tmpdir(), 'papermoon-editor-'))
   const child = spawn(
     process.execPath,
@@ -12,6 +12,7 @@ export async function startEditorServer() {
       'tsx/esm',
       'tooling/repository/cli.ts',
       'start',
+      ...extraArgs,
       '--port',
       '0',
       '--no-open',
@@ -64,6 +65,7 @@ export async function startEditorServer() {
       if (match)
         return {
           url: match[1]!,
+          directory,
           stop,
           logs: () => output.replace(/token=[^\s]+/g, 'token=<redacted>'),
         }

@@ -6,7 +6,7 @@ PaperMoon 是面向 AI 互动叙事的 DSH 发行版，为 LLM 驱动的文字�
 
 ## 当前进度
 
-[人工编辑器](plugins/story-editor/README.zh.md)提供剧本总览、程序与多语言文案编辑、不可变修订版本、比较、复制和恢复。编辑器通过[逻辑核心](plugins/story-core/README.zh.md)使用独立的[存储模块](plugins/story-storage/README.zh.md)。[编剧管理](plugins/writers/README.zh.md)可以编辑系统提示词和起始消息，并查看内置剧本工具。编译和模型驱动的创作尚未提供。
+[人工编辑器](plugins/story-editor/README.zh.md)提供剧本总览、程序与多语言文案编辑、不可变修订版本、比较、复制和恢复。编辑器通过[逻辑核心](plugins/story-core/README.zh.md)使用独立的[存储模块](plugins/story-storage/README.zh.md)。[编剧管理](plugins/writers/README.zh.md)可以编辑系统提示词和起始消息，并查看内置剧本工具。[编剧会话](plugins/writer-sessions/README.zh.md)将这些配置和工具接入剧本工作区，保留普通 DSH 对话。编译功能尚未提供。
 
 ## 启动
 

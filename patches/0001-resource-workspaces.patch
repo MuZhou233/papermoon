@@ -1,0 +1,895 @@
+diff --git a/docs/subsystems/workspace.i18n.yaml b/docs/subsystems/workspace.i18n.yaml
+index 7dd1c638ce..acfab71bd3 100644
+--- a/docs/subsystems/workspace.i18n.yaml
++++ b/docs/subsystems/workspace.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write docs/subsystems/workspace.md
+-workspace.md: b8b531497b33ddc9e8897f737fb507ac5f409cad
+-workspace.zh.md: 309bff841c36b7cd344c49a0c4e750c40d38a43e
++workspace.md: cd1331f9f2d550c60220c3fd457e446e6f1b6438
++workspace.zh.md: 850e1352fe356b0c1f0111d04214c87f73a7bfba
+diff --git a/docs/subsystems/workspace.md b/docs/subsystems/workspace.md
+index b8b531497b..cd1331f9f2 100644
+--- a/docs/subsystems/workspace.md
++++ b/docs/subsystems/workspace.md
+@@ -2,7 +2,7 @@
+ 
+ English | [中文](workspace.zh.md)
+ 
+-A workspace is the persistent record of a directory the user works in: a stable id over a canonical path, a display title, and the ordered account of sessions that belong to it. The subsystem is one package ([dsh-workspace](../../packages/workspace/workspace), `ctx.workspaceRegistry`) — an optional host-side capability, not part of the agent-loop spine, and invisible to models (no tools, no prompt text, no session events). It stores its records through the [storage domain form](storage.md) and validates session membership against [`SessionHeader.cwd`](persistence.md#sessionheader--metadata-beside-the-log), so `storageDomain` and `sessionPersistence` are mandatory startup dependencies: an unavailable persistence peer leaves the plugin pending rather than being mistaken for an empty history. Design record: [domain KV storage Agent Note](../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.md); bootstrap and GUI ordering: [Workspace UI product-flow Agent Note](../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md).
++A workspace stores a stable target, display information and ordered Session membership. Directory targets use a canonical path; resource targets use a provider and key. [dsh-workspace](../../packages/workspace/workspace) requires `storageDomain` and `sessionPersistence`, and contributes no model tools or prompts. Resource providers resolve display information and validate membership. See the [resource workspace decision](../../.agents/notes/implemented/architecture/2026-09-12-resource-workspaces-and-authored-context.md).
+ 
+ Source: [`packages/workspace/workspace/src/types.ts`](../../packages/workspace/workspace/src/types.ts)
+ 
+@@ -16,31 +16,27 @@ Source: [`packages/workspace/workspace/src/types.ts`](../../packages/workspace/w
+ type WorkspaceId = Branded<'WorkspaceId'>
+ ```
+ 
+-`WorkspaceId` is a [branded id](core.md#branded-ids). Path identity is separate: `realpathNormalize` (`fs.realpath`; trailing slashes, `..`, and symlinks resolved) is the one uniqueness canon — workspace paths are stored canonicalized, uniqueness is string equality of canonical paths (a symlink to an owned directory collides), and attach-time session cwd checks go through the same canon.
++`WorkspaceId` is a [branded id](core.md#branded-ids). Directory identity uses `realpathNormalize`; resource identity uses the exact provider/key pair. Resources may share an execution directory.
+ 
+ ## The workspace entity
+ 
+ Consumers see only the `Workspace` interface; the implementation stays package-private.
+ 
+ ```ts type-equiv
+-/**
+- * One workspace: a stable id over an existing directory, a display title, and
+- * an ordered candidate account of sessions. Membership requires both an id in
+- * that account and a session header whose canonical cwd equals the workspace
+- * path. Consumers only see this interface; the implementation stays private.
+- */
++/** A durable target, display information and ordered Session membership. */
+ interface Workspace {
++  /** Provider-owned resource; absent for an ordinary directory Workspace. */
++  readonly target?: WorkspaceTarget | undefined
+   /** Stable record id (generated uuid). */
+   readonly id: WorkspaceId
+ 
+   /**
+-   * Canonical directory path: the `fs.realpath` of the path given at create
+-   * time (trailing slashes, `..`, and symlinks all resolved). Never rewritten
+-   * afterwards, even when the directory disappears (see {@link status}).
++   * Canonical process directory fixed at registration. Directory targets use
++   * it as identity; resource targets use their provider and key instead.
+    */
+   readonly path: string
+ 
+-  /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
++  /** Display title from the directory name or resource provider; duplicates are allowed. */
+   readonly title: string
+ 
+   /** ISO-8601 creation instant, stamped at create and never rewritten. */
+@@ -50,12 +46,9 @@ interface Workspace {
+   readonly updatedAt: string
+ 
+   /**
+-   * Header-validated sessions in manually owned order: a new session is
+-   * prepended at attach, explicit reordering goes through
+-   * `insertSessionBefore`, and activity never reorders. The durable candidate
+-   * account is filtered synchronously: missing headers, invalid cwd values,
+-   * and canonical cwd mismatches are never returned. A subsequent workspace
+-   * mutation prunes those filtered candidates durably.
++   * Ordered Session ownership. Missing Sessions are omitted. Directory targets
++   * also omit invalid or mismatched cwd values; resource membership is checked
++   * by its provider at attachment. Accepted mutations prune omitted ids.
+    */
+   readonly sessionIds: readonly SessionId[]
+ 
+@@ -67,14 +60,11 @@ interface Workspace {
+   setTitle(title: string): Promise<void>
+ 
+   /**
+-   * Prepend a session to this workspace's candidate account. An already
+-   * accounted id resolves without writing, aside from the durable
+-   * filtered-candidate prune every accepted mutation performs. A new id's
+-   * live or persisted
+-   * header cwd must resolve to an existing directory equal to {@link path};
+-   * unknown ids, missing or invalid cwd values, and mismatches reject without
+-   * writing.
+-   * @param sessionId - The session to record.
++   * Prepend a Session after target membership validation. Directory targets
++   * require canonical cwd equality; resources delegate to their provider.
++   * A Session already owned by another Workspace cannot attach. An existing
++   * member resolves without reordering.
++   * @param sessionId - The Session to record.
+    * @returns resolution after durability.
+    */
+   attachSession(sessionId: SessionId): Promise<void>
+@@ -104,12 +94,13 @@ interface Workspace {
+   detachSession(sessionId: SessionId): Promise<void>
+ 
+   /**
++   * Resource targets delegate existence to their provider and report missing-target.
+    * Live directory check, uncached: whether {@link path} currently exists and
+    * is a directory. A missing directory never mutates the record — the
+    * directory may only be temporarily moved.
+-   * @returns `'ok'` when the directory exists, `'missing-dir'` otherwise.
++   * @returns `'ok'` for an existing target, otherwise `'missing-dir'` or `'missing-target'`.
+    */
+-  status(): Promise<'ok' | 'missing-dir'>
++  status(): Promise<'ok' | 'missing-dir' | 'missing-target'>
+ }
+ ```
+ 
+@@ -341,6 +332,21 @@ Durable workspace registry. Startup waits for `sessionPersistence`, builds one c
+  */
+ async create(path: string, title?: string): Promise<Workspace>
+ 
++/**
++ * Register resource resolution and membership policy for the caller's lifetime.
++ * @param name - provider identity recorded in Workspace targets.
++ * @param provider - current resolution and durable membership checks.
++ * @returns disposer removing this provider.
++ */
++registerResourceProvider(name: string, provider: WorkspaceResourceProvider): () => void
++
++/**
++ * Register or reuse a provider-owned resource without treating its key as a path.
++ * @param target - stable provider and resource identity.
++ * @returns existing or newly committed Workspace.
++ */
++async createResource(target: WorkspaceTarget): Promise<Workspace>
++
+ /**
+  * Look up a workspace by id.
+  * @param id - Workspace id.
+@@ -398,3 +404,30 @@ Types: [SessionId](core.md)
+ 
+ Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
+ <!-- END GENERATED cordis-surface -->
++
++```ts type-equiv
++/** A provider-owned resource; its identity is independent of a process directory. */
++interface WorkspaceTarget {
++  readonly provider: string
++  readonly key: string
++}
++```
++
++```ts type-equiv
++/** Resource policy installed by a feature plugin. */
++interface WorkspaceResourceProvider {
++  /**
++   * Resolve an existing resource and its execution directory.
++   * @param key - provider-owned resource identity.
++   * @returns display information, or undefined for a deleted target.
++   */
++  resolve(key: string): Promise<{ readonly title: string; readonly cwd: string } | undefined>
++  /**
++   * Check durable feature configuration before attaching a Session.
++   * @param key - provider-owned resource identity.
++   * @param sessionId - proposed member.
++   * @returns whether this Session belongs to the resource.
++   */
++  accepts(key: string, sessionId: SessionId): Promise<boolean>
++}
++```
+diff --git a/docs/subsystems/workspace.zh.md b/docs/subsystems/workspace.zh.md
+index 309bff841c..850e1352fe 100644
+--- a/docs/subsystems/workspace.zh.md
++++ b/docs/subsystems/workspace.zh.md
+@@ -2,7 +2,7 @@
+ 
+ [English](workspace.md) | 中文
+ 
+-工作区（workspace）是用户工作目录的持久记录：一个建立在规范路径之上的稳定 id、一个显示标题，以及归属于它的会话的有序账本。该子系统是单个包（package）（[dsh-workspace](../../packages/workspace/workspace)，`ctx.workspaceRegistry`）——一项宿主侧可选能力，不属于 agent loop（智能体循环）主干，并且对模型不可见（没有工具、没有提示词文本、没有会话事件）。它通过[存储领域数据形式](storage.zh.md)存储自己的记录，并对照 [`SessionHeader.cwd`](persistence.zh.md#sessionheader--metadata-beside-the-log) 校验会话成员资格，因此 `storageDomain` 与 `sessionPersistence` 是必需的启动依赖：持久化这一依赖不可用时，插件保持 pending，而不是把这种不可用误当作空历史。设计记录：[领域 KV 存储 Agent Note（agent 决策记录）](../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.zh.md)；引导与 GUI 顺序：[Workspace UI 产品流程 Agent Note](../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md)。
++工作区保存稳定目标、显示信息和有序会话归属。文件夹目标使用规范路径，资源目标使用提供者及其键。[dsh-workspace](../../packages/workspace/workspace) 依赖 `storageDomain` 和 `sessionPersistence`，不提供模型工具或提示词。资源提供者负责解析显示信息并校验归属。参见[资源工作区决策](../../.agents/notes/implemented/architecture/2026-09-12-resource-workspaces-and-authored-context.zh.md)。
+ 
+ 源码：[`packages/workspace/workspace/src/types.ts`](../../packages/workspace/workspace/src/types.ts)
+ 
+@@ -16,31 +16,27 @@
+ type WorkspaceId = Branded<'WorkspaceId'>
+ ```
+ 
+-`WorkspaceId` 是[品牌化 id](core.zh.md#branded-ids)。路径标识与之分离：`realpathNormalize`（`fs.realpath`；尾部斜杠、`..` 与符号链接全部解析）是唯一的一套唯一性规范——工作区路径以规范化形式存储，唯一性即规范路径的字符串相等（指向已被拥有目录的符号链接会与之冲突），attach 时的会话 cwd 检查也走同一套规范。
++`WorkspaceId` 是[品牌化 id](core.zh.md#branded-ids)。文件夹身份使用 `realpathNormalize`，资源身份使用精确的提供者与键组合。不同资源可以共用执行目录。
+ 
+ ## 工作区实体
+ 
+ 消费方只看到 `Workspace` 接口；实现保持包内私有。
+ 
+ ```ts type-equiv
+-/**
+- * One workspace: a stable id over an existing directory, a display title, and
+- * an ordered candidate account of sessions. Membership requires both an id in
+- * that account and a session header whose canonical cwd equals the workspace
+- * path. Consumers only see this interface; the implementation stays private.
+- */
++/** A durable target, display information and ordered Session membership. */
+ interface Workspace {
++  /** Provider-owned resource; absent for an ordinary directory Workspace. */
++  readonly target?: WorkspaceTarget | undefined
+   /** Stable record id (generated uuid). */
+   readonly id: WorkspaceId
+ 
+   /**
+-   * Canonical directory path: the `fs.realpath` of the path given at create
+-   * time (trailing slashes, `..`, and symlinks all resolved). Never rewritten
+-   * afterwards, even when the directory disappears (see {@link status}).
++   * Canonical process directory fixed at registration. Directory targets use
++   * it as identity; resource targets use their provider and key instead.
+    */
+   readonly path: string
+ 
+-  /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
++  /** Display title from the directory name or resource provider; duplicates are allowed. */
+   readonly title: string
+ 
+   /** ISO-8601 creation instant, stamped at create and never rewritten. */
+@@ -50,12 +46,9 @@ interface Workspace {
+   readonly updatedAt: string
+ 
+   /**
+-   * Header-validated sessions in manually owned order: a new session is
+-   * prepended at attach, explicit reordering goes through
+-   * `insertSessionBefore`, and activity never reorders. The durable candidate
+-   * account is filtered synchronously: missing headers, invalid cwd values,
+-   * and canonical cwd mismatches are never returned. A subsequent workspace
+-   * mutation prunes those filtered candidates durably.
++   * Ordered Session ownership. Missing Sessions are omitted. Directory targets
++   * also omit invalid or mismatched cwd values; resource membership is checked
++   * by its provider at attachment. Accepted mutations prune omitted ids.
+    */
+   readonly sessionIds: readonly SessionId[]
+ 
+@@ -67,14 +60,11 @@ interface Workspace {
+   setTitle(title: string): Promise<void>
+ 
+   /**
+-   * Prepend a session to this workspace's candidate account. An already
+-   * accounted id resolves without writing, aside from the durable
+-   * filtered-candidate prune every accepted mutation performs. A new id's
+-   * live or persisted
+-   * header cwd must resolve to an existing directory equal to {@link path};
+-   * unknown ids, missing or invalid cwd values, and mismatches reject without
+-   * writing.
+-   * @param sessionId - The session to record.
++   * Prepend a Session after target membership validation. Directory targets
++   * require canonical cwd equality; resources delegate to their provider.
++   * A Session already owned by another Workspace cannot attach. An existing
++   * member resolves without reordering.
++   * @param sessionId - The Session to record.
+    * @returns resolution after durability.
+    */
+   attachSession(sessionId: SessionId): Promise<void>
+@@ -104,12 +94,13 @@ interface Workspace {
+   detachSession(sessionId: SessionId): Promise<void>
+ 
+   /**
++   * Resource targets delegate existence to their provider and report missing-target.
+    * Live directory check, uncached: whether {@link path} currently exists and
+    * is a directory. A missing directory never mutates the record — the
+    * directory may only be temporarily moved.
+-   * @returns `'ok'` when the directory exists, `'missing-dir'` otherwise.
++   * @returns `'ok'` for an existing target, otherwise `'missing-dir'` or `'missing-target'`.
+    */
+-  status(): Promise<'ok' | 'missing-dir'>
++  status(): Promise<'ok' | 'missing-dir' | 'missing-target'>
+ }
+ ```
+ 
+@@ -341,6 +332,21 @@ Durable workspace registry. Startup waits for `sessionPersistence`, builds one c
+  */
+ async create(path: string, title?: string): Promise<Workspace>
+ 
++/**
++ * Register resource resolution and membership policy for the caller's lifetime.
++ * @param name - provider identity recorded in Workspace targets.
++ * @param provider - current resolution and durable membership checks.
++ * @returns disposer removing this provider.
++ */
++registerResourceProvider(name: string, provider: WorkspaceResourceProvider): () => void
++
++/**
++ * Register or reuse a provider-owned resource without treating its key as a path.
++ * @param target - stable provider and resource identity.
++ * @returns existing or newly committed Workspace.
++ */
++async createResource(target: WorkspaceTarget): Promise<Workspace>
++
+ /**
+  * Look up a workspace by id.
+  * @param id - Workspace id.
+@@ -398,3 +404,30 @@ Types: [SessionId](core.zh.md)
+ 
+ Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
+ <!-- END GENERATED cordis-surface -->
++
++```ts type-equiv
++/** A provider-owned resource; its identity is independent of a process directory. */
++interface WorkspaceTarget {
++  readonly provider: string
++  readonly key: string
++}
++```
++
++```ts type-equiv
++/** Resource policy installed by a feature plugin. */
++interface WorkspaceResourceProvider {
++  /**
++   * Resolve an existing resource and its execution directory.
++   * @param key - provider-owned resource identity.
++   * @returns display information, or undefined for a deleted target.
++   */
++  resolve(key: string): Promise<{ readonly title: string; readonly cwd: string } | undefined>
++  /**
++   * Check durable feature configuration before attaching a Session.
++   * @param key - provider-owned resource identity.
++   * @param sessionId - proposed member.
++   * @returns whether this Session belongs to the resource.
++   */
++  accepts(key: string, sessionId: SessionId): Promise<boolean>
++}
++```
+diff --git a/packages/api/workspace-controller/src/feed.ts b/packages/api/workspace-controller/src/feed.ts
+index 57d38f18e5..c9a3705aaa 100644
+--- a/packages/api/workspace-controller/src/feed.ts
++++ b/packages/api/workspace-controller/src/feed.ts
+@@ -24,6 +24,7 @@ export function workspaceView(workspace: Workspace): WorkspaceView {
+   return {
+     workspaceId: workspace.id,
+     path: workspace.path,
++    ...(workspace.target === undefined ? {} : { target: workspace.target }),
+     title: workspace.title,
+     sessionIds: [...workspace.sessionIds],
+     createdAt: workspace.createdAt,
+@@ -36,6 +37,7 @@ function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceVie
+   return {
+     workspaceId: WorkspaceId(workspaceId),
+     path: record.path,
++    ...(record.target === undefined ? {} : { target: record.target }),
+     title: record.title,
+     sessionIds: [...record.sessionIds],
+     createdAt: record.createdAt,
+diff --git a/packages/api/workspace-controller/src/types.ts b/packages/api/workspace-controller/src/types.ts
+index aa053c8d67..54522a2d3c 100644
+--- a/packages/api/workspace-controller/src/types.ts
++++ b/packages/api/workspace-controller/src/types.ts
+@@ -15,6 +15,7 @@ export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-dir
+ export interface WorkspaceView {
+   readonly workspaceId: WorkspaceId
+   /** Canonical host directory path. */
++  readonly target?: { readonly provider: string; readonly key: string }
+   readonly path: string
+   /** User-visible title. */
+   readonly title: string
+diff --git a/packages/workspace/workspace/README.i18n.yaml b/packages/workspace/workspace/README.i18n.yaml
+index 92fa599ba3..2f3251fb68 100644
+--- a/packages/workspace/workspace/README.i18n.yaml
++++ b/packages/workspace/workspace/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/workspace/workspace/README.md
+-README.md: b5eaac5c68776c927cd464604f8d99d9290d9d54
+-README.zh.md: 39cc0d9489bf5f687ee6a4e788c4462e4fabd1f0
++README.md: 702a661cdcfe570f9cf156beb81d6e4c815fe0a6
++README.zh.md: 85bda8f7802fe786e60b01e640700059ba0449cf
+diff --git a/packages/workspace/workspace/README.md b/packages/workspace/workspace/README.md
+index b5eaac5c68..702a661cdc 100644
+--- a/packages/workspace/workspace/README.md
++++ b/packages/workspace/workspace/README.md
+@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
+ 
+ ## Summary
+ 
+-Use this package to keep an ordered, persistent list of project directories and the sessions run in each directory. Hosts can build project sidebars, hide sessions from grouping without deleting their histories, and remove projects without deleting folders, files, or sessions. Re-adding a removed directory creates a fresh project, while sessions whose directories cannot be validated remain ungrouped. Choose it for GUI or host workflows that need durable project grouping; it is invisible to models and adds no prompt or request-context cost, but requires session persistence and storage backends.
++Use this package to keep an ordered, persistent list of directory or provider-owned resource targets and their sessions. Hosts can build project sidebars, hide sessions from grouping without deleting their histories, and remove projects without deleting folders, files, or sessions. Re-adding a removed directory creates a fresh project, while sessions whose directories cannot be validated remain ungrouped. Choose it for GUI or host workflows that need durable project grouping; it is invisible to models and adds no prompt or request-context cost, but requires session persistence and storage backends.
+ 
+ ## Table of Contents
+ 
+@@ -25,7 +25,7 @@ Use this package to keep an ordered, persistent list of project directories and
+ <a id="use-this-package"></a>
+ ## Use this package
+ 
+-Use this package to give the product a project list: named directories the user works in, the sessions that ran in each, a stable order, and a way to hide sessions without losing them. The API contracts behind each action live in the implementation section.
++Use this package to give the product a project list: named directory or resource targets and their sessions, a stable order, and a way to hide sessions without losing them. The API contracts behind each action live in the implementation section.
+ 
+ ### When to use it
+ 
+@@ -61,7 +61,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+ 
+ ### Grouping sessions under a project
+ 
+-A session joins the project of the directory it runs in: create a session in a project's directory and it appears under that project, newest first. A session can only belong to one project. A session whose directory cannot be validated — no recorded directory, or a moved or deleted folder — cannot join and stays ungrouped.
++For directory workspaces, a session joins the project of the directory it runs in: create a session in a project's directory and it appears under that project, newest first. A session can only belong to one project. A session whose directory cannot be validated — no recorded directory, or a moved or deleted folder — cannot join and stays ungrouped.
+ 
+ ### Hiding sessions and removing projects
+ 
+@@ -79,9 +79,9 @@ This section explains the design decisions behind the feature and points at the
+ 
+ ### Design philosophy
+ 
+-- **One record per canonical path.** `fs.realpath` is the single uniqueness canon: paths are stored canonicalized, so a symlink to an owned directory collides, and uniqueness is string equality of canonical paths.
+-- **Membership is ownership plus a live cwd fact.** The record's ordered `sessionIds` is the ownership truth; the startup header index validates it, and `sessionIds` filters on read while the next mutation prunes durably.
+-- **Header-only reads.** Bootstrap and attach validation read `SessionHeader` fields only; event bodies are never loaded.
++- **One record per target.** Directory targets use a canonical path; resources use a provider/key pair. `fs.realpath` is the single uniqueness canon: paths are stored canonicalized, so a symlink to an owned directory collides, and uniqueness is string equality of canonical paths.
++- **Membership uses the target policy.** Directory membership requires a live cwd fact. The record's ordered `sessionIds` is the ownership truth; the startup header index validates it, and `sessionIds` filters on read while the next mutation prunes durably.
++- **Directory reads use headers.** Resource providers may inspect durable feature records to validate membership.
+ - **Two-write mutations with an explicit marker.** Create and delete persist a `pendingMutation` marker before the record/order pair can diverge, so startup completes exactly the interrupted operation and unmarked divergence fails loud as corruption.
+ - **Serialized writes.** Registry operations run on one operation chain; entity mutations go through `table.update` on the domain write chain, stamping `updatedAt` and deciding membership at their chain slot.
+ 
+@@ -134,6 +134,9 @@ Read these pages when this package's view is not enough: the subsystem reference
+ -----
+ 
+ <a id="model-experience"></a>
++
++Resource targets use provider/key identity independently of their execution directory. The provider validates existence and durable Session ownership; two resources may share cwd. Removing a registration does not remove the target. Domain format 3 is required.
++
+ ## Model Experience
+ 
+ ### Workspace records and session accounts
+diff --git a/packages/workspace/workspace/README.zh.md b/packages/workspace/workspace/README.zh.md
+index 39cc0d9489..85bda8f780 100644
+--- a/packages/workspace/workspace/README.zh.md
++++ b/packages/workspace/workspace/README.zh.md
+@@ -9,7 +9,7 @@ kind: "package-reference"
+ 
+ ## 概述
+ 
+-使用此包可以维护一个有序、持久的项目目录列表，以及在每个目录中运行的会话。宿主可以构建项目侧边栏、在不删除历史的情况下把会话从分组中隐藏，并在不删除文件夹、文件或会话的情况下移除项目。重新添加已移除的目录会创建一个全新项目，而目录无法校验的会话会保持 Ungrouped。需要持久项目分组的 GUI 或宿主工作流适合使用它；它对模型不可见，不增加提示词或请求上下文成本，但需要会话持久化与存储后端。
++使用此包可以维护有序且持久的文件夹或资源目标列表，以及各自的会话。宿主可以构建项目侧边栏、在不删除历史的情况下把会话从分组中隐藏，并在不删除文件夹、文件或会话的情况下移除项目。重新添加已移除的目录会创建一个全新项目，而目录无法校验的会话会保持 Ungrouped。需要持久项目分组的 GUI 或宿主工作流适合使用它；它对模型不可见，不增加提示词或请求上下文成本，但需要会话持久化与存储后端。
+ 
+ ## 目录
+ 
+@@ -25,7 +25,7 @@ kind: "package-reference"
+ <a id="use-this-package"></a>
+ ## 使用本包
+ 
+-使用此包为产品提供项目列表：用户工作的命名目录、每个目录中运行的会话、稳定顺序，以及在不丢失会话的前提下将其隐藏的能力。每项操作背后的 API 约定放在实现章节中。
++使用此包为产品提供项目列表：带名称的文件夹或资源目标、各自的会话、稳定顺序，以及在不丢失会话的前提下将其隐藏的能力。每项操作背后的 API 约定放在实现章节中。
+ 
+ ### 何时使用
+ 
+@@ -61,7 +61,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+ 
+ ### 将会话归入项目
+ 
+-会话加入它运行目录所在的项目：在项目目录中创建会话，它就会出现在该项目下，新到旧排列。一个会话只能属于一个项目。目录无法校验的会话——没有记录目录，或目录被移动、删除——无法加入，保持 Ungrouped。
++对于文件夹工作区，会话加入它运行目录所在的项目：在项目目录中创建会话，它就会出现在该项目下，新到旧排列。一个会话只能属于一个项目。目录无法校验的会话——没有记录目录，或目录被移动、删除——无法加入，保持 Ungrouped。
+ 
+ ### 隐藏会话与移除项目
+ 
+@@ -79,9 +79,9 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+ 
+ ### 设计理念
+ 
+-- **每个规范路径一条记录。** `fs.realpath` 是唯一的一套唯一性规范：路径以规范化形式存储，因此指向已有记录目录的符号链接会与之冲突，唯一性即规范路径的字符串相等。
+-- **成员资格是所有权加实时 cwd 事实。** 记录的 `sessionIds` 顺序是所有权真源；启动时的头部索引校验它，`sessionIds` 在读取时过滤，下一次变更会持久化剪除无效项。
+-- **仅读取头部。** 引导与 attach 校验只读取 `SessionHeader` 字段；事件正文绝不加载。
++- **每个目标一条记录。** 文件夹使用规范路径，资源使用提供者及其键。 `fs.realpath` 是唯一的一套唯一性规范：路径以规范化形式存储，因此指向已有记录目录的符号链接会与之冲突，唯一性即规范路径的字符串相等。
++- **成员资格按目标校验。** 文件夹使用所有权与实时 cwd 事实。 记录的 `sessionIds` 顺序是所有权真源；启动时的头部索引校验它，`sessionIds` 在读取时过滤，下一次变更会持久化剪除无效项。
++- **文件夹读取头部。** 资源提供者可以检查持久业务记录以校验会话归属。
+ - **两次写入的变更带显式标记。** 创建与删除在记录/顺序对可能分叉之前先持久化 `pendingMutation` 标记，因此启动只补全被中断的操作，未标记的分叉作为损坏明确报错。
+ - **串行化写入。** 注册表操作跑在同一条操作链上；实体变更通过领域写链上的 `table.update` 执行，写入 `updatedAt`，并在其所在的链位置决定成员资格。
+ 
+@@ -134,6 +134,9 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+ -----
+ 
+ <a id="model-experience"></a>
++
++资源目标用 provider/key 标识身份，与执行目录分开。提供者校验存在性及会话持久归属，两个资源可以共用 cwd。删除登记不会删除目标。领域格式必须为 3。
++
+ ## 模型体验
+ 
+ ### Workspace 记录与会话记账
+diff --git a/packages/workspace/workspace/src/entity.ts b/packages/workspace/workspace/src/entity.ts
+index 1df3eacb3d..dabb204481 100644
+--- a/packages/workspace/workspace/src/entity.ts
++++ b/packages/workspace/workspace/src/entity.ts
+@@ -12,7 +12,7 @@ import { stat } from 'node:fs/promises'
+ import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+ import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
+ import type { WorkspaceRecord } from './spec.ts'
+-import type { Workspace, WorkspaceId } from './types.ts'
++import type { Workspace, WorkspaceId, WorkspaceTarget } from './types.ts'
+ import { realpathNormalize } from './paths.ts'
+ 
+ /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
+@@ -37,6 +37,12 @@ export interface WorkspaceEntityHost {
+    * @returns the table; throws while the registry has not started yet.
+    */
+   table(): KvTable<WorkspaceId, WorkspaceRecord>
++  /** Whether a live or persisted Session header exists in the index. */
++  hasSession(id: SessionId): boolean
++  /** Validate feature-owned resource membership before any write. */
++  accepts(target: WorkspaceTarget, sessionId: SessionId): Promise<boolean>
++  /** Resolve current resource availability through its provider. */
++  resourceExists(target: WorkspaceTarget): Promise<boolean>
+ 
+   /**
+    * Read a session's canonical directory from the registry's header index.
+@@ -82,6 +88,8 @@ export class WorkspaceEntity implements Workspace {
+     this.record = record
+   }
+ 
++  get target(): WorkspaceTarget | undefined { return this.record.target }
++
+   get path(): string {
+     return this.record.path
+   }
+@@ -99,7 +107,9 @@ export class WorkspaceEntity implements Workspace {
+   }
+ 
+   get sessionIds(): readonly SessionId[] {
+-    return this.record.sessionIds.filter(id => this.host.sessionPath(id) === this.record.path)
++    return this.record.sessionIds.filter(id => this.record.target === undefined
++      ? this.host.sessionPath(id) === this.record.path
++      : this.host.hasSession(id))
+   }
+ 
+   async setTitle(title: string): Promise<void> {
+@@ -107,11 +117,19 @@ export class WorkspaceEntity implements Workspace {
+   }
+ 
+   async attachSession(sessionId: SessionId): Promise<void> {
++    for (const [id, record] of this.host.table().entries()) {
++      if (id !== this.id && record.sessionIds.includes(sessionId))
++        throw new Error(`session '${sessionId}' is already accounted by workspace '${id}'`)
++    }
+     // Validation is skipped when the settled snapshot already accounts the
+     // id: the cwd fact was checked when it first attached and both inputs
+     // (stored header cwd, workspace path) are immutable. Membership itself is
+     // decided on the write chain inside `mutate`, never on this snapshot.
+-    if (!this.record.sessionIds.includes(sessionId)) {
++    if (this.record.target !== undefined) {
++      await this.host.readSessionHeader(sessionId)
++      if (!await this.host.accepts(this.record.target, sessionId))
++        throw new Error(`session '${sessionId}' does not belong to the workspace target`)
++    } else if (!this.record.sessionIds.includes(sessionId)) {
+       const header = await this.host.readSessionHeader(sessionId)
+       if (header.cwd === undefined) {
+         throw new Error(
+@@ -143,9 +161,13 @@ export class WorkspaceEntity implements Workspace {
+       }
+       this.host.rememberSessionPath(sessionId, cwd)
+     }
+-    await this.mutate(record => record.sessionIds.includes(sessionId)
+-      ? record
+-      : { ...record, sessionIds: [sessionId, ...record.sessionIds] })
++    await this.mutate((record) => {
++      for (const [id, other] of this.host.table().entries()) {
++        if (id !== this.id && other.sessionIds.includes(sessionId))
++          throw new Error(`session '${sessionId}' is already accounted by workspace '${id}'`)
++      }
++      return record.sessionIds.includes(sessionId) ? record : { ...record, sessionIds: [sessionId, ...record.sessionIds] }
++    })
+   }
+ 
+   async insertSessionBefore(sessionId: SessionId, beforeSessionId?: SessionId): Promise<void> {
+@@ -177,7 +199,8 @@ export class WorkspaceEntity implements Workspace {
+       : record)
+   }
+ 
+-  async status(): Promise<'ok' | 'missing-dir'> {
++  async status(): Promise<'ok' | 'missing-dir' | 'missing-target'> {
++    if (this.target !== undefined) return await this.host.resourceExists(this.target) ? 'ok' : 'missing-target'
+     try {
+       return (await stat(this.record.path)).isDirectory() ? 'ok' : 'missing-dir'
+     } catch {
+@@ -205,7 +228,7 @@ export class WorkspaceEntity implements Workspace {
+       next = await this.host.table().update(this.id, (current) => {
+         const changed = fn(current)
+         const sessionIds = changed.sessionIds.filter(
+-          id => this.host.sessionPath(id) === changed.path,
++          id => changed.target === undefined ? this.host.sessionPath(id) === changed.path : this.host.hasSession(id),
+         )
+         if (changed === current && sessionIds.length === current.sessionIds.length) {
+           throw unchangedSentinel
+diff --git a/packages/workspace/workspace/src/index.ts b/packages/workspace/workspace/src/index.ts
+index 037344fce4..bc8e063ea9 100644
+--- a/packages/workspace/workspace/src/index.ts
++++ b/packages/workspace/workspace/src/index.ts
+@@ -18,9 +18,9 @@ export { WorkspaceMoveInvalidError } from './entity.ts'
+ import { defaultWorkspaceTitle, realpathNormalize } from './paths.ts'
+ import { workspaceDomainSpec } from './spec.ts'
+ import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
+-import type { Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
++import type { Workspace, WorkspaceTarget, WorkspaceResourceProvider, WorkspaceId as WorkspaceIdBrand } from './types.ts'
+ 
+-export type { Workspace } from './types.ts'
++export type { Workspace, WorkspaceTarget, WorkspaceResourceProvider } from './types.ts'
+ export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
+ export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
+ export { realpathNormalize } from './paths.ts'
+@@ -98,10 +98,14 @@ export class WorkspaceRegistry extends Service {
+   private readonly headers = new Map<SessionId, SessionHeader>()
+   private readonly sessionPaths = new Map<SessionId, string>()
+   private readonly invalidSessionPaths = new Map<SessionId, string>()
++  private readonly resourceProviders = new Map<string, WorkspaceResourceProvider>()
+   private operationTail: Promise<void> = Promise.resolve()
+ 
+   private readonly host: WorkspaceEntityHost = {
+     table: () => this.requireTable(),
++    hasSession: id => this.headers.has(id) || this.ctx.get('sessions')?.get(id) !== undefined,
++    accepts: (target, id) => this.resourceProvider(target.provider).accepts(target.key, id),
++    resourceExists: async target => (await this.resourceProvider(target.provider).resolve(target.key)) !== undefined,
+     sessionPath: id => this.sessionPaths.get(id),
+     readSessionHeader: id => this.readSessionHeader(id),
+     rememberSessionPath: (id, path) => {
+@@ -162,6 +166,41 @@ export class WorkspaceRegistry extends Service {
+     return await this.enqueueOperation(() => this.createCanonical(canonical, title))
+   }
+ 
++  /**
++   * Register resource resolution and membership policy for the caller's lifetime.
++   * @param name - provider identity recorded in Workspace targets.
++   * @param provider - current resolution and durable membership checks.
++   * @returns disposer removing this provider.
++   */
++  registerResourceProvider(name: string, provider: WorkspaceResourceProvider): () => void {
++    if (name.trim() === '' || this.resourceProviders.has(name)) throw new Error(`invalid or duplicate workspace provider '${name}'`)
++    const dispose = this.ctx.effect(() => {
++      this.resourceProviders.set(name, provider)
++      return () => { this.resourceProviders.delete(name) }
++    }, 'workspace.resourceProvider')
++    return () => { void dispose() }
++  }
++
++  private resourceProvider(name: string): WorkspaceResourceProvider {
++    const provider = this.resourceProviders.get(name)
++    if (provider === undefined) throw new Error(`workspace provider '${name}' is unavailable`)
++    return provider
++  }
++
++  /**
++   * Register or reuse a provider-owned resource without treating its key as a path.
++   * @param target - stable provider and resource identity.
++   * @returns existing or newly committed Workspace.
++   */
++  async createResource(target: WorkspaceTarget): Promise<Workspace> {
++    if (target.key.trim() === '') throw new Error('workspace resource key must not be empty')
++    const resolved = await this.resourceProvider(target.provider).resolve(target.key)
++    if (resolved === undefined) throw new Error('workspace target does not exist')
++    const cwd = await realpathNormalize(resolved.cwd)
++    if (!(await stat(cwd)).isDirectory()) throw new Error('workspace execution cwd is not a directory')
++    return this.enqueueOperation(() => this.createCanonical(cwd, resolved.title, target))
++  }
++
+   /**
+    * Look up a workspace by id.
+    * @param id - Workspace id.
+@@ -276,14 +315,16 @@ export class WorkspaceRegistry extends Service {
+   async resolveByPath(path: string): Promise<Workspace | undefined> {
+     const canonical = await realpathNormalize(path)
+     for (const entity of this.entities.values()) {
+-      if (entity.path === canonical) return entity
++      if (entity.target === undefined && entity.path === canonical) return entity
+     }
+     return undefined
+   }
+ 
+-  private async createCanonical(canonical: string, title?: string): Promise<WorkspaceEntity> {
++  private async createCanonical(canonical: string, title?: string, target?: WorkspaceTarget): Promise<WorkspaceEntity> {
+     for (const entity of this.entities.values()) {
+-      if (entity.path === canonical) return entity
++      if (target === undefined
++        ? entity.target === undefined && entity.path === canonical
++        : entity.target?.provider === target.provider && entity.target.key === target.key) return entity
+     }
+ 
+     const workspaceName = title ?? defaultWorkspaceTitle(canonical)
+@@ -293,6 +334,7 @@ export class WorkspaceRegistry extends Service {
+     const now = new Date().toISOString()
+     const record: WorkspaceRecord = {
+       path: canonical,
++      ...(target === undefined ? {} : { target }),
+       title: workspaceName,
+       sessionIds: [],
+       createdAt: now,
+@@ -443,7 +485,7 @@ export class WorkspaceRegistry extends Service {
+     const byPath = new Map<string, WorkspaceId>()
+     const accounted = new Map<SessionId, WorkspaceId>()
+     for (const [id, record] of table.entries()) {
+-      byPath.set(record.path, id)
++      if (record.target === undefined) byPath.set(record.path, id)
+       for (const sessionId of record.sessionIds) accounted.set(sessionId, id)
+     }
+ 
+@@ -528,14 +570,15 @@ export class WorkspaceRegistry extends Service {
+     const paths = new Map<string, WorkspaceId>()
+     const accounted = new Map<SessionId, WorkspaceId>()
+     for (const [id, record] of table.entries()) {
+-      const pathHolder = paths.get(record.path)
++      const identity = record.target === undefined ? JSON.stringify(['directory', record.path]) : JSON.stringify(['resource', record.target.provider, record.target.key])
++      const pathHolder = paths.get(identity)
+       if (pathHolder !== undefined) {
+         throw new Error(
+           `workspace domain is inconsistent: path '${record.path}' is claimed `
+           + `by both workspace '${pathHolder}' and workspace '${id}'`,
+         )
+       }
+-      paths.set(record.path, id)
++      paths.set(identity, id)
+       for (const sessionId of record.sessionIds) {
+         const holder = accounted.get(sessionId)
+         if (holder !== undefined) {
+@@ -605,7 +648,7 @@ export class WorkspaceRegistry extends Service {
+       const record = this.requireTable().get(entity.id) as WorkspaceRecord
+       for (const sessionId of record.sessionIds) {
+         const path = this.sessionPaths.get(sessionId)
+-        if (path === record.path) continue
++        if (record.target !== undefined ? this.headers.has(sessionId) : path === record.path) continue
+         const reason = this.invalidSessionPaths.get(sessionId)
+           ?? (this.headers.has(sessionId)
+             ? `canonical cwd '${path}' differs from workspace path '${record.path}'`
+diff --git a/packages/workspace/workspace/src/spec.ts b/packages/workspace/workspace/src/spec.ts
+index 089e039f27..c23a2e4253 100644
+--- a/packages/workspace/workspace/src/spec.ts
++++ b/packages/workspace/workspace/src/spec.ts
+@@ -21,6 +21,7 @@ const workspaceId = z.string().transform(value => value as WorkspaceId)
+  */
+ export const workspaceRecord = z.object({
+   path: z.string(),
++  target: z.object({ provider: z.string().min(1), key: z.string().min(1) }).optional(),
+   title: z.string(),
+   sessionIds: z.array(z.string().transform(value => brandString<SessionId>(value))),
+   createdAt: z.string(),
+@@ -67,7 +68,7 @@ export type WorkspaceDomainState = z.infer<typeof workspaceDomainState>
+  */
+ export const workspaceDomainSpec = defineDomain({
+   name: 'workspace',
+-  version: 2,
++  version: 3,
+   global: {
+     schema: workspaceDomainState,
+     initial: { initialized: false, workspaceIds: [], archivedSessionIds: [] },
+diff --git a/packages/workspace/workspace/src/types.ts b/packages/workspace/workspace/src/types.ts
+index 6343d37f57..ca79466fd6 100644
+--- a/packages/workspace/workspace/src/types.ts
++++ b/packages/workspace/workspace/src/types.ts
+@@ -22,24 +22,43 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
+   }
+ }
+ 
+-/**
+- * One workspace: a stable id over an existing directory, a display title, and
+- * an ordered candidate account of sessions. Membership requires both an id in
+- * that account and a session header whose canonical cwd equals the workspace
+- * path. Consumers only see this interface; the implementation stays private.
+- */
++/** A provider-owned resource; its identity is independent of a process directory. */
++export interface WorkspaceTarget {
++  readonly provider: string
++  readonly key: string
++}
++
++/** Resource policy installed by a feature plugin. */
++export interface WorkspaceResourceProvider {
++  /**
++   * Resolve an existing resource and its execution directory.
++   * @param key - provider-owned resource identity.
++   * @returns display information, or undefined for a deleted target.
++   */
++  resolve(key: string): Promise<{ readonly title: string; readonly cwd: string } | undefined>
++  /**
++   * Check durable feature configuration before attaching a Session.
++   * @param key - provider-owned resource identity.
++   * @param sessionId - proposed member.
++   * @returns whether this Session belongs to the resource.
++   */
++  accepts(key: string, sessionId: SessionId): Promise<boolean>
++}
++
++/** A durable target, display information and ordered Session membership. */
+ export interface Workspace {
++  /** Provider-owned resource; absent for an ordinary directory Workspace. */
++  readonly target?: WorkspaceTarget | undefined
+   /** Stable record id (generated uuid). */
+   readonly id: WorkspaceId
+ 
+   /**
+-   * Canonical directory path: the `fs.realpath` of the path given at create
+-   * time (trailing slashes, `..`, and symlinks all resolved). Never rewritten
+-   * afterwards, even when the directory disappears (see {@link status}).
++   * Canonical process directory fixed at registration. Directory targets use
++   * it as identity; resource targets use their provider and key instead.
+    */
+   readonly path: string
+ 
+-  /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
++  /** Display title from the directory name or resource provider; duplicates are allowed. */
+   readonly title: string
+ 
+   /** ISO-8601 creation instant, stamped at create and never rewritten. */
+@@ -49,12 +68,9 @@ export interface Workspace {
+   readonly updatedAt: string
+ 
+   /**
+-   * Header-validated sessions in manually owned order: a new session is
+-   * prepended at attach, explicit reordering goes through
+-   * `insertSessionBefore`, and activity never reorders. The durable candidate
+-   * account is filtered synchronously: missing headers, invalid cwd values,
+-   * and canonical cwd mismatches are never returned. A subsequent workspace
+-   * mutation prunes those filtered candidates durably.
++   * Ordered Session ownership. Missing Sessions are omitted. Directory targets
++   * also omit invalid or mismatched cwd values; resource membership is checked
++   * by its provider at attachment. Accepted mutations prune omitted ids.
+    */
+   readonly sessionIds: readonly SessionId[]
+ 
+@@ -66,14 +82,11 @@ export interface Workspace {
+   setTitle(title: string): Promise<void>
+ 
+   /**
+-   * Prepend a session to this workspace's candidate account. An already
+-   * accounted id resolves without writing, aside from the durable
+-   * filtered-candidate prune every accepted mutation performs. A new id's
+-   * live or persisted
+-   * header cwd must resolve to an existing directory equal to {@link path};
+-   * unknown ids, missing or invalid cwd values, and mismatches reject without
+-   * writing.
+-   * @param sessionId - The session to record.
++   * Prepend a Session after target membership validation. Directory targets
++   * require canonical cwd equality; resources delegate to their provider.
++   * A Session already owned by another Workspace cannot attach. An existing
++   * member resolves without reordering.
++   * @param sessionId - The Session to record.
+    * @returns resolution after durability.
+    */
+   attachSession(sessionId: SessionId): Promise<void>
+@@ -103,10 +116,11 @@ export interface Workspace {
+   detachSession(sessionId: SessionId): Promise<void>
+ 
+   /**
++   * Resource targets delegate existence to their provider and report missing-target.
+    * Live directory check, uncached: whether {@link path} currently exists and
+    * is a directory. A missing directory never mutates the record — the
+    * directory may only be temporarily moved.
+-   * @returns `'ok'` when the directory exists, `'missing-dir'` otherwise.
++   * @returns `'ok'` for an existing target, otherwise `'missing-dir'` or `'missing-target'`.
+    */
+-  status(): Promise<'ok' | 'missing-dir'>
++  status(): Promise<'ok' | 'missing-dir' | 'missing-target'>
+ }
+diff --git a/packages/workspace/workspace/tests/workspace.spec.ts b/packages/workspace/workspace/tests/workspace.spec.ts
+index 1a783b0dbe..14aacddf68 100644
+--- a/packages/workspace/workspace/tests/workspace.spec.ts
++++ b/packages/workspace/workspace/tests/workspace.spec.ts
+@@ -20,7 +20,7 @@ import WorkspaceRegistry, {
+ import type { WorkspaceDomainState, WorkspaceRecord } from '../src/index.ts'
+ import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath } from '../src/paths.ts'
+ 
+-const DOMAIN_VERSION = 2
++const DOMAIN_VERSION = 3
+ 
+ const header = (id: string, cwd?: string, createdAt = 0): SessionHeader => ({
+   version: SESSION_FORMAT_VERSION,
+@@ -973,3 +973,34 @@ describe('registry-global session archive', () => {
+     expect(upgraded.registry.archivedSessionIds).toEqual([])
+   })
+ })
++
++
++describe('resource Workspaces', () => {
++  it('keeps resources sharing a cwd separate and validates provider-owned membership', async () => {
++    const cwd = await makeDir('shared-cwd')
++    const h = await harness({ sessions: [header('one', await makeDir('different-execution-cwd')), header('two', cwd)] })
++    try {
++      // Bootstrap directory accounting is explicitly removed before assigning resource ownership.
++      for (const workspace of h.registry.list()) await h.registry.delete(workspace.id)
++      const remove = h.registry.registerResourceProvider('document', {
++        resolve: async key => key === 'missing' ? undefined : { title: key, cwd },
++        accepts: async (key, id) => key === id,
++      })
++      const one = await h.registry.createResource({ provider: 'document', key: 'one' })
++      const two = await h.registry.createResource({ provider: 'document', key: 'two' })
++      expect(one.id).not.toBe(two.id)
++      expect((await h.registry.createResource({ provider: 'document', key: 'one' })).id).toBe(one.id)
++      await one.attachSession(SessionId('one'))
++      await two.attachSession(SessionId('two'))
++      expect(one.sessionIds).toEqual(['one']); expect(two.sessionIds).toEqual(['two'])
++      await one.setTitle('Renamed resource')
++      expect(one.sessionIds).toEqual(['one'])
++      await expect(one.attachSession(SessionId('two'))).rejects.toThrow(/accounted|belong/)
++      await expect(h.registry.createResource({ provider: 'document', key: 'missing' })).rejects.toThrow(/does not exist/)
++      await h.registry.delete(one.id)
++      expect(two.sessionIds).toEqual(['two'])
++      remove()
++      await expect(two.status()).rejects.toThrow(/unavailable/)
++    } finally { await h.ctx.fiber.dispose() }
++  })
++})

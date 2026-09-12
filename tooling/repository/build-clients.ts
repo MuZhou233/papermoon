@@ -2,7 +2,7 @@
 import { build } from 'esbuild'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-for (const plugin of ['story-editor', 'writers']) {
+for (const plugin of ['story-editor', 'writers', 'writer-sessions']) {
   const out = resolve(`plugins/${plugin}/lib`)
   await mkdir(out, { recursive: true })
   await build({

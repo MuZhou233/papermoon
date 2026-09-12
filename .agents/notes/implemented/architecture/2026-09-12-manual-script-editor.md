@@ -26,6 +26,6 @@ An independent Connection RPC channel failed in real integration because its reg
 
 ## Consequences
 
-Root startup now composes PaperMoon over the standard Web profile; a separate original-Web command remains available for comparison. The patch list stays empty. Catalog filtering and descending history queries extend the generic repository API without changing the database or business-content formats. The [core decision](2026-09-12-script-core.md) continues to govern authored structures and revision semantics.
+Root startup now composes PaperMoon over the standard Web profile; a separate original-Web command remains available for comparison. The editor integration itself requires no DSH patches; [writer sessions](2026-09-12-writer-sessions.md) own the generic conversation extensions. Catalog filtering and descending history queries extend the generic repository API without changing the database or business-content formats. The [core decision](2026-09-12-script-core.md) continues to govern authored structures and revision semantics.
 
 Main tests cover local editor state and request behavior without DSH. Browser integration uses temporary data, the actual plugin loader and authenticated routes, then stops its process. Engineering checks and user experience feedback remain separate evidence.

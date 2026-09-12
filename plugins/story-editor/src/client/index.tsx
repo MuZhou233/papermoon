@@ -1,5 +1,5 @@
 /** DSH-facing registration only; page components depend on PaperMoon's API and UI. */
-import type { ComponentType } from 'react'
+import { useEffect, useRef, type ComponentType } from 'react'
 import { BookIcon } from '@papermoon/ui'
 import { App, type AppProps, type Runtime } from './app.tsx'
 import { createApi, type Connection } from './api.ts'
@@ -31,6 +31,16 @@ export interface ClientHost {
     ): Dispose
     bind(namespace: string): T
   }
+}
+/** Persist the selected product page without changing DSH's current Session. */
+function PageRoute({ usePanelInfo }: { usePanelInfo: <T>(select: (value: { activePanelId: string | null }) => T) => T }) {
+  const panel = usePanelInfo(value => value.activePanelId)
+  const previous = useRef(panel)
+  useEffect(() => {
+    if (previous.current !== null && panel === null) history.replaceState(null, '', '#conversation')
+    previous.current = panel
+  }, [panel])
+  return null
 }
 export function apply(ctx: ClientHost): void {
   const controller = new AbortController()
@@ -80,6 +90,7 @@ export function apply(ctx: ClientHost): void {
       BookIcon,
     ),
   )
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'papermoon-page-route' }, PageRoute))
   ctx.slots.inject('main', () => {
     const dispose = ctx.slots.register<AppProps>(
       {

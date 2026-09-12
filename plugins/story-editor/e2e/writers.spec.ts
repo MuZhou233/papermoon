@@ -412,7 +412,7 @@ test('unavailable navigation preference storage does not turn a successful save 
 })
 
 
-test('accepted writer navigation preserves the script page and unsaved source', async ({ page }) => {
+test('accepted writer navigation opens the overview and preserves unsaved source', async ({ page }) => {
   await login(page)
   const storyApi = (method: string, payload: unknown) => api(page, method, payload, 'papermoon')
   const project = await storyApi('createProject', { name: 'Page navigation' })
@@ -432,7 +432,9 @@ test('accepted writer navigation preserves the script page and unsaved source', 
   await page.getByRole('textbox', { name: 'System prompt', exact: true }).fill('saved writer prompt')
   await page.getByRole('button', { name: 'Scripts', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Unfinished script', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Scripts', exact: true })).toBeVisible()
+  await expect.poll(() => new URL(page.url()).hash).toBe('#papermoon')
+  await page.locator('.pm-script-card').filter({ hasText: 'Unfinished script' }).click()
   await page.getByRole('button', { name: 'main.js', exact: true }).click()
   await expect(page.locator('.cm-content[contenteditable=true]')).toContainText('unsaved source')
   await expect.poll(() => new URL(page.url()).hash).toBe('#papermoon/' + script.id)
@@ -443,10 +445,27 @@ test('accepted writer navigation preserves the script page and unsaved source', 
   await page.getByRole('textbox', { name: 'System prompt', exact: true }).fill('discarded writer prompt')
   await page.getByRole('button', { name: 'Scripts', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Discard', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Unfinished script', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Scripts', exact: true })).toBeVisible()
+  await expect.poll(() => new URL(page.url()).hash).toBe('#papermoon')
+  await page.locator('.pm-script-card').filter({ hasText: 'Unfinished script' }).click()
   await page.getByRole('button', { name: 'main.js', exact: true }).click()
   await expect(page.locator('.cm-content[contenteditable=true]')).toContainText('unsaved source')
   await page.getByRole('button', { name: 'Writer management', exact: true }).click()
   await page.locator('[data-prompt-message=system]').click()
   await expect(page.locator('[data-prompt-content]')).toHaveText('saved writer prompt')
+})
+
+
+test('script overview is the destination when writer management was opened from a conversation', async ({ page }) => {
+  await login(page)
+  await page.getByRole('button', { name: 'New session', exact: true }).last().click()
+  await expect.poll(() => new URL(page.url()).hash).toBe('#conversation')
+  await page.getByRole('button', { name: 'Writer management', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Writer management', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Scripts', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Scripts', exact: true })).toBeVisible()
+  await expect.poll(() => new URL(page.url()).hash).toBe('#papermoon')
+  await page.reload()
+  await page.getByRole('button', { name: 'Configure later', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Scripts', exact: true })).toBeVisible()
 })

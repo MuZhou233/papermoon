@@ -16,7 +16,7 @@ The main rules are self-contained. Consuming a DSH interface does not import its
 
 The launcher executes DSH's official built CLI with the standard Web profile, PaperMoon's composition overlay and the PaperMoon root as its working directory. Dependency installation and build run inside the submodule with `CI=true`, which enables DSH’s supported automated installation behavior. Without that setting, the development hook installer rejects the submodule’s Git configuration. Patch checks and launch inherit the caller’s environment without forcing this setting.
 
-The composition adds the manual script editor while retaining DSH configuration, authentication, conversation and settings. The launcher supplies independent default data homes and keeps an original-Web command for comparison. [Development](development.md) documents the command interface.
+The composition adds the manual script editor, writer management and writer sessions while retaining DSH configuration, authentication, ordinary conversations and settings. The launcher supplies independent default data homes and keeps an original-Web command for comparison. [Development](development.md) documents the command interface.
 
 ## Script data
 
@@ -35,3 +35,7 @@ The [editor plugin](../plugins/story-editor/README.md) owns user-facing operatio
 ## Writer definitions and tools
 
 [Writer management](../plugins/writers/README.md) owns prompt definitions in a separate database and provides a pure initial-context resolver. [Script tools](../plugins/story-tools/README.md) maintain model-facing operations over the logic core and register into caller-owned DSH scopes. The management page displays their shared catalog; it does not create sessions or invoke models. The [decision](../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.md) records these responsibilities.
+
+## Writer sessions
+
+The [session plugin](../plugins/writer-sessions/README.md) owns script workspaces, frozen context and observations. Generic DSH capabilities are maintained as patches; the [decision](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.md) records ownership and alternatives.

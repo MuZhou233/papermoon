@@ -1,0 +1,7 @@
+- insert:
+    - id: writer-fixture
+      name: './adapter.mjs'
+- id: agent-default-model
+  config:
+    provider: writer-fixture
+    model: fixture

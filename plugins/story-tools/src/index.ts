@@ -8,6 +8,8 @@ import {
   type ComparisonCursor,
 } from '@papermoon/story-core'
 import type { StoryRepository } from '@papermoon/story-core/repository'
+import { StoryObservations } from './observations.ts'
+export { StoryObservations } from './observations.ts'
 import { schemas, toolCatalog, help, type ToolName } from './catalog.ts'
 export { toolCatalog } from './catalog.ts'
 export class StoryToolError extends Error {
@@ -41,8 +43,8 @@ function json(value: unknown): JsonValue {
 export function createStoryTools(
   repository: StoryRepository,
   scriptId: ScriptId,
+  observations?: StoryObservations,
 ) {
-  repository.getScript(scriptId)
   function retained(id: string): RevisionId {
     repository.getHistoryEntry(scriptId, id as RevisionId)
     return id as RevisionId
@@ -61,11 +63,13 @@ export function createStoryTools(
         }
   }
   function run(name: ToolName, raw: unknown): unknown {
+    repository.getScript(scriptId)
     // Each arm parses its own declaration, keeping input inference tied to the catalog.
     switch (name) {
       case 'story_status': {
         schemas[name].parse(raw)
         const snapshot = repository.readSnapshot({ kind: 'draft', scriptId })
+        observations?.status(snapshot.content)
         return {
           script: repository.getScript(scriptId),
           draft: snapshot.draft,
@@ -90,7 +94,9 @@ export function createStoryTools(
       }
       case 'story_program_read': {
         const a = schemas[name].parse(raw)
-        return repository.readFile(reference(a.ref), a.path)
+        const result = repository.readFile(reference(a.ref), a.path)
+        if (a.ref?.kind !== 'revision') observations?.file(result.file)
+        return result
       }
       case 'story_program_search': {
         const a = schemas[name].parse(raw)
@@ -120,9 +126,15 @@ export function createStoryTools(
       }
       case 'story_text_read': {
         const a = schemas[name].parse(raw)
-        return a.language === undefined
-          ? repository.readText(reference(a.ref), a.key)
-          : repository.lookupTranslation(reference(a.ref), a.key, a.language)
+        if (a.language === undefined) {
+          const result = repository.readText(reference(a.ref), a.key)
+          if (a.ref?.kind !== 'revision') observations?.text(result.entry)
+          return result
+        }
+        const result = repository.lookupTranslation(reference(a.ref), a.key, a.language)
+        if (a.ref?.kind !== 'revision' && result.result.kind === 'found')
+          observations?.translation(a.key, a.language, result.result.translation)
+        return result
       }
       case 'story_text_search': {
         const a = schemas[name].parse(raw)
@@ -135,6 +147,7 @@ export function createStoryTools(
           scriptId,
           sequence: a.expectedSequence,
         }).content
+        const observed = observations?.prepare(initial, a.operations)
         const files = new Map(
           [...initial.program.files].map(([path, file]) => [path, file.source]),
         )
@@ -183,6 +196,7 @@ export function createStoryTools(
           expectedSequence: a.expectedSequence,
           operations,
         })
+        observed?.(result.content)
         return {
           sequence: result.draft.sequence,
           affected: a.operations.map((operation) =>
@@ -196,12 +210,15 @@ export function createStoryTools(
         }
       }
       case 'story_text_edit': {
-        const a = schemas[name].parse(raw),
-          result = repository.editDraft({
+        const a = schemas[name].parse(raw)
+        const initial = repository.readSnapshot({ kind: 'draft', scriptId, sequence: a.expectedSequence }).content
+        const observed = observations?.prepare(initial, a.operations)
+        const result = repository.editDraft({
             scriptId,
             expectedSequence: a.expectedSequence,
             operations: a.operations as ContentOperation[],
           })
+        observed?.(result.content)
         return {
           sequence: result.draft.sequence,
           affected: a.operations.map((operation) => ({
@@ -256,6 +273,7 @@ export function createStoryTools(
             scriptId,
             revisionId: retained(a.revisionId),
           })
+        observations?.clear(a.selection)
         return { draft: result.draft, selection: a.selection }
       }
       case 'story_help': {
@@ -267,6 +285,7 @@ export function createStoryTools(
   }
   return toolCatalog().map((descriptor) => ({
     ...descriptor,
+    description: descriptor.description + (observations && ['story_program_edit', 'story_text_edit'].includes(descriptor.name) ? ' Read current draft objects in this session before overwriting, renaming or deleting them. Reads from lists, searches, historical revisions and other sessions do not authorize these edits. Explicit language deletion uses the expected draft sequence and does not require reading every translation.' : ''),
     output: {
       ...descriptor.output,
       render: (_args: unknown, value: unknown) => [

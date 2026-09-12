@@ -16,7 +16,7 @@ Prompts owns configurable message content; Tools owns separate declarations and 
 
 Settings use complete-definition replacement with an observed sequence. Browser navigation preferences are separate from database save outcomes. The page preserves pending edits across navigation and requires an explicit save/discard decision before leaving. It does not create sessions or alter runtime prompts.
 
-[Script tools](../../../../plugins/story-tools/README.md) own one catalog and executable adapters over the logic core. Program and text operations are separate batches. Callers supply the target script and isolated DSH scope; model arguments cannot redirect a tool to another script. The default Web composition exposes only management and catalog routes. DSH continues to own tool execution, scope cleanup and result validation.
+[Script tools](../../../../plugins/story-tools/README.md) own one catalog and executable adapters over the logic core. Program and text operations are separate batches. Callers supply the target script and isolated DSH scope; model arguments cannot redirect a tool to another script. The management plugin exposes settings and catalog routes. DSH continues to own tool execution, scope cleanup and result validation.
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ Editing DSH preset composition files would expose plugin assembly rather than a 
 
 ## Consequences
 
-Writer settings use a separate SQLite file and format; existing script formats remain unchanged. Management pages use DSH footer, main-panel and overlay extension points without patches. Main-owned client builds share the factory bundling function. Tool descriptions and help explain operations without prescribing creative requirements or injecting summaries. Session activation, runtime context logging and further permission policy remain responsibilities of a future interface layer.
+Writer settings use a separate SQLite file and format; existing script formats remain unchanged. Management pages use DSH footer, main-panel and overlay extension points without patches. Main-owned client builds share the factory bundling function. Tool descriptions and help explain operations without prescribing creative requirements or injecting summaries. [Writer sessions](2026-09-12-writer-sessions.md) own session activation, runtime context logging and observation policy.

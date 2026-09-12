@@ -20,7 +20,11 @@ Patch files are the durable source of customization. Export intended changes bef
 
 The example shows the file format; choose checks that cover your actual patch. Script names must exist in the patched DSH package manifest. Argument arrays are passed without a shell. Do not register commands that modify expected outputs as verification. Preserve DSH-required tests, docs and Notes in each patch; a parent Note is required only for a separate main-repository decision.
 
-Generate Git patches with binary data when needed. Patches may modify only files within DSH. DSH must be a submodule of the main repository, not a symlink or an external worktree. Patch files and their parent directories must not be symlinks either. Patches are applied through the Git index without three-way merging. If application fails, setup stops, restores the upstream base and skips dependency installation.
+Generate Git patches with binary data when needed. Patches may modify only files within DSH. DSH must be a submodule of the main repository, not a symlink or an external worktree. Patch files and their parent directories must not be symlinks either. The parent Git whitespace check permits trailing whitespace only in patch artifacts, whose blank context lines require a space marker. Actual source additions are checked by `git apply --whitespace=error` during reconstruction. Patches are applied through the Git index without three-way merging. If application fails, setup stops, restores the upstream base and skips dependency installation.
+
+## Registered capabilities
+
+The series separates resource workspaces, durable prompt admission with authored context, and client selection/message extensions. These patches contain generic DSH behavior; script rules and writer snapshots stay in PaperMoon plugins. Registered checks cover the affected host/client tests, both compiler faces, lint, documentation and keyless session replay. CI also runs the Python SDK client tests in the submodule.
 
 ## Verify and update
 

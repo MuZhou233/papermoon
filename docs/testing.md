@@ -25,3 +25,5 @@ The main CI workflow runs checks and builds main plugins without fetching the su
 In CI, archive checks compare against the trusted PR base or the commit before the push. Local checks use HEAD, or an empty baseline after confirming that the repository has no commits. An explicitly supplied baseline that cannot be read is an error. Test fixtures create their own Git history and cannot rewrite the repository’s archive baseline.
 
 Writer unit tests cover settings, literal context and unsaved decisions. Script-tool tests exercise temporary repositories; the real DSH check additionally verifies scope isolation and tool output validation. Browser scenarios cover prompt ordering, readonly catalog presentation, navigation protection and conflicting saves. Main checks remain independent of the managed checkout.
+
+Writer-session checks use actual DSH admission, request assembly and tool services. `pnpm test:writer-sessions` drives temporary Web sessions with a deterministic adapter and checks the outgoing messages, fixed settings, restoration, authored-context display and mode changes with unsent text. It does not contact a model provider or reuse user runtime data.

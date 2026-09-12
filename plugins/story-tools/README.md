@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 ## Purpose
 
-`@papermoon/story-tools` wraps the [logic core](../story-core/README.md) for future model-facing interfaces. `createStoryTools(repository, scriptId)` creates an executable tool set bound to one script. `toolCatalog()` exposes the same names, descriptions, parameter declarations, result declarations and read/write classification used by registration. Neither API creates a Session or calls a model.
+`@papermoon/story-tools` wraps the [logic core](../story-core/README.md) for model-facing interfaces. `createStoryTools(repository, scriptId)` creates an executable tool set bound to one script. `toolCatalog()` exposes the same names, descriptions, parameter declarations, result declarations and read/write classification used by registration. Neither API creates a Session or calls a model.
 
 ## Tools
 
@@ -28,8 +28,12 @@ Reads default to the bound script's draft. Revision references must belong to it
 
 Names, descriptions and parameter schemas come from the registered catalog. Help text enters model history only as the result of a `story_help` call; registration does not append it to writer prompts.
 
-The default Web profile does not register these tools globally. The writer management page reads only the catalog and has no execution endpoint. There is no second execution loop, automatic retry, repository-summary injection, file-read observation policy, host filesystem tool or project-management tool.
+The default Web profile does not register these tools globally. The writer management page reads only the catalog and has no execution endpoint. There is no second execution loop, automatic retry, repository-summary injection, host filesystem tool or project-management tool.
 
 ## Verification
 
 Run `pnpm exec vitest run plugins/story-tools/tests` for deterministic temporary-database cases. After `pnpm build:plugins`, `pnpm check:plugins:dsh` checks actual Cordis registration, schemas, execution, independent scopes, cancellation, output rejection and cleanup. Main unit tests do not require DSH. The [decision](../../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.md) records these choices.
+
+## Session observations
+
+The tool factory accepts optional `StoryObservations` for explicitly returned draft objects. Successful writes update observations; failures do not. Restoration clears affected observations. The caller discards them when its Agent unloads; storage does not persist them.

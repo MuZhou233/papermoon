@@ -136,7 +136,7 @@
 .pw-actions {
   margin-left: auto;
 }
-.pw-body textarea {
+.pw-app .pw-body textarea {
   box-sizing: border-box;
   font-size: 14px;
   border-radius: 8px;
@@ -338,7 +338,7 @@
   display: flex;
   width: 100%;
 }
-.pw-role-trigger {
+.pw-message-fields .pw-role-trigger {
   box-sizing: border-box;
   justify-content: space-between;
   width: 100%;
@@ -352,10 +352,10 @@
   border-color: var(--dsw-alias-label-tertiary);
   background: var(--dsw-alias-bg-layer-1);
 }
-.pw-delete {
+.pw-app .pw-delete {
   color: var(--dsw-alias-state-error-primary);
 }
-.pw-delete:hover:not(:disabled) {
+.pw-app .pw-delete:hover:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-hover-danger);
 }
 @container (max-width: 480px) {

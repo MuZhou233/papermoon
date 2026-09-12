@@ -34,7 +34,6 @@ interface Runtime {
   store: WriterStore
   show(): void
   select(id: string | null): void
-  leaveHash: string
 }
 interface ShellProps extends Props {
   runtime: Runtime
@@ -46,25 +45,21 @@ function Guard(props: ShellProps) {
   useEffect(() => {
     const before = previous.current
     previous.current = active
-    if (before === 'writers' && active !== 'writers' && props.store.dirty) {
-      if (!location.hash.startsWith('#writers'))
-        props.runtime.leaveHash = location.hash
-      props.runtime.select('writers')
-      props.store.request(() => {
-        props.store.exitEditing()
-        props.runtime.select(active)
-      })
-    } else if (before === 'writers' && active !== 'writers') {
+    if (before !== 'writers' || active === 'writers') return
+    const destinationHash = location.hash.startsWith('#writers')
+      ? '#' + encodeURIComponent(active ?? 'conversation')
+      : location.hash
+    const leave = () => {
       props.store.exitEditing()
-      if (!location.hash.startsWith('#writers')) return
-      history.replaceState(
-        null,
-        '',
-        location.pathname +
-          location.search +
-          (active === null ? '#conversation' : props.runtime.leaveHash),
-      )
+      history.replaceState(null, '', location.pathname + location.search + destinationHash)
+      props.runtime.select(active)
       window.dispatchEvent(new Event('popstate'))
+    }
+    if (props.store.dirty) {
+      props.runtime.select('writers')
+      props.store.request(leave)
+    } else {
+      leave()
     }
   }, [active, props.runtime, props.store])
   return <Decisions store={props.store} t={props.t} />
@@ -114,16 +109,11 @@ export function apply(ctx: Host): void {
   )
   const runtime: Runtime = {
     store,
-    leaveHash: location.hash.startsWith('#writers')
-      ? '#papermoon'
-      : location.hash,
     select: (id) => {
       if (id === 'writers') history.replaceState(null, '', '#writers')
       ctx.layout.selectPanel(id)
     },
     show() {
-      if (!location.hash.startsWith('#writers'))
-        runtime.leaveHash = location.hash
       history.pushState(null, '', '#writers')
       ctx.layout.selectPanel('writers')
     },

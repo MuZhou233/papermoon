@@ -4,7 +4,7 @@
 
 ## 用途
 
-`@papermoon/story-tools` 封装[逻辑核心](../story-core/README.zh.md)，供未来面向模型的接口调用。`createStoryTools(repository, scriptId)` 创建绑定单个剧本的可执行工具集。`toolCatalog()` 提供与注册时相同的名称、说明、参数声明、结果声明和读写分类。两个 API 均不创建 Session，也不调用模型。
+`@papermoon/story-tools` 封装[逻辑核心](../story-core/README.zh.md)，供面向模型的接口调用。`createStoryTools(repository, scriptId)` 创建绑定单个剧本的可执行工具集。`toolCatalog()` 提供与注册时相同的名称、说明、参数声明、结果声明和读写分类。两个 API 均不创建 Session，也不调用模型。
 
 ## 工具
 
@@ -28,8 +28,12 @@
 
 名称、说明和参数声明来自注册目录。帮助正文仅在调用 `story_help` 后作为结果进入模型历史，注册不会把它追加到编剧提示词。
 
-默认 Web profile 不将这些工具注册到全局。编剧管理页仅读取目录，没有执行接口。本模块不增加执行循环、自动重试、仓库摘要注入、文件已读策略、宿主文件工具或项目管理工具。
+默认 Web profile 不将这些工具注册到全局。编剧管理页仅读取目录，没有执行接口。本模块不增加执行循环、自动重试、仓库摘要注入、宿主文件工具或项目管理工具。
 
 ## 验证
 
 运行 `pnpm exec vitest run plugins/story-tools/tests`，通过临时数据库验证确定性场景。`pnpm build:plugins` 后，`pnpm check:plugins:dsh` 检查真实 Cordis 注册、schema、执行、独立 scope、取消、输出拒绝和清理。主库单元测试不需要 DSH。[设计记录](../../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.zh.md) 说明这些选择。
+
+## 会话读取记录
+
+工具工厂接受可选的 `StoryObservations`，记录明确返回的草稿对象。成功修改更新记录，失败不更新。历史恢复清除受影响的记录。调用方负责在 Agent 卸载时丢弃它，存储层不保存记录。

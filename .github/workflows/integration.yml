@@ -11,6 +11,7 @@ on:
       - plugins/story-core/integration/**
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
+      - plugins/writer-sessions/**
       - plugins/writers/src/**
       - plugins/writers/tsconfig.build.json
       - plugins/writers/package.json
@@ -49,6 +50,7 @@ on:
       - plugins/story-core/integration/**
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
+      - plugins/writer-sessions/**
       - plugins/writers/src/**
       - plugins/writers/tsconfig.build.json
       - plugins/writers/package.json
@@ -99,7 +101,13 @@ jobs:
       - run: pnpm build
       - run: pnpm check:plugins:pure
       - run: pnpm check:patches
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.12'
+      - run: uv run --project python/sdk --group test pytest python/sdk/tests/test_client.py
+        working-directory: dsh
       - run: pnpm check:plugins:dsh
       - run: pnpm test:smoke
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:editor
+      - run: pnpm test:writer-sessions
