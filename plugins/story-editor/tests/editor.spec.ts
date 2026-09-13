@@ -1,3 +1,4 @@
+import { CompilationService, ArtifactStore } from '@papermoon/story-compiler/service'
 import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -10,9 +11,9 @@ import { fromDTO, snapshotDTO } from '../src/wire.ts'
 import { DraftEditor } from '../src/client/draft.ts'
 import type { Backups, Backup } from '../src/client/buffers.ts'
 import type { Api } from '../src/client/api.ts'
-const cleanups: (() => void)[] = []
-afterEach(() => {
-  while (cleanups.length) cleanups.pop()!()
+const cleanups: (() => void | Promise<void>)[] = []
+afterEach(async () => {
+  while (cleanups.length) await cleanups.pop()!()
 })
 function setup() {
   const dir = mkdtempSync(join(tmpdir(), 'pm-editor-unit-')),
@@ -28,9 +29,11 @@ function setup() {
       name: 'Script',
       defaultLanguage: 'zh-CN',
     })
+  const compiler = new CompilationService(repo, new ArtifactStore(join(dir, 'compiled')))
+  cleanups.push(() => compiler.close())
   const dispatch = dispatcher(repo, (error) => {
     throw error
-  })
+  }, compiler)
   const api: Api = {
     async call(method, payload) {
       const result = await dispatch(
@@ -119,10 +122,12 @@ describe('editor interface', () => {
       ],
     })
     const first = await api.call('commit', {
+      allowCompilationFailure: true,
       scriptId: script.id,
       expectedSequence: 1,
       description: '  First  ',
     })
+    if (!first.committed) throw new Error('expected committed revision')
     await api.call('save', {
       scriptId: script.id,
       expectedSequence: 2,
@@ -217,10 +222,12 @@ describe('editor interface', () => {
   it('restores and copies independent drafts without duplicating revision bodies', async () => {
     const { api, script, project } = setup()
     const first = await api.call('commit', {
+      allowCompilationFailure: true,
       scriptId: script.id,
       expectedSequence: 0,
       description: 'Empty',
     })
+    if (!first.committed) throw new Error('expected committed revision')
     const copy = await api.call('copy', {
       sourceScriptId: script.id,
       source: { kind: 'revision', revisionId: first.revision.id },

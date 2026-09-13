@@ -117,9 +117,9 @@ export const results: Record<
       'Returns revision metadata with an optional ordinal cursor, or a single revision and its directory entry.',
   },
   story_commit: {
-    schema: object({ revision: record, entry: record, draft: record }),
+    schema: { oneOf: [object({ committed: { type: 'boolean' }, compilation: record }), object({ committed: { type: 'boolean' }, compilation: record, revision: record, entry: record, draft: record })] },
     description:
-      'Returns the created revision, its directory entry and the updated draft record.',
+      'Returns compilation diagnostics and whether a revision was committed. A successful commit includes the revision, directory entry, draft record and frozen compilation summary.',
   },
   story_diff: {
     schema: object(

@@ -1,0 +1,4 @@
+export const PRESET = 'papermoon-moderator'
+export const CONFIG_KEY = 'papermoon.performance'
+export const PREPARATION_KEY = 'papermoon.performance.preparation'
+export const PRODUCER = 'papermoon-performance-context'

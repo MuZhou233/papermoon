@@ -36,7 +36,7 @@ export interface Artifact {
 }
 export type CompileResult =
   | { ok: true; artifact: Artifact; diagnostics: Diagnostic[] }
-  | { ok: false; diagnostics: Diagnostic[] }
+  | { ok: false; failure: 'script' | 'operation'; diagnostics: Diagnostic[] }
 export interface WorkerInput {
   files: Record<string, string>
   texts: Record<string, string | null>

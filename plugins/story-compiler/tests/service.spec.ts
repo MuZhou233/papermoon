@@ -6,6 +6,7 @@ import { StoryStorage } from '@papermoon/story-storage'
 import { StoryRepository } from '@papermoon/story-core/repository'
 import { createStoryTools } from '@papermoon/story-tools'
 import { StoryObservations } from '../../story-tools/src/observations.ts'
+import { RevisionArtifacts } from '../src/revisions.ts'
 import { CompilationService } from '../src/service.ts'
 import { ArtifactStore } from '../src/store.ts'
 import { createArtifact } from '../src/runtime.ts'
@@ -64,27 +65,49 @@ describe('saved compilation', () => {
     expect(await reopened.initialize(first.artifactId)).toMatchObject({ systemPrompt: 'First' })
     expect(() => reopened.compile(f.source(2))).toThrow()
   })
-  it('finds a saved draft artifact for an unchanged revision without recompiling', async () => {
-    const f = await fixture()
-    const compiled = await f.service.compile(f.source())
-    if (!compiled.ok) throw new Error('fixture compilation failed')
-    const committed = f.repository.commitRevision({ scriptId: f.script.id, expectedSequence: 1, description: 'Saved opening' })
-    const found = await f.service.find({ scriptId: f.script.id, ref: { kind: 'revision', revisionId: committed.revision.id } })
-    expect(found).toMatchObject({ ok: true, artifactId: compiled.artifactId, source: { kind: 'revision', revisionId: committed.revision.id }, context: compiled.context })
-    expect(await f.service.find(f.source(2))).toMatchObject({ ok: true, artifactId: compiled.artifactId })
-    expect(await f.service.find(f.source(2), { entry: 'other.js' })).toBeNull()
-    expect(await readdir(f.store.directory)).toEqual([compiled.artifactId + '.json'])
-  })
-  it('requires a retained revision and leaves publication and source records unchanged', async () => {
-    const f = await fixture()
-    const committed = f.repository.commitRevision({ scriptId: f.script.id, expectedSequence: 1, description: 'Opening' })
-    const source = { scriptId: f.script.id, ref: { kind: 'revision' as const, revisionId: committed.revision.id } }
-    const result = await f.service.compile(source)
-    expect(result).toMatchObject({ ok: true, source: { revisionId: committed.revision.id } })
-    const another = f.repository.createScript({ projectId: f.script.projectId, name: 'Other', defaultLanguage: 'en' })
-    expect(() => f.service.compile({ ...source, scriptId: another.id })).toThrow()
+  it('freezes compilation with a revision independently of the preview directory', async () => {
+    const f = await fixture(), reader = new RevisionArtifacts(f.repository)
+    const result = await f.service.submit({ scriptId: f.script.id, expectedSequence: 1, description: 'Opening' })
+    if (!result.committed) throw new Error('fixture submission failed')
+    expect(result.compilation.status).toBe('success')
+    expect(await readdir(f.directory)).not.toContain('compiled')
+    expect(reader.preview(f.script.id, result.revision.id, 'opening/0').systemPrompt).toBe('First')
     expect(f.repository.listPublications({ scriptId: f.script.id }).items).toEqual([])
     expect(f.repository.readSnapshot({ kind: 'draft', scriptId: f.script.id }).draft.sequence).toBe(2)
+  })
+  it('requires explicit permission for script errors and never attaches a partial target set', async () => {
+    const f = await fixture()
+    const input = { scriptId: f.script.id, expectedSequence: 1, description: 'Incomplete', targets: [{ entry: 'story.js' }, { entry: 'missing.js' }] }
+    expect(await f.service.submit(input)).toMatchObject({ committed: false, compilation: { status: 'failed' } })
+    expect(f.repository.listRevisions(f.script.id).items).toEqual([])
+    const result = await f.service.submit({ ...input, allowCompilationFailure: true })
+    if (!result.committed) throw new Error('expected incomplete revision')
+    expect(result.revision.attachments.items).toEqual([])
+    expect(new RevisionArtifacts(f.repository).describe(f.script.id, result.revision.id)?.status).toBe('failed')
+    expect(() => new RevisionArtifacts(f.repository).read(f.script.id, result.revision.id, 'opening/0')).toThrow()
+  })
+  it('attaches successful results even when failure is permitted and preserves target order', async () => {
+    const f = await fixture()
+    f.repository.editDraft({ scriptId: f.script.id, expectedSequence: 1, operations: [{ kind: 'create-file', path: 'other.js', source: 'module.exports={systemPrompt:"Other",messages:[]}' }] })
+    const result = await f.service.submit({ scriptId: f.script.id, expectedSequence: 2, description: 'Two', allowCompilationFailure: true, targets: [{ entry: 'other.js' }, { entry: 'story.js' }] })
+    if (!result.committed) throw new Error('fixture submission failed')
+    const reader = new RevisionArtifacts(f.repository)
+    expect(reader.preview(f.script.id, result.revision.id, 'opening/0').systemPrompt).toBe('Other')
+    expect(reader.preview(f.script.id, result.revision.id, 'opening/1').systemPrompt).toBe('First')
+  })
+  it('does not commit on cancellation, invalid targets, concurrent edits or attachment limits', async () => {
+    const f = await fixture(), input = { scriptId: f.script.id, expectedSequence: 1, description: 'Opening', allowCompilationFailure: true }
+    expect(() => f.service.submit({ ...input, targets: [] })).toThrow()
+    expect(() => f.service.submit({ ...input, targets: [{}, { entry: 'story.js', language: 'en' }] })).toThrow()
+    const cancelled = new AbortController(); cancelled.abort()
+    await expect(f.service.submit(input, cancelled.signal)).rejects.toThrow()
+    const limited = new CompilationService(f.repository, f.store, {}, 1)
+    cleanups.push(() => limited.close())
+    await expect(limited.submit(input)).rejects.toMatchObject({ code: 'attachment-limit' })
+    const pending = f.service.submit(input)
+    f.repository.editDraft({ scriptId: f.script.id, expectedSequence: 1, operations: [{ kind: 'set-translation', key: 'opening', language: 'en', text: 'Changed' }] })
+    await expect(pending).rejects.toMatchObject({ code: 'conflict' })
+    expect(f.repository.listRevisions(f.script.id).items).toEqual([])
   })
   it('writes identical artifacts concurrently, refuses different results for a key and rejects corruption', async () => {
     const f = await fixture(), result = await f.service.compile(f.source())
@@ -125,4 +148,15 @@ describe('saved compilation', () => {
     await expect(execute('story_compile', { ref: { kind: 'draft', sequence: 1 } }, controller.signal)).rejects.toThrow()
     expect(f.repository.readSnapshot({ kind: 'draft', scriptId: f.script.id }).draft.sequence).toBe(1)
   })
+})
+
+it('does not permit service failures to create an uncompiled revision', async () => {
+  const f = await fixture()
+  const input = { scriptId: f.script.id, expectedSequence: 1, description: 'Stopped', allowCompilationFailure: true }
+  const waiting = f.service.submit(input)
+  const rejected = expect(waiting).rejects.toThrow()
+  await f.service.close()
+  await rejected
+  expect(() => f.service.submit(input)).toThrow(expect.objectContaining({ code: 'closed' }))
+  expect(f.repository.listRevisions(f.script.id).items).toEqual([])
 })

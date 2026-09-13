@@ -105,7 +105,7 @@ export async function checkPatches(root: string, signal?: AbortSignal, execute: 
   const directory = submodule(root)
   const scripts = object(object(JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')), 'DSH package').scripts, 'DSH scripts')
   for (const command of series.checks) if (typeof scripts[command.script] !== 'string') throw new Error(`unknown DSH script: ${command.script}`)
-  for (const command of series.checks) await execute(directory, ['run', command.script, ...command.args], signal)
+  for (const command of series.checks) await execute(directory, ['run', command.script, ...command.args], signal, { ...process.env, CI: 'true' })
   signal?.throwIfAborted()
   verifyTree(root)
   console.log(`PaperMoon patches: source verified; ${series.checks.length} registered DSH checks completed`)

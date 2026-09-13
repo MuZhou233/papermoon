@@ -14,9 +14,9 @@ The main rules are self-contained. Consuming a DSH interface does not import its
 
 ## Current launch and data
 
-The launcher executes DSH's official built CLI with the standard Web profile, PaperMoon's composition overlay and the PaperMoon root as its working directory. Dependency installation and build run inside the submodule with `CI=true`, which enables DSH’s supported automated installation behavior. Without that setting, the development hook installer rejects the submodule’s Git configuration. Patch checks and launch inherit the caller’s environment without forcing this setting.
+The launcher executes DSH's official built CLI with the standard Web profile, PaperMoon's composition overlay and the PaperMoon root as its working directory. Dependency installation, build and registered checks run inside the submodule with `CI=true`, which preserves DSH’s automated installation behavior and dependency layout. Launch inherits the caller’s environment.
 
-The composition adds the manual script editor, writer management and writer sessions while retaining DSH configuration, authentication, ordinary conversations and settings. The launcher supplies independent default data homes and keeps an original-Web command for comparison. [Development](development.md) documents the command interface.
+The composition adds the manual script editor, writer management, writer sessions and text performances while retaining DSH configuration, authentication, ordinary conversations and settings. The launcher supplies independent default data homes and keeps an original-Web command for comparison. [Development](development.md) documents the command interface.
 
 ## Script data
 
@@ -38,8 +38,12 @@ The [editor plugin](../plugins/story-editor/README.md) owns user-facing operatio
 
 ## Writer sessions
 
-The [session plugin](../plugins/writer-sessions/README.md) owns script workspaces, frozen context and observations. Generic DSH capabilities are maintained as patches; the [decision](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.md) records ownership and alternatives.
+The [session plugin](../plugins/writer-sessions/README.md) owns writer configuration, frozen context and observations. Script target registration belongs to the [shared workspace provider](../plugins/story-workspaces/README.md). Generic DSH capabilities are maintained as patches; the [decision](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.md) records ownership and alternatives.
 
 ## Compilation and initialization
 
 The [compiler](../plugins/story-compiler/README.md) consumes fixed content and explicit options, with a separate runtime for frozen starting text. Its service reads repository snapshots and owns independent artifact files. Editor and scoped tool consumers share it; the storage and logic core have no reverse dependency. The [decision](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md) records CommonJS and artifact ownership.
+
+## Revision submission and performances
+
+The [compiler service](../plugins/story-compiler/README.md#submission-and-frozen-revisions) owns automatic compilation before an atomic revision commit. Storage carries generic immutable attachments; the core only transports them. A separate revision reader and text runtime initialize [performance sessions](../plugins/performances/README.md) without compiler execution or preview-cache access. Sessions retain complete artifact copies, so source deletion does not destroy continued play. [Shared script workspaces](../plugins/story-workspaces/README.md) group writer and moderator sessions under one stable provider.

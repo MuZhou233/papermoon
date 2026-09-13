@@ -1,0 +1,12 @@
+.ppm-form { display: grid; gap: 16px; min-width: 0; }
+.ppm-preserve, .ppm-opening pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ppm-opening { color: var(--dsw-alias-label-primary); }
+.ppm-authored { padding: 16px 0; }
+.ppm-authored header { display: flex; align-items: center; gap: 12px; color: var(--dsw-alias-label-secondary); margin-bottom: 8px; }
+.ppm-authored header button { margin-left: auto; }
+.ppm-user { border-left: 2px solid var(--dsw-alias-border-default); padding-left: 16px; }
+.ppm-source { position: relative; font-size: 13px; }
+.ppm-source summary, .ppm-opening summary, .ppm-initialization summary { cursor: pointer; }
+.ppm-source > div { position: absolute; right: 0; top: 28px; width: min(360px, 85vw); padding: 16px; border: 1px solid var(--dsw-alias-border-default); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); z-index: 5; }
+.ppm-error { color: var(--dsw-alias-status-error); }
+.ppm-initialization { padding: 12px; }

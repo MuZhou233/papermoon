@@ -22,7 +22,7 @@ interface Props {
   verify?: () => Promise<boolean>
 }
 export function CompilationPanel({ api, source, content, t, ask, dirty = false, blocked = false, save, locate, verify }: Props) {
-  const identity = source.scriptId + '/' + (source.ref.kind === 'draft' ? 'draft' : source.ref.revisionId)
+  const identity = source.scriptId + '/draft'
   const key = 'papermoon.compile.v1/' + identity
   const [settings] = useState(() => {
     try {

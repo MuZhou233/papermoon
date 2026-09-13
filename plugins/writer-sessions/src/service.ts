@@ -1,9 +1,11 @@
+import { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
+import { configureLiteralPrompt } from '../../story-workspaces/src/prompt.ts'
 /** Session selection, admission and Agent-local tool ownership. */
 import { z } from 'zod'
 import type { ScriptId } from '@papermoon/story-core'
 import { createStoryTools, StoryObservations } from '@papermoon/story-tools'
-import { CONFIG_KEY, PRESET, TARGET_PROVIDER, WriterSessionError, writerState, initialContext, type Preparation, type FixedWriter } from './model.ts'
-import type { Agent, Host, Services, Dispose, InputMessage, Workspace } from './host.ts'
+import { CONFIG_KEY, PRESET, WriterSessionError, writerState, initialContext, type Preparation, type FixedWriter } from './model.ts'
+import type { Agent, Host, Services, Dispose, InputMessage } from './host.ts'
 export const configureSchema = z.strictObject({ sessionId: z.string().min(1), writerId: z.string().min(1), writerSequence: z.number().int().nonnegative() })
 export class WriterSessions {
   private readonly runtimes = new Map<Agent, { scriptId?: string; observations: StoryObservations; dispose: Dispose }>()
@@ -45,7 +47,7 @@ export class WriterSessions {
       const writer = this.services.writers.get(input.writerId)
       if (writer.sequence !== input.writerSequence) throw new WriterSessionError('conflict', 'writer configuration changed; reload before selecting')
       const preparation: Preparation = { ...state.preparation, writer: { id: writer.id, sequence: writer.sequence } }
-      agent.session.append('session/configuration', { key: CONFIG_KEY, value: preparation })
+      agent.session.append('session/configuration', { key: CONFIG_KEY, value: preparation, presentation: { label: '编剧' } })
       this.attach(agent)
       return this.view(agent)
     })
@@ -55,7 +57,7 @@ export class WriterSessions {
     if (state.fixed && state.fixed.scriptId !== scriptId) throw new WriterSessionError('locked', 'script is fixed after accepted input')
     this.target(scriptId)
     if (state.preparation?.scriptId === scriptId) return
-    agent.session.append('session/configuration', { key: CONFIG_KEY, value: { version: 1, scriptId } })
+    agent.session.append('session/configuration', { key: CONFIG_KEY, value: { version: 1, scriptId }, presentation: { label: '编剧' } })
     this.attach(agent)
   }
   /** Validation creates no durable state: the returned metadata freezes only with inbox insertion. */
@@ -85,18 +87,11 @@ export class WriterSessions {
     let disposed = false
     const dispose = () => { if (disposed) return; disposed = true; for (const remove of disposers.splice(0).reverse()) remove(); observations.clear(); this.runtimes.delete(agent) }
     try {
-      const prompt = agent.ctx.systemPrompt
-      for (const name of ['harness:identity', 'deployment:persona-prefix', 'deployment:persona-suffix', 'harness:source', 'app:web-surface', 'ui:deliverable-file-references'])
-        disposers.push(prompt.section({ name, order: 0, text: '' }))
-      // These are prompt display contributions, not policy configuration or enforcement.
-      for (const name of ['sandbox:policy', 'approval:policy'])
-        disposers.push(prompt.context({ name, order: 0, text: '' }))
-      disposers.push(prompt.variable('papermoon_writer_prompt', () => {
+      disposers.push(...configureLiteralPrompt(agent, 'papermoon_writer_prompt', () => {
         const fixed = writerState(agent.session).fixed
         if (!fixed) throw new WriterSessionError('unconfigured', 'writer input has not been accepted')
         return fixed.writer.systemPrompt
       }))
-      disposers.push(prompt.section({ name: 'papermoon:writer', order: 0, text: '{{papermoon_writer_prompt}}' }))
       disposers.push(agent.ctx.tools.presentAs('native'))
       if (scriptId) for (const tool of createStoryTools(this.services.core, scriptId as ScriptId, observations, this.services.compiler))
         disposers.push(agent.ctx.tools.register({ ...tool, execute: async (...args) => {
@@ -118,38 +113,8 @@ export class WriterSessions {
     } catch (error) { dispose(); throw error }
   }
   dispose(): void { for (const runtime of this.runtimes.values()) runtime.dispose() }
-  async scripts() {
-    const rows: { scriptId: string; scriptName: string; projectName: string; projectId: string }[] = []
-    let projectAfter: string | undefined
-    do {
-      const projects = this.services.core.listProjects({ limit: 1000, ...(projectAfter ? { after: projectAfter } : {}) })
-      for (const project of projects.items) {
-        let after: string | undefined
-        do {
-          const scripts = this.services.core.listScripts(project.id, { limit: 1000, ...(after ? { after } : {}) })
-          rows.push(...scripts.items.map(script => ({ scriptId: script.id, scriptName: script.name, projectName: project.name, projectId: project.id })))
-          after = scripts.next
-        } while (after)
-      }
-      projectAfter = projects.next
-    } while (projectAfter)
-    return rows
-  }
-  /** Refresh provider-owned labels without renaming folder workspaces or deleted targets. */
-  async refreshWorkspaceTitles(): Promise<void> {
-    for (const workspace of this.host.workspaceRegistry.list()) await this.refreshWorkspaceTitle(workspace)
-  }
-  private async refreshWorkspaceTitle(workspace: Workspace): Promise<void> {
-    if (workspace.target?.provider !== TARGET_PROVIDER) return
-    let script: ReturnType<WriterSessions['target']>
-    try { script = this.target(workspace.target.key) }
-    catch (error) { if (error instanceof WriterSessionError && error.code === 'target-missing') return; throw error }
-    if (workspace.title !== script.name) await workspace.setTitle(script.name)
-  }
-  async workspace(scriptId: string) {
-    this.target(scriptId)
-    const workspace = await this.host.workspaceRegistry.createResource({ provider: TARGET_PROVIDER, key: scriptId })
-    await this.refreshWorkspaceTitle(workspace)
-    return workspace
-  }
+  private workspaces() { return new StoryWorkspaces(this.host, this.services.core, this.cwd) }
+  scripts() { return this.workspaces().scripts() }
+  async refreshWorkspaceTitles(): Promise<void> { for (const workspace of this.host.workspaceRegistry.list()) await this.workspaces().refreshTitle(workspace) }
+  workspace(scriptId: string) { return this.workspaces().workspace(scriptId) }
 }

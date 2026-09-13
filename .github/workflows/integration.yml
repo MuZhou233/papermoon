@@ -12,6 +12,8 @@ on:
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
       - plugins/writer-sessions/**
+      - plugins/performances/**
+      - plugins/story-workspaces/**
       - plugins/story-compiler/**
       - plugins/writers/src/**
       - plugins/writers/tsconfig.build.json
@@ -52,6 +54,8 @@ on:
       - plugins/story-core/tsconfig.build.json
       - plugins/story-core/package.json
       - plugins/writer-sessions/**
+      - plugins/performances/**
+      - plugins/story-workspaces/**
       - plugins/story-compiler/**
       - plugins/writers/src/**
       - plugins/writers/tsconfig.build.json

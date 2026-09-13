@@ -59,3 +59,7 @@ Resource workspaces use DSH workspace domain format 3 and reject older registrat
 The compiler plugin's directory defaults to `.papermoon/compiled-stories/`, beneath `PAPERMOON_DATA_DIR` when supplied. Each content-addressed JSON file is an independent derived result; draft changes and project deletion do not delete it. No automatic collection or failed-attempt history is maintained. To clear compiled results, stop the service and remove only the configured compiled-stories directory. This also removes restart previews until the corresponding content is explicitly compiled again. Keep authored databases and other product data intact.
 
 Compilation uses no experimental Node flags. The built-worker check prints the actual Node version; CI runs its selected Node 24 release independently. Source tests and production builds use their own emitted/source module paths.
+
+## Frozen revision data
+
+Story storage requires format 3. Version 1 and 2 databases are refused and remain untouched. Keep old database files outside the configured new database path before starting with a fresh store; there is no migration or automatic deletion. Business KV and opening artifact formats remain at version 1. The compiled-stories directory contains independent draft checks and can be removed when those previews are no longer needed; authoritative revision artifacts reside inside Story SQLite, and running performances retain their own logged copies.

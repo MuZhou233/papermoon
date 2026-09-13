@@ -8,9 +8,9 @@ The editor adds a script overview and independent detail pages to PaperMoon. It 
 
 PaperMoon opens the script overview by default. Cards show the script, project and latest revision. Search and project filters use a paginated metadata query. Project management creates, renames and deletes projects; deleting a project removes its scripts and their private data while preserving revisions still referenced elsewhere. New scripts require a name, project and explicit default language. New-script and add-language forms offer zh-CN and en presets plus a field for any other exact language code.
 
-The detail page contains Draft, Revisions and Settings. Draft switches between virtual program files and text entries without separating their save operation. Program files support creation, rename, deletion, syntax highlighting, search, undo and redo. Text entries expose their key, usage description and exact-language translations. Empty translations remain distinct from missing ones. Language management never fills missing translations from another language. Metadata is preserved but has no editor.
+The detail page opens the latest revision and provides Draft, Revisions and Settings. Draft switches between virtual program files and text entries without separating their save operation. Program files support creation, rename, deletion, syntax highlighting, search, undo and redo. Text entries expose their key, usage description and exact-language translations. Empty translations remain distinct from missing ones. Language management never fills missing translations from another language. Metadata is preserved but has no editor.
 
-Save draft persists all pending operations with the observed draft sequence. Submission requires a saved draft and a nonblank revision description, with optional reference revisions. Incomplete programs and missing translations remain valid authored content. An empty script remains uncompiled until an explicit compilation request.
+Save draft persists pending operations with the observed sequence. Submission requires a saved draft and nonblank description, accepts reference revisions and ordered compilation targets, and compiles automatically. The default target is story.js in the default language. Script errors block submission unless Allow submission when compilation fails is checked. That option still compiles and saves no artifacts if any target fails. Empty scripts remain uncompiled until an explicit check or submission.
 
 Revisions are immutable and listed newest first by their script-local ordinal. A revision can be read, compared, copied or restored wholly or partially. Copies explicitly select their target project and whether to include history; publication records are not copied by this interface. Restoration replaces saved draft content without creating a revision. Full restoration changes its creation base; partial restoration retains it.
 
@@ -32,7 +32,7 @@ The [Host adapter](src/index.ts) registers exact POST routes beneath /api/paperm
 | Scripts | script, createScript, renameScript, deleteScript, copy |
 | Content | snapshot, save, restore, compare |
 | Revisions | commit, history, revision |
-| Compilation | compile, compiled |
+| Compilation | compile, compiled, revisionCompilation, revisionArtifact |
 
 The browser registers the main page and sidebar entry through DSH slots. The [PaperMoon UI library](../../packages/ui/README.md) owns components; page code does not import DSH component implementations. DSH-facing interfaces stay in thin adapters and are exercised by real Web integration. Ordinary component and repository tests need no DSH checkout.
 
@@ -44,6 +44,8 @@ Run pnpm test:editor for browser scenarios using an isolated database, credentia
 
 ## Compilation and preview
 
-Drafts and individual revisions expose an entry path, exact language and explicit Compile action through the [compiler service](../story-compiler/README.md). Pending edits require Save and compile or cancellation. The response identifies its draft sequence or revision. Success reads the saved artifact and initializes its literal context for PromptTrace; refresh looks up a matching saved result without compiling. Failure diagnostics stay only in the current page.
+Drafts expose entry, language and explicit compilation through the [compiler service](../story-compiler/README.md). Pending edits require Save and compile or cancellation. Draft previews read the saved check artifact. Revision pages instead read frozen attachments and expose no compile action. Missing or corrupt referenced artifacts display a persistent-data error. Revisions without artifacts offer restoration to the draft, where a new submission can produce a playable version.
 
 Local edits, changed options or a new server sequence mark earlier results stale. Visible draft pages refresh at five-second intervals and on focus or reconnect, preserving pending edits. Diagnostic navigation checks the server again before moving to the source position or text key and language; stale diagnostics cannot select positions in newer content. Preview does not create Session records or imply publication eligibility.
+
+Start performance opens the [shared launch dialog](../performances/README.md) for the latest or explicitly viewed historical revision. The editor itself does not run a model or infer publication eligibility.

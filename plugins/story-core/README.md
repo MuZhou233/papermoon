@@ -92,7 +92,7 @@ Comparison returns both resolved sources and an opaque next cursor tied to those
 
 The business format is papermoon.story, version 1. Its KV encoding stores one content header, one record per program file, one per registered language and one per text entry. The header holds content/program/catalog metadata and the default language; each text record contains its description, metadata and all translations. Consumers use typed APIs instead of constructing these keys. Undeclared records, unknown fields, unsupported formats and broken content relationships fail decoding; missing data is not repaired. Metadata is the supported place for additional consumer data.
 
-A newly created script receives its empty program, registered default language and content header atomically at draft sequence zero. The required storage format is 2; format 1 databases are rejected without migration, replacement or deletion. Changing the business value format does not inherently require changing SQL tables.
+A newly created script receives its empty program, registered default language and content header atomically at draft sequence zero. The required storage format is 3; format 1 and 2 databases are rejected without migration, replacement or deletion. Changing the business value format does not inherently require changing SQL tables.
 
 StoryError exposes invalid-input, invalid-content, not-found or already-exists plus a location. Storage errors, including conflict, busy, closed and format-mismatch, retain their original identity. Missing-translation results are ordinary query outcomes. Errors carry no UI localization or compiler diagnosis.
 
@@ -101,3 +101,5 @@ StoryError exposes invalid-input, invalid-content, not-found or already-exists p
 Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm check:docs` and `pnpm check:notes` from the root without DSH. `pnpm build:plugins` builds storage before the core. `pnpm check:plugins:pure` exercises the emitted pure entry with Node built-ins and Cordis imports blocked. `pnpm check:plugins:dsh` additionally requires built DSH Cordis and verifies real dependency waiting, consumer cleanup and remounting. Tests use temporary databases and do not start Web or call a model.
 
 The [core decision](../../.agents/notes/implemented/architecture/2026-09-12-script-core.md) records the responsibilities and alternatives. [Development](../../docs/development.md) owns root commands.
+
+The repository passes generic revision attachments to storage and exposes readRevisionAttachment. Attachments stay outside the program/text KV content, restoration and business-content comparison. Their consumer owns interpretation; the core imports no compiler.

@@ -36,7 +36,7 @@ test('writer workspace sends exact context and retains its accepted configuratio
   await expect(input).toHaveAttribute('contenteditable', 'true')
   await input.fill('Please inspect the script.')
   await input.press('Enter')
-  await expect(page.getByText('Fixture reply.', { exact: true })).toBeVisible()
+  await expect(page.locator('p').filter({ hasText: /^Fixture reply\.$/ })).toBeVisible()
   const fixed = page.locator('.pws-chip').filter({ hasText: 'Fixture writer' })
   await expect(fixed).toBeDisabled()
   const writerBounds = await fixed.boundingBox(), tabBounds = await page.getByRole('tab', { name: 'Chat', exact: true }).boundingBox()

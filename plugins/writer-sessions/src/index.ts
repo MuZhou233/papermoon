@@ -3,13 +3,13 @@ import { z } from 'zod'
 import { isAbsolute } from 'node:path'
 import type { StoryRepository } from '@papermoon/story-core/repository'
 import type { CompilationService } from '@papermoon/story-compiler/service'
-import type { ScriptId } from '@papermoon/story-core'
+import type { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
 import type { WriterRepository } from '../../writers/src/repository.ts'
 import { WriterSessions, configureSchema } from './service.ts'
 import { CONFIG_KEY, PRESET, TARGET_PROVIDER, WriterSessionError, writerState } from './model.ts'
 import type { Host } from './host.ts'
 export const name = 'papermoon-writer-sessions'
-export const inject = ['papermoonStoryCore', 'papermoonStoryCompiler', 'papermoonWriters', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
+export const inject = ['papermoonStoryCore', 'papermoonStoryWorkspaces', 'papermoonStoryCompiler', 'papermoonWriters', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
 export interface Config { cwd: string }
 const sessionRequest = z.strictObject({ sessionId: z.string().min(1) })
 const scriptRequest = z.strictObject({ scriptId: z.string().min(1) })
@@ -22,23 +22,8 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
   ctx.effect(function* () {
     yield () => service.dispose()
     yield ctx.provide('papermoonWriterSessions', service)
-    yield ctx.workspaceRegistry.registerResourceProvider(TARGET_PROVIDER, {
-      async resolve(key) {
-        try {
-          const script = core.getScript(key as ScriptId)
-          return { title: script.name, cwd: config.cwd }
-        } catch (error) {
-          if (error && typeof error === 'object' && 'code' in error && error.code === 'not-found') return undefined
-          throw error
-        }
-      },
-      async accepts(key, sessionId) {
-        const live = ctx.agents.get(sessionId)
-        const saved = live ? undefined : await ctx.sessionController.inspect(sessionId)
-        const state = writerState(live?.session ?? { header: saved!.meta, snapshotEvents: () => saved!.events })
-        return state.mode === PRESET && (state.fixed?.scriptId ?? state.preparation?.scriptId) === key
-      },
-    })
+    const workspaces = ctx.get('papermoonStoryWorkspaces') as StoryWorkspaces
+    yield workspaces.register(PRESET, session => { const state = writerState(session); return state.mode === PRESET ? state.fixed?.scriptId ?? state.preparation?.scriptId : undefined })
     yield ctx.on('agent/created', ({ agent }) => service.attach(agent))
     yield ctx.on('agent-preset/selected', id => { const agent = ctx.agents.get(id); if (agent) service.attach(agent) })
     yield ctx.on('agent-preset/selecting', async (agent, preset) => {
@@ -49,12 +34,13 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
       for (const workspace of ctx.workspaceRegistry.list()) {
         if (!workspace.sessionIds.includes(agent.id)) continue
         const isScript = workspace.target?.provider === TARGET_PROVIDER
-        if ((preset === PRESET && !isScript) || (preset !== PRESET && isScript)) await workspace.detachSession(agent.id)
+        if ((preset === PRESET && !isScript) || (preset !== PRESET && preset !== 'papermoon-moderator' && isScript)) await workspace.detachSession(agent.id)
       }
       if (preset !== PRESET && writerState(agent.session).preparation)
         agent.session.append('session/configuration', { key: CONFIG_KEY, value: null })
     })
     yield ctx.on('session/created-for-client', async (agent, workspace) => {
+      if (writerState(agent.session).mode === 'papermoon-moderator') return
       if (workspace?.target?.provider === TARGET_PROVIDER) {
         if (writerState(agent.session).mode !== PRESET) await ctx.agentPresets.select(agent, PRESET)
         service.prepare(agent, workspace.target.key)

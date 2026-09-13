@@ -52,4 +52,4 @@ if (result.ok) initialize(result.artifact)
 
 直接调用编译器不会保存结果。[服务层](README.zh.md)负责快照归属和产物持久化，UI 与模型通过该服务调用。服务返回来源身份和诊断；成功时另返回已保存的产物身份及初始化上下文。编译失败不保存失败记录，也不改变创作内容。
 
-story_compile 的 ref 可以是携带 sequence 的草稿，也可以是携带 revisionId 的修订版本；entry 和 language 可选。目标剧本由工具作用域确定。序号过期后，需通过正常工具重新读取。编译不会绕过并发校验，也不会授予修改所需的读取权限。按需调用 story_help 的 compilation 主题，可以取得相同的声明和加载用法。
+story_compile 的 ref 只接受携带 sequence 的草稿，entry 和 language 可选。已提交的修订版本不能再次编译，其产物从冻结附件读取。目标剧本由工具作用域确定。序号过期后，需通过正常工具重新读取。编译不会绕过并发校验，也不会授予修改所需的读取权限。按需调用 story_help 的 compilation 主题，可以取得相同的声明和加载用法。

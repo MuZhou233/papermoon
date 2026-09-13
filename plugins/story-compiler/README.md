@@ -11,9 +11,10 @@ This package compiles a fixed [StoryContent](../story-core/README.md) snapshot i
 | @papermoon/story-compiler | compile(content, options, signal), StoryCompiler, resolveOptions |
 | @papermoon/story-compiler/runtime | loadArtifact(serialized), initialize(artifact) |
 | @papermoon/story-compiler/service | CompilationService, ArtifactStore |
+| @papermoon/story-compiler/revisions | RevisionArtifacts, revisionCompilation |
 | @papermoon/story-compiler/plugin | Cordis service papermoonStoryCompiler |
 
-The compiler receives content and explicit options, with no database or filesystem access to authored inputs. The service reads a consistent repository snapshot before starting asynchronous work. Draft requests require a known sequence; revision requests require membership in the specified script. Source identity stays in the receipt and does not enter program evaluation. Editing during compilation cannot change its captured input.
+The compiler receives content and explicit options, with no database or filesystem access to authored inputs. The service reads a consistent repository snapshot before starting asynchronous work. Only draft requests are compiled, and they require a known sequence. Historical artifacts are read by their frozen attachment keys. Source identity stays in the receipt and does not enter program evaluation. Editing during compilation cannot change its captured input.
 
 The runtime imports neither the compiler Worker nor the authored repository. It validates the artifact and returns a detached context on each initialization. Changing one returned context cannot affect another. It never executes source, fetches text, calls a model or stores progress.
 
@@ -45,10 +46,18 @@ CompilationService.compile always evaluates its captured input. Successful resul
 
 ArtifactStore writes complete JSON through a temporary file and an atomic no-overwrite link. Equal saves are idempotent; a different result for the same key raises artifact-conflict. Failed persistence rejects the operation. Records have no per-attempt history and do not store failed diagnostics. The standalone store defaults to a 16 MiB record limit, configurable through its constructor. [Development](../../docs/development.md) owns the product directory and cleanup procedure.
 
-The plugin depends on papermoonStoryCore and provides papermoonStoryCompiler as an effect. Dependent cleanup runs before the service closes; the storage provider then releases its connection. Script database and business-content formats remain unchanged.
+The plugin depends on papermoonStoryCore and provides papermoonStoryCompiler as an effect. Dependent cleanup runs before the service closes; the storage provider then releases its connection. Revision attachments use storage format 3; business content and opening artifact formats remain unchanged.
 
 ## Verification
 
 Main tests use temporary databases and deterministic sources. pnpm check:compiler:built runs the emitted Worker and a separate runtime process under ordinary Node. pnpm check:plugins:dsh verifies real Cordis cleanup, tool scopes and a deterministic model's compiler receipt. pnpm test:editor covers explicit compilation, source and text diagnostics, exact-language preview, stale results and refresh recovery. No test calls a real model or uses user runtime data.
 
 The [decision](../../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md) records CommonJS, frozen text and independent artifact storage.
+
+## Submission and frozen revisions
+
+CompilationService.submit compiles every target from the same pinned draft. An omitted targets list resolves to story.js and the draft default language; explicit lists must be nonempty and distinct. Their order freezes with the revision, and the first result is the performance default. allowCompilationFailure defaults to false. All targets must succeed to attach results. A script error returns diagnostics without a revision unless that option is explicitly true; an allowed failure commits source with an empty attachment list. Permission to fail never skips compilation.
+
+Cancellation, invalid options, busy or closed services, Worker failures, storage failures and the outer deadline abort submission. Script syntax, load, declaration, translation and synchronous execution limits are diagnostic failures. The service checks source fingerprints and the aggregate attachmentBytes limit (default 16 MiB), then commits source, ordered artifact bodies and report in the existing SQLite transaction. The final draft sequence check rejects edits made during compilation. A committed revision remains committed if its response is lost.
+
+RevisionArtifacts reads the frozen report and full attachment, validates integrity and initializes its text without compiler execution. Compiled artifacts cannot be added to or replaced in a submitted revision. An explicit empty list differs from a missing referenced body; missing or corrupt bodies fail rather than compile again. The standalone ArtifactStore holds only draft checks. Deleting its files cannot remove a revision's attached artifacts.

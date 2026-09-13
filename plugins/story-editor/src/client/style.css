@@ -550,3 +550,10 @@
 .pm-opening-preview { margin-top: 12px; }
 .pm-opening-preview > summary { cursor: pointer; font-size: 13px; padding: 6px 0; }
 @media (max-width: 600px) { .pm-compile-controls .pm-field { flex-basis: 100%; } }
+
+.pm-targets { border: 1px solid var(--dsw-alias-border-default); border-radius: 12px; padding: 12px; display: grid; gap: 12px; }
+.pm-target { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--dsw-alias-border-default); }
+.pm-latest { min-width: 0; }
+
+.pm-card-container { display: grid; gap: 8px; min-width: 0; }
+.pm-card-container > .pm-script-card { width: 100%; }

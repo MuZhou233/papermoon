@@ -14,7 +14,7 @@ The [compiler](../../../../plugins/story-compiler/README.md) evaluates restricte
 
 Compilation resolves one exact language into a frozen text artifact. The [runtime](../../../../plugins/story-compiler/src/runtime.ts) validates that artifact and returns independent initial contexts without evaluating programs. Names remain management data. The compiler adds no role instructions or message prefixes and does not enforce literary or translation-completeness rules outside text actually read.
 
-The service reads fixed repository snapshots and saves successful artifacts through an independent JSON adapter before returning their identities. Content, effective options and compiler identity determine the key. Existing keys cannot be overwritten with different results. Saved artifacts remain usable after source editing or removal. The authored database and content formats stay unchanged.
+The service reads fixed repository snapshots and saves successful artifacts through an independent JSON adapter before returning their identities. Content, effective options and compiler identity determine the key. Existing keys cannot be overwritten with different results. Saved artifacts remain usable after source editing or removal. Revision submission uses [immutable attachments](2026-09-13-frozen-revisions-and-performances.md); the independent store serves draft checks.
 
 Explicit editor and tool compilation share the service. The editor initializes saved artifacts for its preview and marks results from changed inputs as stale. Tool compilation leaves observation rights unchanged. No publication or approval condition is added. The [manual-editor decision](2026-09-12-manual-script-editor.md) continues to own editing and local buffers.
 

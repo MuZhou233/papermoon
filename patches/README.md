@@ -24,10 +24,12 @@ Generate Git patches with binary data when needed. Patches may modify only files
 
 ## Registered capabilities
 
-The series separates resource workspaces, durable prompt admission with authored context, and client selection/message extensions. These patches contain generic DSH behavior; script rules and writer snapshots stay in PaperMoon plugins. Registered checks cover the affected host/client tests, both compiler faces, lint, documentation and keyless session replay. CI also runs the Python SDK client tests in the submodule.
+The series separates resource workspaces, durable prompt admission with authored context, client selection/message extensions, and initialized-session presentation. These patches contain generic DSH behavior; script rules and writer snapshots stay in PaperMoon plugins. Registered checks cover the affected host/client tests, both compiler faces, lint, documentation and keyless session replay. CI also runs the Python SDK client tests in the submodule.
 
 ## Verify and update
 
 `pnpm check:patches` reconstructs a temporary checkout, compares effective source with the actual submodule, rejects undeclared files, runs registered checks in DSH and compares source again. It accepts the modifications defined by patches rather than requiring a clean worktree. Ignored build and runtime files are outside the source comparison.
 
 Select tests under the DSH rules for the pinned revision; the command runner does not infer those obligations. [Development](../docs/development.md) describes the complete upgrade sequence. Report which checks ran and their results; link to DSH’s rules instead of maintaining another copy.
+
+Registered DSH checks use the same CI package-manager environment as setup, so dependency-layout verification does not attempt a second installation or local Git hook setup.

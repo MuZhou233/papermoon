@@ -1,0 +1,958 @@
+diff --git a/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.i18n.yaml
+new file mode 100644
+index 0000000000..86edd2514a
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.i18n.yaml
+@@ -0,0 +1,6 @@
++# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
++# side as of the last confirmed-consistent state. Both languages carry equal authority;
++# after editing either side, bring the other along and re-record with:
++#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.md
++2026-09-13-initialized-session-presentation.md: a9a5468d345b5b5783c29541dc6bc215452c8e76
++2026-09-13-initialized-session-presentation.zh.md: d8f84414dba255f936d5ff42109ad938c108184c
+diff --git a/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.md b/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.md
+new file mode 100644
+index 0000000000..a9a5468d34
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.md
+@@ -0,0 +1,23 @@
++# Agent Note: Initialized Session presentation
++
++Status: implemented
++
++English | [中文](2026-09-13-initialized-session-presentation.zh.md)
++
++## Problem
++
++An application can initialize meaningful content before calling a model. Turn-only list visibility hides that Session, while indexing arbitrary configuration would expose strings never intended as conversation content.
++
++## Decision
++
++The session/configuration event accepts optional producer-owned presentation fields. initialized preserves list visibility without a turn; label describes the Session purpose; text explicitly contributes searchable content. These fields do not enter model requests. Existing authored-context events remain the model-history mechanism.
++
++The list projection has its own cache version. Search queries current user, assistant and authored-context events, then log-only configuration display text, retaining the existing visibility checks and combined result limit. Separate queries preserve the current-only restriction on ordinary messages. The SQLite full-text index uses derived schema 9 to rebuild semantic extraction; canonical Session data is untouched.
++
++## Alternatives considered
++
++A synthetic user message or model turn would misrepresent author and usage. Indexing every configuration value would include implementation details. Including every log-only message would expose shadowed or non-current content. Application-specific checks in the controller would couple the host to individual products.
++
++## Consequences
++
++Initializing plugins own their display text and must separately declare actual model input. Generic plugins without presentation keep existing list and search behavior. Validation, list, search, SDK and browser evidence cover the added fields; no Agent Loop stage or released Session generation changes.
+diff --git a/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.zh.md b/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.zh.md
+new file mode 100644
+index 0000000000..d8f84414db
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-13-initialized-session-presentation.zh.md
+@@ -0,0 +1,23 @@
++# Agent Note: 已初始化会话的展示
++
++Status: implemented
++
++[English](2026-09-13-initialized-session-presentation.md) | 中文
++
++## 问题
++
++应用可以在调用模型前初始化有意义的内容。只按模型轮次决定列表可见性，会隐藏这样的会话；索引任意配置又会暴露并非对话内容的字符串。
++
++## 决定
++
++session/configuration 事件接受可选的生产者展示字段。initialized 在没有轮次时保留列表可见性，label 说明会话用途，text 明确提供可搜索内容。这些字段不进入模型请求，已有预置上下文事件仍负责模型历史。
++
++列表投影独立更新缓存版本。搜索先查询当前 user、assistant 和预置上下文事件，再查询只在日志中的配置展示文本，保留既有可见性检查和合并结果上限。分别查询使普通消息继续限于当前内容。SQLite 全文索引使用派生格式 9 重建语义提取，不改动权威会话数据。
++
++## 考虑过的替代方案
++
++伪造用户消息或模型轮次会误报作者和用量。索引全部配置值会暴露实现细节，纳入所有日志消息会显示被替换或非当前内容。在控制器中判断特定应用，则会使宿主依赖具体产品。
++
++## 后果
++
++初始化插件维护展示文本，并另行声明实际模型输入。没有提供 presentation 的通用插件保留已有列表和搜索行为。校验、列表、搜索、SDK 和浏览器证据覆盖新增字段，不增加 Agent Loop 阶段或修改已发布会话代际。
+diff --git a/docs/event-producer-consumer.i18n.yaml b/docs/event-producer-consumer.i18n.yaml
+index ddc5c70b27..92ec100a2d 100644
+--- a/docs/event-producer-consumer.i18n.yaml
++++ b/docs/event-producer-consumer.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write docs/event-producer-consumer.md
+-event-producer-consumer.md: 2f76d12b8482cf0f21c0b3a76c757ae0d8bde87d
+-event-producer-consumer.zh.md: e50f14e68095b346dcf74f7d0b872a931f24631f
++event-producer-consumer.md: 02a4967e409b3f28dc54d81c02bc259d9a7f07a3
++event-producer-consumer.zh.md: 914890e16c9bb96488027d8a2a1a5c42f064d0ee
+diff --git a/docs/event-producer-consumer.md b/docs/event-producer-consumer.md
+index 2f76d12b84..02a4967e40 100644
+--- a/docs/event-producer-consumer.md
++++ b/docs/event-producer-consumer.md
+@@ -24,11 +24,11 @@ This matrix shows which packages dispatch each harness-owned event and which pac
+ | `agent/session-start` | `emit` | [`packages/core/agent/src/runtime-types.ts:318`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emitAgentEvent`) | `agent-team`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
+ | `agent/status` | `emit` | [`packages/core/agent/src/runtime-types.ts:279`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emit`) | [`agent`](../packages/core/agent), `agent-team`, [`compaction-basic`](../packages/compaction/compaction-basic), [`goal-round-driver`](../packages/goal/goal-round-driver), [`schedule`](../packages/schedule/schedule), `server`, `session-controller` |
+ | `agent/turn-stopping` | `serial` | [`packages/core/agent/src/runtime-types.ts:393`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`serial`) | [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
+-| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:601`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:581`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:608`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:587`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:594`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:603`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:583`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:610`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:589`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:596`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+ | `approval/request` | `waterfall` | [`packages/interaction/user-approval/src/types.ts:85`](../packages/interaction/user-approval/src/types.ts) | [`user-approval`](../packages/interaction/user-approval) (`waterfall`) | [`acp`](../packages/acp/acp), `remotes` |
+ | `authorization/settled` | `emit` | [`packages/credentials/authorization/src/index.ts:57`](../packages/credentials/authorization/src/index.ts) | [`authorization`](../packages/credentials/authorization) (`events.dispatch`) | [`authorization`](../packages/credentials/authorization) |
+ | `commands/change` | `emit` | [`packages/interaction/commands/src/types.ts:89`](../packages/interaction/commands/src/types.ts) | [`commands`](../packages/interaction/commands) (`events.dispatch`) | `remotes` |
+diff --git a/docs/event-producer-consumer.zh.md b/docs/event-producer-consumer.zh.md
+index e50f14e680..914890e16c 100644
+--- a/docs/event-producer-consumer.zh.md
++++ b/docs/event-producer-consumer.zh.md
+@@ -26,11 +26,11 @@
+ | `agent/session-start` | `emit` | [`packages/core/agent/src/runtime-types.ts:318`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emitAgentEvent`) | `agent-team`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
+ | `agent/status` | `emit` | [`packages/core/agent/src/runtime-types.ts:279`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emit`) | [`agent`](../packages/core/agent), `agent-team`, [`compaction-basic`](../packages/compaction/compaction-basic), [`goal-round-driver`](../packages/goal/goal-round-driver), [`schedule`](../packages/schedule/schedule), `server`, `session-controller` |
+ | `agent/turn-stopping` | `serial` | [`packages/core/agent/src/runtime-types.ts:393`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`serial`) | [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
+-| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:601`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:581`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:608`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:587`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+-| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:594`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:603`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:583`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:610`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:589`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
++| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:596`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
+ | `approval/request` | `waterfall` | [`packages/interaction/user-approval/src/types.ts:85`](../packages/interaction/user-approval/src/types.ts) | [`user-approval`](../packages/interaction/user-approval) (`waterfall`) | [`acp`](../packages/acp/acp), `remotes` |
+ | `authorization/settled` | `emit` | [`packages/credentials/authorization/src/index.ts:57`](../packages/credentials/authorization/src/index.ts) | [`authorization`](../packages/credentials/authorization) (`events.dispatch`) | [`authorization`](../packages/credentials/authorization) |
+ | `commands/change` | `emit` | [`packages/interaction/commands/src/types.ts:89`](../packages/interaction/commands/src/types.ts) | [`commands`](../packages/interaction/commands) (`events.dispatch`) | `remotes` |
+diff --git a/docs/persistence-catalog.i18n.yaml b/docs/persistence-catalog.i18n.yaml
+index 745571f0ac..e30f39d5a4 100644
+--- a/docs/persistence-catalog.i18n.yaml
++++ b/docs/persistence-catalog.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write docs/persistence-catalog.md
+-persistence-catalog.md: 42c15553adea6cbd8e9a9bb2015ac9ecee53fce8
+-persistence-catalog.zh.md: cd8049164912b730cfca6e006a02488198502ffd
++persistence-catalog.md: 86bff05b69f01065b331eec65d39c70e280b66f9
++persistence-catalog.zh.md: 2cd1359a02e4865d55f7bf2d15ceeb7b1f8f96ca
+diff --git a/docs/persistence-catalog.md b/docs/persistence-catalog.md
+index 42c15553ad..86bff05b69 100644
+--- a/docs/persistence-catalog.md
++++ b/docs/persistence-catalog.md
+@@ -84,7 +84,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ }[T]
+ ```
+ 
+-Sources: [`packages/core/session/src/types.ts:413`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:421`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:444`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:475`](../packages/core/session/src/types.ts)
++Sources: [`packages/core/session/src/types.ts:425`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:456`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:487`](../packages/core/session/src/types.ts)
+ 
+ ## Events
+ 
+@@ -211,7 +211,7 @@ Source: [`packages/interaction/user-approval/src/index.ts:33`](../packages/inter
+ 'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
+ ```
+ 
+-Source: [`packages/core/session/src/types.ts:344`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
+ 
+ <a id="assistantmessage--surface"></a>
+ 
+@@ -241,7 +241,7 @@ Source: [`packages/core/session/src/types.ts:344`](../packages/core/session/src/
+ 
+ Types: [TokenUsage](subsystems/llm-streaming.md)
+ 
+-Source: [`packages/core/session/src/types.ts:330`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
+ 
+ ### `command/*`
+ 
+@@ -624,7 +624,7 @@ Source: [`packages/plan/plan-mode/src/index.ts:47`](../packages/plan/plan-mode/s
+ 'request/context': RequestContext
+ ```
+ 
+-Source: [`packages/core/session/src/types.ts:386`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:398`](../packages/core/session/src/types.ts)
+ 
+ <a id="requestheader--log-only"></a>
+ 
+@@ -643,7 +643,7 @@ Source: [`packages/core/session/src/types.ts:386`](../packages/core/session/src/
+ }
+ ```
+ 
+-Source: [`packages/core/session/src/types.ts:374`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:386`](../packages/core/session/src/types.ts)
+ 
+ ### `sandbox/*`
+ 
+@@ -694,7 +694,19 @@ Source: [`packages/schedule/schedule/src/types.ts:219`](../packages/schedule/sch
+ 
+ ```ts persistence-catalog
+ /** Feature configuration recorded independently of model-visible content. */
+-'session/configuration': { key: string; value: unknown }
++'session/configuration': {
++  key: string
++  value: unknown
++  /** Producer-owned display data; never added to model history implicitly. */
++  presentation?: {
++    /** Initialization creates visible content even before a model turn. */
++    initialized?: true
++    /** User-facing Session purpose, preserved in list summaries. */
++    label?: string
++    /** Explicitly searchable display text; arbitrary configuration stays unindexed. */
++    text?: string
++  }
++}
+ ```
+ 
+ Source: [`packages/core/session/src/types.ts:319`](../packages/core/session/src/types.ts)
+@@ -729,7 +741,7 @@ Source: [`packages/core/session/src/types.ts:319`](../packages/core/session/src/
+ 'session/end-seed': { inherited?: true }
+ ```
+ 
+-Source: [`packages/core/session/src/types.ts:409`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:421`](../packages/core/session/src/types.ts)
+ 
+ <a id="sessiontitle--log-only"></a>
+ 
+@@ -971,7 +983,7 @@ Source: [`packages/todo/tool-todo/src/types.ts:31`](../packages/todo/tool-todo/s
+ 
+ Types: [ToolCallId](subsystems/core.md)
+ 
+-Source: [`packages/core/session/src/types.ts:350`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
+ 
+ <a id="toolptc-dispatch--log-only"></a>
+ 
+@@ -1047,7 +1059,7 @@ Source: [`packages/core/tools/src/types.ts:40`](../packages/core/tools/src/types
+ }
+ ```
+ 
+-Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
++Source: [`packages/core/session/src/types.ts:374`](../packages/core/session/src/types.ts)
+ 
+ ### `tool-workflow/*`
+ 
+diff --git a/docs/persistence-catalog.zh.md b/docs/persistence-catalog.zh.md
+index cd80491649..2cd1359a02 100644
+--- a/docs/persistence-catalog.zh.md
++++ b/docs/persistence-catalog.zh.md
+@@ -86,7 +86,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ }[T]
+ ```
+ 
+-来源：[`packages/core/session/src/types.ts:413`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:421`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:444`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:475`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:425`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:456`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:487`](../packages/core/session/src/types.ts)
+ 
+ ## 事件
+ 
+@@ -213,7 +213,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ 'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
+ ```
+ 
+-来源：[`packages/core/session/src/types.ts:344`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
+ 
+ <a id="assistantmessage--surface"></a>
+ 
+@@ -243,7 +243,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ 
+ 类型：[TokenUsage](subsystems/llm-streaming.zh.md)
+ 
+-来源：[`packages/core/session/src/types.ts:330`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
+ 
+ ### `command/*`
+ 
+@@ -626,7 +626,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ 'request/context': RequestContext
+ ```
+ 
+-来源：[`packages/core/session/src/types.ts:386`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:398`](../packages/core/session/src/types.ts)
+ 
+ <a id="requestheader--log-only"></a>
+ 
+@@ -645,7 +645,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ }
+ ```
+ 
+-来源：[`packages/core/session/src/types.ts:374`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:386`](../packages/core/session/src/types.ts)
+ 
+ ### `sandbox/*`
+ 
+@@ -696,7 +696,19 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ 
+ ```ts persistence-catalog
+ /** Feature configuration recorded independently of model-visible content. */
+-'session/configuration': { key: string; value: unknown }
++'session/configuration': {
++  key: string
++  value: unknown
++  /** Producer-owned display data; never added to model history implicitly. */
++  presentation?: {
++    /** Initialization creates visible content even before a model turn. */
++    initialized?: true
++    /** User-facing Session purpose, preserved in list summaries. */
++    label?: string
++    /** Explicitly searchable display text; arbitrary configuration stays unindexed. */
++    text?: string
++  }
++}
+ ```
+ 
+ 来源： [`packages/core/session/src/types.ts:319`](../packages/core/session/src/types.ts)
+@@ -731,7 +743,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ 'session/end-seed': { inherited?: true }
+ ```
+ 
+-来源：[`packages/core/session/src/types.ts:409`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:421`](../packages/core/session/src/types.ts)
+ 
+ <a id="sessiontitle--log-only"></a>
+ 
+@@ -973,7 +985,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ 
+ 类型：[ToolCallId](subsystems/core.zh.md)
+ 
+-来源：[`packages/core/session/src/types.ts:350`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
+ 
+ <a id="toolptc-dispatch--log-only"></a>
+ 
+@@ -1049,7 +1061,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+ }
+ ```
+ 
+-来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
++来源：[`packages/core/session/src/types.ts:374`](../packages/core/session/src/types.ts)
+ 
+ ### `tool-workflow/*`
+ 
+diff --git a/docs/subsystems/session.i18n.yaml b/docs/subsystems/session.i18n.yaml
+index 951ab507c5..abc4e898be 100644
+--- a/docs/subsystems/session.i18n.yaml
++++ b/docs/subsystems/session.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write docs/subsystems/session.md
+-session.md: 8300df0d0fa09195b0f7d0fac68af473d950127f
+-session.zh.md: 18395c3b2c8e9b98867d5f4db1be9884b7c2dbda
++session.md: 7f25e0938d3d62496d05d889db0c4e8b7432c48f
++session.zh.md: 562a072a06844402be4e46e0b9d4c399f3e4f140
+diff --git a/docs/subsystems/session.md b/docs/subsystems/session.md
+index 8300df0d0f..7f25e0938d 100644
+--- a/docs/subsystems/session.md
++++ b/docs/subsystems/session.md
+@@ -74,7 +74,19 @@ interface SessionEventMap {
+     message: import('@deepseek-ai/dsh-llm').Message & { readonly role: 'user' | 'assistant' }
+   }
+   /** Feature configuration recorded independently of model-visible content. */
+-  'session/configuration': { key: string; value: unknown }
++  'session/configuration': {
++    key: string
++    value: unknown
++    /** Producer-owned display data; never added to model history implicitly. */
++    presentation?: {
++      /** Initialization creates visible content even before a model turn. */
++      initialized?: true
++      /** User-facing Session purpose, preserved in list summaries. */
++      label?: string
++      /** Explicitly searchable display text; arbitrary configuration stays unindexed. */
++      text?: string
++    }
++  }
+   /**
+    * Assembled assistant message for one step (derived history uses this).
+    * Carries the step's `usage` when the adapter reported token accounting, so
+diff --git a/docs/subsystems/session.zh.md b/docs/subsystems/session.zh.md
+index 18395c3b2c..562a072a06 100644
+--- a/docs/subsystems/session.zh.md
++++ b/docs/subsystems/session.zh.md
+@@ -74,7 +74,19 @@ interface SessionEventMap {
+     message: import('@deepseek-ai/dsh-llm').Message & { readonly role: 'user' | 'assistant' }
+   }
+   /** Feature configuration recorded independently of model-visible content. */
+-  'session/configuration': { key: string; value: unknown }
++  'session/configuration': {
++    key: string
++    value: unknown
++    /** Producer-owned display data; never added to model history implicitly. */
++    presentation?: {
++      /** Initialization creates visible content even before a model turn. */
++      initialized?: true
++      /** User-facing Session purpose, preserved in list summaries. */
++      label?: string
++      /** Explicitly searchable display text; arbitrary configuration stays unindexed. */
++      text?: string
++    }
++  }
+   /**
+    * Assembled assistant message for one step (derived history uses this).
+    * Carries the step's `usage` when the adapter reported token accounting, so
+diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
+index 773f826ae0..ace8c6230e 100644
+--- a/packages/api/session-controller/README.i18n.yaml
++++ b/packages/api/session-controller/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/api/session-controller/README.md
+-README.md: 5f2c5dc8a7eac076522697e3ba269995db907174
+-README.zh.md: 513ed340ae03bc123ed8d0666f3b3967af7fffc7
++README.md: 9f992823781453d93b69d33409c9a6f34de4aaac
++README.zh.md: 71ba170c465dc27b9c81da88901ba03971c1ef4e
+diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
+index 5f2c5dc8a7..9f99282378 100644
+--- a/packages/api/session-controller/README.md
++++ b/packages/api/session-controller/README.md
+@@ -89,3 +89,5 @@ None.
+ </details>
+ 
+ **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.
++
++Session list metadata treats presentation.initialized as visible content before the first turn and retains an optional producer purpose label. Search first returns current user, assistant and authored-context messages, then adds distinct sessions whose log-only configuration explicitly declares searchable presentation.text. Arbitrary configuration values and shadowed messages remain excluded. Each search class has the existing bounded work budget; results share the ordinary total result limit.
+diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
+index 513ed340ae..71ba170c46 100644
+--- a/packages/api/session-controller/README.zh.md
++++ b/packages/api/session-controller/README.zh.md
+@@ -89,3 +89,5 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用
+ </details>
+ 
+ **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。
++
++会话列表元数据将 presentation.initialized 视为首轮前已有可见内容，并保留可选的生产者用途标签。搜索先返回当前 user、assistant 和预置上下文消息，再补充只在日志配置中明确声明了可搜索 presentation.text 的其他会话。任意配置值和被替换消息仍不参与搜索。每类查询使用已有的工作量上限，结果共用原有总数限制。
+diff --git a/packages/api/session-controller/src/list.ts b/packages/api/session-controller/src/list.ts
+index 4aa369c378..1a4131def6 100644
+--- a/packages/api/session-controller/src/list.ts
++++ b/packages/api/session-controller/src/list.ts
+@@ -21,10 +21,11 @@ import type {
+ 
+ const SEARCH_PROVIDER_CALL_LIMIT = 100
+ const SESSION_SEARCH_QUERY_MAX_CHARS = 500
+-const MESSAGE_TYPES = new Set(['user/message', 'assistant/message'])
++const MESSAGE_TYPES = new Set(['user/message', 'assistant/message', 'context/message'])
+ 
+ const sessionListMetadataSchema: z.ZodType<SessionListMetadata> = z.object({
+   blank: z.boolean(),
++  label: z.string().optional(),
+   lastPromptAt: z.number().nullable(),
+ })
+ 
+@@ -47,13 +48,15 @@ export function applySessionListMetadata(
+   state: SessionListMetadata,
+   event: SessionEvent,
+ ): SessionListMetadata {
+-  const blank = state.blank && event.type !== 'turn/start'
++  const presentation = event.type === 'session/configuration' ? event.data.presentation : undefined
++  const blank = state.blank && event.type !== 'turn/start' && presentation?.initialized !== true
++  const label = presentation?.label ?? state.label
+   const lastPromptAt = event.type === 'user/message' && event.data.source.kind === 'user'
+     ? event.time
+     : state.lastPromptAt
+-  return blank === state.blank && lastPromptAt === state.lastPromptAt
++  return blank === state.blank && lastPromptAt === state.lastPromptAt && label === state.label
+     ? state
+-    : { blank, lastPromptAt }
++    : { blank, lastPromptAt, ...(label === undefined ? {} : { label }) }
+ }
+ 
+ /**
+@@ -83,7 +86,7 @@ export class ApiSessionList {
+       init: () => ({ blank: true, lastPromptAt: null }),
+       apply: applySessionListMetadata,
+       wire: { viewSchema: sessionListMetadataSchema, view: state => state },
+-      stateVersion: 1,
++      stateVersion: 2,
+     })
+     ctx.inject(['attachments'], (attachmentCtx) => {
+       ctx.sessionProjections.register<'imageLimits', null>({
+@@ -164,6 +167,18 @@ export class ApiSessionList {
+    * @returns authorized bounded Session search results.
+    */
+   async search(query: string, signal: AbortSignal): Promise<SessionSearchValue> {
++    const messages = await this.searchKind(query, signal, false)
++    if (messages.hasMore) return messages
++    const initialized = await this.searchKind(query, signal, true)
++    const ids = new Set(messages.items.map(item => item.sessionId))
++    const items = [...messages.items, ...initialized.items.filter(item => !ids.has(item.sessionId))]
++    return {
++      items: items.slice(0, SESSION_SEARCH_RESULT_LIMIT),
++      hasMore: initialized.hasMore || items.length > SESSION_SEARCH_RESULT_LIMIT,
++    }
++  }
++
++  private async searchKind(query: string, signal: AbortSignal, initialization: boolean): Promise<SessionSearchValue> {
+     const normalizedQuery = normalizeSearchQuery(query)
+     signal.throwIfAborted()
+     const provider = this.ctx.get('sessionQuery')
+@@ -200,8 +215,8 @@ export class ApiSessionList {
+           page = await provider.searchSessions({
+             query: normalizedQuery,
+             eventFilters: [
+-              { kind: 'type', values: ['user/message', 'assistant/message'] },
+-              { kind: 'surface', values: ['current'] },
++              { kind: 'type', values: initialization ? ['session/configuration'] : ['user/message', 'assistant/message', 'context/message'] },
++              { kind: 'surface', values: [initialization ? 'log-only' : 'current'] },
+             ],
+             limit: requestedLimit,
+             ...(requestedCursor === undefined ? {} : { cursor: requestedCursor }),
+@@ -234,8 +249,8 @@ export class ApiSessionList {
+           if (authorized.length > SESSION_SEARCH_RESULT_LIMIT) continue
+           if (!visibleIds.has(hit.header.id)
+             || hit.bestMatch.sessionId !== hit.header.id
+-            || hit.bestMatch.surface !== 'current'
+-            || !MESSAGE_TYPES.has(hit.bestMatch.type)
++            || hit.bestMatch.surface !== (initialization ? 'log-only' : 'current')
++            || !(initialization ? hit.bestMatch.type === 'session/configuration' : MESSAGE_TYPES.has(hit.bestMatch.type))
+             || acceptedIds.has(hit.header.id)) continue
+           acceptedIds.add(hit.header.id)
+           authorized.push({
+diff --git a/packages/api/session-controller/src/types.ts b/packages/api/session-controller/src/types.ts
+index 20408b45c0..c223dd47c8 100644
+--- a/packages/api/session-controller/src/types.ts
++++ b/packages/api/session-controller/src/types.ts
+@@ -43,7 +43,9 @@ declare module '@deepseek-ai/dsh-session/types' {
+ 
+ /** Persisted hints used to summarize a cold Session. */
+ export interface SessionListMetadata {
+-  /** Whether the folded prefix contains no turn. */
++  /** Optional producer-owned purpose label. */
++  readonly label?: string | undefined
++  /** Whether the folded prefix contains neither a turn nor initialized content. */
+   readonly blank: boolean
+   /** Latest human-authored prompt time in the folded prefix. */
+   readonly lastPromptAt: number | null
+diff --git a/packages/api/session-controller/tests/session-list-blank.host.spec.ts b/packages/api/session-controller/tests/session-list-blank.host.spec.ts
+index cdfbbda39b..c1f435f150 100644
+--- a/packages/api/session-controller/tests/session-list-blank.host.spec.ts
++++ b/packages/api/session-controller/tests/session-list-blank.host.spec.ts
+@@ -1,11 +1,4 @@
+-/**
+- * The summary blank bit means "conversation not started" (no turn has run),
+- * not "log empty": standalone plugin events — command lifecycle records,
+- * plan/mode, permission knob events, session titles — never flip it, so running /plan or /goal on a
+- * fresh session keeps it list-hidden and reusable, while the first accepted
+- * prompt's turn/start clears it. The host/session-added frame shares the
+- * same predicate function (covered by the workspace spec's frame assertion).
+- */
++/** Session lists retain initialized content without inventing a model turn. */
+ 
+ import { describe, expect, it } from 'vitest'
+ import { Context } from '@deepseek-ai/cordis'
+@@ -72,3 +65,16 @@ describe('summary blank = conversation not started', () => {
+     expect(await listBlank(remote, session.id)).toBe(false)
+   })
+ })
++
++it('initialization remains visible and carries a purpose without a user prompt', async () => {
++  const { ctx, remote, attach } = await harness()
++  try {
++    const session = ctx.sessions.create()
++    attach(session)
++    session.append('session/configuration', { key: 'opening', value: {}, presentation: { initialized: true, label: 'Reading' } })
++    const result = await remote.list({})
++    if (!result.ok) throw new Error('list failed')
++    expect(result.value.items.find(item => item.sessionId === session.id)).toMatchObject({ blank: false, projections: { values: { sessionListMetadata: { label: 'Reading', lastPromptAt: null } } } })
++    expect(session.snapshotEvents().some(event => event.type === 'turn/start')).toBe(false)
++  } finally { await ctx.fiber.dispose() }
++})
+diff --git a/packages/api/session-controller/tests/session-search.host.spec.ts b/packages/api/session-controller/tests/session-search.host.spec.ts
+index c616bc6910..bc852766bf 100644
+--- a/packages/api/session-controller/tests/session-search.host.spec.ts
++++ b/packages/api/session-controller/tests/session-search.host.spec.ts
+@@ -76,6 +76,7 @@ class SearchSessionQuery extends SessionQueryEngine {
+   override searchSessions(
+     ...args: Parameters<SessionQueryEngine['searchSessions']>
+   ): ReturnType<SessionQueryEngine['searchSessions']> {
++    if (args[0].eventFilters?.some(filter => filter.kind === 'type' && filter.values.includes('session/configuration'))) return Promise.resolve({ items: [] })
+     return this.search(...args) as ReturnType<SessionQueryEngine['searchSessions']>
+   }
+ 
+@@ -173,7 +174,7 @@ describe('session.search', () => {
+       eventFilters: [
+         {
+           kind: 'type',
+-          values: ['user/message', 'assistant/message'],
++          values: ['user/message', 'assistant/message', 'context/message'],
+         },
+         { kind: 'surface', values: ['current'] },
+       ],
+diff --git a/packages/client/ui-workspace/README.i18n.yaml b/packages/client/ui-workspace/README.i18n.yaml
+index db2cd9bd89..7d7d1a41df 100644
+--- a/packages/client/ui-workspace/README.i18n.yaml
++++ b/packages/client/ui-workspace/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-workspace/README.md
+-README.md: d504ad03e6153a987f94357bb939e75c592f7773
+-README.zh.md: 10c4acd2dfa3c04f9e1d0e2027451907b0ab8fea
++README.md: f135da38ebe424729bcbd52042074d95642292f8
++README.zh.md: c81a480fd41603e3f4dbff9c34961110439708ef
+diff --git a/packages/client/ui-workspace/README.md b/packages/client/ui-workspace/README.md
+index d504ad03e6..f135da38eb 100644
+--- a/packages/client/ui-workspace/README.md
++++ b/packages/client/ui-workspace/README.md
+@@ -121,3 +121,5 @@ None.
+ </details>
+ 
+ **Runtime invariant:** No companion is published. This is a pure-consumer plugin that registers presentational components into two host-declared slots and registers its locale dictionaries; its inject face consists of stateless RPC wrappers plus a create-and-open call. It emits no Cordis events and owns no cross-plugin mutable state.
++
++Session rows retain initialized conversations before a model turn and show the producer-owned purpose label from sessionListMetadata when present. The label is display data, not a built-in mode name.
+diff --git a/packages/client/ui-workspace/README.zh.md b/packages/client/ui-workspace/README.zh.md
+index 10c4acd2df..c81a480fd4 100644
+--- a/packages/client/ui-workspace/README.zh.md
++++ b/packages/client/ui-workspace/README.zh.md
+@@ -121,3 +121,5 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
+ </details>
+ 
+ **运行时不变式：** 不发布伴生入口。这是一个纯消费方插件，只向两个由宿主声明的 slot 注册展示组件，并注册自身的 locale dictionaries；inject face 由无状态 RPC 包装层和一次 create-and-open 调用组成；本插件不发出 Cordis 事件，也不持有跨插件可变状态。
++
++会话行在模型首轮前保留已经初始化的对话，并显示 sessionListMetadata 中可选的生产者用途标签。标签属于展示数据，不是内置模式名。
+diff --git a/packages/client/ui-workspace/src/client/rows/Rows.module.css b/packages/client/ui-workspace/src/client/rows/Rows.module.css
+index 7208d4d4b1..c377680da8 100644
+--- a/packages/client/ui-workspace/src/client/rows/Rows.module.css
++++ b/packages/client/ui-workspace/src/client/rows/Rows.module.css
+@@ -366,3 +366,7 @@
+     transition: none;
+   }
+ }
++
++.time + .time {
++  margin-left: 8px;
++}
+diff --git a/packages/client/ui-workspace/src/client/rows/Rows.tsx b/packages/client/ui-workspace/src/client/rows/Rows.tsx
+index 5456b8f615..672bbcd622 100644
+--- a/packages/client/ui-workspace/src/client/rows/Rows.tsx
++++ b/packages/client/ui-workspace/src/client/rows/Rows.tsx
+@@ -465,6 +465,7 @@ export function SessionNodeItem({
+         </span>
+       )}
+       <span className={css.title}>{title}</span>
++      {row.label !== undefined && <span className={css.time}>{row.label}</span>}
+       {row.hasActiveSchedule && <ActiveScheduleIndicator t={t} />}
+       {/* A blank New Session row is a provisional placeholder: nothing has
+           happened in it yet, so a "now" timestamp and the row verbs
+diff --git a/packages/client/ui-workspace/src/client/tree.ts b/packages/client/ui-workspace/src/client/tree.ts
+index 2e92965a59..c4a9d53599 100644
+--- a/packages/client/ui-workspace/src/client/tree.ts
++++ b/packages/client/ui-workspace/src/client/tree.ts
+@@ -40,6 +40,8 @@ type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteracti
+ 
+ /** One top-level session row in a group or the flat list. */
+ export interface SessionNode {
++  /** Optional producer-owned purpose. */
++  label?: string
+   id: SessionId
+   /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
+   title: string
+@@ -267,6 +269,7 @@ function sessionNode(
+     id: s.id,
+     title: sessionTitle(s),
+     blank: s.blank,
++    ...(s.projectionValues?.sessionListMetadata?.label === undefined ? {} : { label: s.projectionValues.sessionListMetadata.label }),
+     running: s.running,
+     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
+     completed: s.completed === true,
+diff --git a/packages/core/session/README.i18n.yaml b/packages/core/session/README.i18n.yaml
+index e4ccbdc3ec..abc314952d 100644
+--- a/packages/core/session/README.i18n.yaml
++++ b/packages/core/session/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/core/session/README.md
+-README.md: a18fd0de73a6aa7dc881f1472d991c133f81ad55
+-README.zh.md: 84cc0aa35da11a5a782e1949e32852785fb681c4
++README.md: 9910cd57383648b0cf0ed436fbb85cbd10d839c2
++README.zh.md: 230b0583047786919bb9b043fbceec2d4d09f57c
+diff --git a/packages/core/session/README.md b/packages/core/session/README.md
+index a18fd0de73..9910cd5738 100644
+--- a/packages/core/session/README.md
++++ b/packages/core/session/README.md
+@@ -194,3 +194,5 @@ These limits define when the session store needs special care. They are current
+ None.
+ 
+ </details>
++
++session/configuration may carry presentation.initialized, label and text. These fields preserve producer-owned display content without adding model history or usage. Invalid presentation fields are rejected at event validation. Consumers add model-visible messages separately through the authored-context path.
+diff --git a/packages/core/session/README.zh.md b/packages/core/session/README.zh.md
+index 84cc0aa35d..230b058304 100644
+--- a/packages/core/session/README.zh.md
++++ b/packages/core/session/README.zh.md
+@@ -194,3 +194,5 @@ session.deriveMessages()         // the derived model history
+ 无。
+ 
+ </details>
++
++session/configuration 可携带 presentation.initialized、label 和 text。这些字段保留生产者提供的展示内容，不增加模型历史或用量。事件校验拒绝无效展示字段；使用方通过预置上下文路径另行加入模型可见消息。
+diff --git a/packages/core/session/src/surface.ts b/packages/core/session/src/surface.ts
+index 55857a8718..7ee3d18203 100644
+--- a/packages/core/session/src/surface.ts
++++ b/packages/core/session/src/surface.ts
+@@ -144,6 +144,16 @@ export function validateSessionEventData(
+   subject: string,
+ ): void {
+   const data: unknown = event.data
++  if (event.type === 'session/configuration') {
++    if (!isRecord(data)) throw new Error(`${subject} configuration must be an object`)
++    const presentation = data['presentation']
++    if (presentation !== undefined && (!isRecord(presentation)
++      || Object.keys(presentation).some(key => !['initialized', 'label', 'text'].includes(key))
++      || (presentation['initialized'] !== undefined && presentation['initialized'] !== true)
++      || (presentation['label'] !== undefined && typeof presentation['label'] !== 'string')
++      || (presentation['text'] !== undefined && typeof presentation['text'] !== 'string')))
++      throw new Error(`${subject} invalid configuration presentation`)
++  }
+   if (event.type === 'context/message') {
+     if (!isRecord(data) || typeof data['groupId'] !== 'string' || data['groupId'].length === 0)
+       throw new Error(`${subject} context groupId must be nonempty`)
+diff --git a/packages/core/session/src/types.ts b/packages/core/session/src/types.ts
+index ec02fbbb63..12e3b12570 100644
+--- a/packages/core/session/src/types.ts
++++ b/packages/core/session/src/types.ts
+@@ -316,7 +316,19 @@ export interface SessionEventMap {
+     message: import('@deepseek-ai/dsh-llm').Message & { readonly role: 'user' | 'assistant' }
+   }
+   /** Feature configuration recorded independently of model-visible content. */
+-  'session/configuration': { key: string; value: unknown }
++  'session/configuration': {
++    key: string
++    value: unknown
++    /** Producer-owned display data; never added to model history implicitly. */
++    presentation?: {
++      /** Initialization creates visible content even before a model turn. */
++      initialized?: true
++      /** User-facing Session purpose, preserved in list summaries. */
++      label?: string
++      /** Explicitly searchable display text; arbitrary configuration stays unindexed. */
++      text?: string
++    }
++  }
+   /**
+    * Assembled assistant message for one step (derived history uses this).
+    * Carries the step's `usage` when the adapter reported token accounting, so
+diff --git a/packages/core/session/tests/surface.spec.ts b/packages/core/session/tests/surface.spec.ts
+index f8d3880626..0de4df47a4 100644
+--- a/packages/core/session/tests/surface.spec.ts
++++ b/packages/core/session/tests/surface.spec.ts
+@@ -981,3 +981,14 @@ describe('authored context records', () => {
+     expect(session.snapshotEvents()).toHaveLength(1)
+   })
+ })
++
++describe('configuration presentation', () => {
++  it('retains display fields in a log-only record and rejects malformed presentation', () => {
++    const session = Session.create(SessionId('display'))
++    const presentation = { initialized: true as const, text: 'Opening', label: 'Reading' }
++    session.append('session/configuration', { key: 'opening', value: {}, presentation })
++    expect(session.snapshotEvents()[0]).toMatchObject({ type: 'session/configuration', data: { presentation } })
++    expect(foldSurface(session.snapshotEvents()).nodes).toEqual([])
++    expect(() => session.append('session/configuration', { key: 'bad', value: {}, presentation: { text: 2 } as never })).toThrow('invalid configuration presentation')
++  })
++})
+diff --git a/packages/extensions/tool-cordis/src/api-catalog.ts b/packages/extensions/tool-cordis/src/api-catalog.ts
+index 343b09b366..3e626ba314 100644
+--- a/packages/extensions/tool-cordis/src/api-catalog.ts
++++ b/packages/extensions/tool-cordis/src/api-catalog.ts
+@@ -5148,7 +5148,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+   },
+   {
+     name: 'SessionEventMap',
+-    declaration: 'export interface SessionEventMap {\n    \'turn/start\': {\n        turn: number;\n    };\n    \'turn/end\': {\n        turn: number;\n        reason: TurnEndReason;\n    };\n    \'step/start\': {\n        turn: number;\n        step: number;\n    };\n    \'step/end\': {\n        turn: number;\n        step: number;\n    };\n    \'user/message\': UserMessage;\n    \'system/message\': {\n        turn: number;\n        step: number;\n        message: SystemMessage;\n    };\n    \'context/message\': {\n        groupId: string;\n        index: number;\n        name?: string;\n        message: import(\'@deepseek-ai/dsh-llm\').Message & {\n            readonly role: \'user\' | \'assistant\';\n        };\n    };\n    \'session/configuration\': {\n        key: string;\n        value: unknown;\n    };\n    \'assistant/message\': {\n        turn: number;\n        step: number;\n        message: AssistantMessage;\n        stream: AssistantStreamRecord[];\n        usage?: TokenUsage;\n        interrupted?: true;\n    };\n    \'assistant/attempt\': {\n        turn: number;\n        step: number;\n        stream: AssistantStreamRecord[];\n    };\n    \'tool/call\': {\n        turn: number;\n        step: number;\n        callId: ToolCallId;\n        name: string;\n        arguments: string;\n    };\n    \'tool/result\': {\n        turn: number;\n        step: number;\n        message: ToolResultMessage;\n        error?: {\n            name: string;\n            code: string;\n        };\n        meta?: JsonValue;\n    };\n    \'request/header\': {\n        header: EpochHeader;\n         /* …truncated — full shape in source */',
++    declaration: 'export interface SessionEventMap {\n    \'turn/start\': {\n        turn: number;\n    };\n    \'turn/end\': {\n        turn: number;\n        reason: TurnEndReason;\n    };\n    \'step/start\': {\n        turn: number;\n        step: number;\n    };\n    \'step/end\': {\n        turn: number;\n        step: number;\n    };\n    \'user/message\': UserMessage;\n    \'system/message\': {\n        turn: number;\n        step: number;\n        message: SystemMessage;\n    };\n    \'context/message\': {\n        groupId: string;\n        index: number;\n        name?: string;\n        message: import(\'@deepseek-ai/dsh-llm\').Message & {\n            readonly role: \'user\' | \'assistant\';\n        };\n    };\n    \'session/configuration\': {\n        key: string;\n        value: unknown;\n        presentation?: {\n            initialized?: true;\n            label?: string;\n            text?: string;\n        };\n    };\n    \'assistant/message\': {\n        turn: number;\n        step: number;\n        message: AssistantMessage;\n        stream: AssistantStreamRecord[];\n        usage?: TokenUsage;\n        interrupted?: true;\n    };\n    \'assistant/attempt\': {\n        turn: number;\n        step: number;\n        stream: AssistantStreamRecord[];\n    };\n    \'tool/call\': {\n        turn: number;\n        step: number;\n        callId: ToolCallId;\n        name: string;\n        arguments: string;\n    };\n    \'tool/result\': {\n        turn: number;\n        step: number;\n        message: ToolResultMessage;\n        error?: {\n            name: string;\n         /* …truncated — full shape in source */',
+   },
+   {
+     name: 'SessionEventMetadataFilter',
+diff --git a/packages/sdk/client/tests/fake-runtime.ts b/packages/sdk/client/tests/fake-runtime.ts
+index e37974a12d..c752d98ed1 100644
+--- a/packages/sdk/client/tests/fake-runtime.ts
++++ b/packages/sdk/client/tests/fake-runtime.ts
+@@ -121,7 +121,7 @@ function runTurn(sessionId: string): void {
+   }
+   event(sessionId, 'turn/start', { turn: 0 })
+   if (env.FAKE_AUTHORED_CONTEXT !== undefined) {
+-    event(sessionId, 'session/configuration', { key: 'fixture', value: { selected: true } })
++    event(sessionId, 'session/configuration', { key: 'fixture', value: { selected: true }, presentation: { initialized: true, label: 'Reading', text: 'Opening' } })
+     event(sessionId, 'context/message', { groupId: 'fixture', index: 0, name: 'Authored', message: { id: 'authored', role: 'assistant', source: { kind: 'plugin', plugin: 'fixture' }, content: [{ type: 'text', text: 'Not model output' }] } })
+   }
+   if (env.FAKE_MALFORMED_MESSAGE !== undefined) {
+diff --git a/packages/sdk/client/tests/sdk-client.spec.ts b/packages/sdk/client/tests/sdk-client.spec.ts
+index 203b26434c..45212a35fe 100644
+--- a/packages/sdk/client/tests/sdk-client.spec.ts
++++ b/packages/sdk/client/tests/sdk-client.spec.ts
+@@ -128,7 +128,7 @@ describe('DeepSeekHarness', () => {
+     expect(result.events.find(event => event.type === 'context/message')?.data).toEqual({
+       groupId: 'fixture', index: 0, name: 'Authored', message: { id: 'authored', role: 'assistant', source: { kind: 'plugin', plugin: 'fixture' }, content: [{ type: 'text', text: 'Not model output' }] },
+     })
+-    expect(result.events.find(event => event.type === 'session/configuration')?.data).toEqual({ key: 'fixture', value: { selected: true } })
++    expect(result.events.find(event => event.type === 'session/configuration')?.data).toEqual({ key: 'fixture', value: { selected: true }, presentation: { initialized: true, label: 'Reading', text: 'Opening' } })
+   })
+ 
+   it('runs a turn end to end and reuses the runtime across sessions', async () => {
+diff --git a/packages/session-query/session-query-sqlite/README.i18n.yaml b/packages/session-query/session-query-sqlite/README.i18n.yaml
+index eacb83a0cf..fd5076117a 100644
+--- a/packages/session-query/session-query-sqlite/README.i18n.yaml
++++ b/packages/session-query/session-query-sqlite/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/session-query/session-query-sqlite/README.md
+-README.md: da99dc20eee0b9366364f184c618a961d83ae044
+-README.zh.md: 4ba088fc0dea55db60c1cc7a36743b6511a53481
++README.md: ef9dcfa2450c86223921e5804f5a475ae39a1593
++README.zh.md: 0eab4bbb1e2ee762fbbc6b390adf029b2f99085a
+diff --git a/packages/session-query/session-query-sqlite/README.md b/packages/session-query/session-query-sqlite/README.md
+index da99dc20ee..ef9dcfa245 100644
+--- a/packages/session-query/session-query-sqlite/README.md
++++ b/packages/session-query/session-query-sqlite/README.md
+@@ -106,7 +106,7 @@ Persisted FTS rows live in a dedicated derived database and survive restarts; li
+ 
+ ### Schema ownership
+ 
+-The database carries an application id and schema version 8. Opening refuses a file owned by another application or a canonical database, rejects unknown user tables, and only a recognized incompatible derived schema resets in place — so an unrelated or session-persistence database is never touched. On POSIX filesystems, missing directories and database files are created owner-only (`0700` and `0600` before the process umask). Exactly one service in one process owns a derived-index path; generations and TEMP shadow state are connection-owned.
++The database carries an application id and schema version 9. Opening refuses a file owned by another application or a canonical database, rejects unknown user tables, and only a recognized incompatible derived schema resets in place — so an unrelated or session-persistence database is never touched. On POSIX filesystems, missing directories and database files are created owner-only (`0700` and `0600` before the process umask). Exactly one service in one process owns a derived-index path; generations and TEMP shadow state are connection-owned.
+ 
+ </details>
+ 
+diff --git a/packages/session-query/session-query-sqlite/README.zh.md b/packages/session-query/session-query-sqlite/README.zh.md
+index 4ba088fc0d..0eab4bbb1e 100644
+--- a/packages/session-query/session-query-sqlite/README.zh.md
++++ b/packages/session-query/session-query-sqlite/README.zh.md
+@@ -106,7 +106,7 @@ kind: "package-reference"
+ 
+ ### Schema 归属
+ 
+-数据库携带 application id 与 schema 版本 8。打开时拒绝其他应用程序拥有的文件或规范数据库，拒绝未知用户表；只有已识别的不兼容派生 schema 才会原地重置——因此不相关或 session-persistence 数据库绝不会被触碰。在 POSIX 文件系统上，缺失的目录与数据库文件以仅所有者可访问的方式创建（进程 umask 前为 `0700` 与 `0600`）。每个派生索引路径在一个进程中只能由一个服务拥有；世代与 TEMP 遮蔽状态由连接持有。
++数据库携带 application id 与 schema 版本 9。打开时拒绝其他应用程序拥有的文件或规范数据库，拒绝未知用户表；只有已识别的不兼容派生 schema 才会原地重置——因此不相关或 session-persistence 数据库绝不会被触碰。在 POSIX 文件系统上，缺失的目录与数据库文件以仅所有者可访问的方式创建（进程 umask 前为 `0700` 与 `0600`）。每个派生索引路径在一个进程中只能由一个服务拥有；世代与 TEMP 遮蔽状态由连接持有。
+ 
+ </details>
+ 
+diff --git a/packages/session-query/session-query-sqlite/src/schema.ts b/packages/session-query/session-query-sqlite/src/schema.ts
+index 6ad031f77f..34bc8e3e0d 100644
+--- a/packages/session-query/session-query-sqlite/src/schema.ts
++++ b/packages/session-query/session-query-sqlite/src/schema.ts
+@@ -5,7 +5,7 @@ import { mkdir, open } from 'node:fs/promises'
+ import { dirname, resolve } from 'node:path'
+ 
+ /** Current derived-index schema version. Incompatible versions reset in place. */
+-export const SESSION_QUERY_SQLITE_SCHEMA_VERSION = 8
++export const SESSION_QUERY_SQLITE_SCHEMA_VERSION = 9
+ 
+ /** SQLite application id protecting unrelated databases from derived resets. */
+ export const SESSION_QUERY_SQLITE_APPLICATION_ID = 0x44534851
+diff --git a/packages/session-query/session-query/README.i18n.yaml b/packages/session-query/session-query/README.i18n.yaml
+index 2292999440..222acef177 100644
+--- a/packages/session-query/session-query/README.i18n.yaml
++++ b/packages/session-query/session-query/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/session-query/session-query/README.md
+-README.md: 5971903ef06035e73e6db57d3f437eec7a2aa8d9
+-README.zh.md: e389975f436501093785e931c246d75279e2a0b6
++README.md: c23a1ae2bc51d687e1bcf8190863aef30ff3ee90
++README.zh.md: b8896de72bc5b0e0c34513f31ed2ec242f430256
+diff --git a/packages/session-query/session-query/README.md b/packages/session-query/session-query/README.md
+index 5971903ef0..c23a1ae2bc 100644
+--- a/packages/session-query/session-query/README.md
++++ b/packages/session-query/session-query/README.md
+@@ -165,3 +165,5 @@ This Dev Note is working context for maintainers: open design questions and dire
+ Recursive traversal through cited source events, extractor and search-provider registries, and additional model-facing surfaces are deferred; the [tool-session-query README](../tool-session-query/README.md) documents the current consumer surface.
+ 
+ </details>
++
++Semantic extraction indexes only presentation.text from session/configuration. The configuration value is not recursively indexed. Authored context retains its real event identity and surface membership.
+diff --git a/packages/session-query/session-query/README.zh.md b/packages/session-query/session-query/README.zh.md
+index e389975f43..b8896de72b 100644
+--- a/packages/session-query/session-query/README.zh.md
++++ b/packages/session-query/session-query/README.zh.md
+@@ -165,3 +165,5 @@ kind: "package-reference"
+ 对被引用源事件的递归遍历、提取器与搜索提供方注册表以及更多面向模型表面均被推迟；[tool-session-query README](../tool-session-query/README.zh.md)说明了当前的消费方表面。
+ 
+ </details>
++
++语义提取只索引 session/configuration 中的 presentation.text，不递归索引配置值。预置上下文保留真实事件身份与模型历史归属。
+diff --git a/packages/session-query/session-query/src/extraction.ts b/packages/session-query/session-query/src/extraction.ts
+index 96aab60c48..e85ff45244 100644
+--- a/packages/session-query/session-query/src/extraction.ts
++++ b/packages/session-query/session-query/src/extraction.ts
+@@ -14,6 +14,8 @@ import type {} from '@deepseek-ai/dsh-tool-todo'
+  */
+ export function extractSessionEventText(event: SessionEvent): string {
+   switch (event.type) {
++    case 'session/configuration':
++      return event.data.presentation?.text ?? ''
+     case 'user/message':
+       return contentText(event.data.content)
+     case 'context/message':
+diff --git a/packages/session-query/session-query/tests/search-helpers.spec.ts b/packages/session-query/session-query/tests/search-helpers.spec.ts
+index 2700a7e877..85fed83a57 100644
+--- a/packages/session-query/session-query/tests/search-helpers.spec.ts
++++ b/packages/session-query/session-query/tests/search-helpers.spec.ts
+@@ -315,3 +315,9 @@ it('registers exact and abstract search behavior under one ctx key', async () =>
+   await fiber.dispose()
+   expect(ctx.sessionQuery).toBeUndefined()
+ })
++
++it('indexes declared initialization text without indexing arbitrary configuration', () => {
++  const configuration = { type: 'session/configuration', seq: SessionSeq(0), time: 1, data: { key: 'opening', value: { privateSetting: 'Not searchable' }, presentation: { text: 'Visible opening' } } } as SessionEvent<'session/configuration'>
++  expect(extractSessionEventText(configuration)).toBe('Visible opening')
++  expect(extractSessionEventText({ ...configuration, data: { key: 'settings', value: 'Not searchable' } })).toBe('')
++})
+diff --git a/python/sdk/tests/test_client.py b/python/sdk/tests/test_client.py
+index 2dd1e7940c..cb3c5bbe78 100644
+--- a/python/sdk/tests/test_client.py
++++ b/python/sdk/tests/test_client.py
+@@ -43,6 +43,7 @@ for line in sys.stdin:
+         print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "agent/inbox/spliced", "data": {"target": "next-turn", "start": 0, "inserted": [{"id": "message-1"}]}}}}), flush=True)
+         print(json.dumps({"jsonrpc": "2.0", "method": "session.status", "params": {"sessionId": params["sessionId"], "status": "running"}}), flush=True)
+         print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"messageId": "message-1"}}), flush=True)
++        print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "session/configuration", "data": {"key": "opening", "value": {}, "presentation": {"initialized": True, "label": "Reading", "text": "Opening"}}}}}), flush=True)
+         print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "context/message", "data": {"groupId": "fixture", "index": 0, "message": {"role": "assistant", "source": {"kind": "plugin", "plugin": "fixture"}, "content": [{"type": "text", "text": "Not model output"}]}}}}}), flush=True)
+         print(json.dumps({
+             "jsonrpc": "2.0",
+@@ -109,6 +110,7 @@ for line in sys.stdin:
+         result = harness.run("say hello", session_id="main")
+ 
+     assert result.final_response == "hello from runtime"
++    assert next(event for event in result.events if event["type"] == "session/configuration")["data"]["presentation"]["text"] == "Opening"
+     assert next(event for event in result.events if event["type"] == "context/message")["data"]["message"]["role"] == "assistant"
+     assert result.finish_reason == "max-tokens"
+     assert result.events[-1]["type"] == "turn/end"
+diff --git a/snapshots/session/authored-context/context.mjs b/snapshots/session/authored-context/context.mjs
+index 5128a2806d..a91e3c01e3 100644
+--- a/snapshots/session/authored-context/context.mjs
++++ b/snapshots/session/authored-context/context.mjs
+@@ -1,5 +1,8 @@
+ /** A deterministic authored prefix, supplied through the public pre-step hook. */
+ export function apply(ctx) {
++  ctx.on('agent/created', ({ agent }) => {
++    agent.session.append('session/configuration', { key: 'fixture-opening', value: {}, presentation: { initialized: true, label: 'Reading', text: 'A named initial question.' } })
++  })
+   ctx.on('agent/pre-step', async (_payload, next) => {
+     const decision = await next()
+     if (decision.kind === 'reject') return decision
+diff --git a/snapshots/session/authored-context/session.v3.jsonl b/snapshots/session/authored-context/session.v3.jsonl
+index 6776b3f507..2e98b48394 100644
+--- a/snapshots/session/authored-context/session.v3.jsonl
++++ b/snapshots/session/authored-context/session.v3.jsonl
+@@ -2,6 +2,7 @@
+ {"type":"permission/preset","data":{"preset":"danger-full-access"}}
+ {"type":"sandbox/mode","data":{"mode":"danger-full-access"}}
+ {"type":"approval/policy","data":{"policy":"never"}}
++{"type":"session/configuration","data":{"key":"fixture-opening","value":{},"presentation":{"initialized":true,"label":"Reading","text":"A named initial question."}}}
+ {"type":"agent/inbox/spliced","data":{"target":"next-turn","start":0,"inserted":[{"content":[{"type":"text","text":"Reply with exactly the word: PONG. Do not use any tools."}],"source":{"kind":"user"},"role":"user","id":"{{message:1}}"}]}}
+ {"type":"turn/start","data":{"turn":1}}
+ {"type":"agent/inbox/spliced","data":{"target":"next-turn","start":0,"removedCount":1,"inserted":[]}}
+@@ -13,7 +14,7 @@
+ {"type":"user/message","data":{"content":[{"type":"text","text":"Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."}],"source":{"kind":"plugin","plugin":"@deepseek-ai/dsh-system-prompt","form":"snapshot","sections":[{"name":"sandbox:policy","text":"Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations."},{"name":"approval:policy","text":"Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."}]},"role":"user","id":"{{message:3}}"},"surfaceOp":"append"}
+ {"type":"request/header","data":{"header":{"config":{"provider":"deepseek-official","model":"deepseek-v4-flash"},"tools":"{{tools}}"},"reason":"initial"}}
+ {"type":"request/context","data":{"provider":"deepseek-official","model":"deepseek-v4-flash"}}
+-{"type":"session/title","data":{"title":"Reply with exactly the word:","messageSeqs":[10],"source":{"kind":"fallback"}}}
+-{"type":"assistant/message","data":{"turn":1,"step":1,"message":{"role":"assistant","content":[{"type":"reasoning","text":"The user wants me to reply with exactly the word \"PONG\" and not use any tools."},{"type":"text","text":"PONG"}],"source":{"kind":"model","provider":"deepseek-official","model":"deepseek-v4-flash"},"id":"{{message:4}}"},"usage":{"inputTokens":3091,"outputTokens":23,"cacheReadTokens":0,"reasoningTokens":20},"stream":[{"type":"chunk","time":1789227702571,"chunk":{"type":"block-start","index":0,"blockType":"reasoning"}},{"type":"reasoning-chunks","time0":1789227702571,"index":0,"dt":[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"texts":["The"," user"," wants"," me"," to"," reply"," with"," exactly"," the"," word"," \"","P","ONG","\""," and"," not"," use"," any"," tools","."]},{"type":"chunk","time":1789227702572,"chunk":{"type":"block-start","index":1,"blockType":"text"}},{"type":"text-chunks","time0":1789227702572,"index":1,"dt":[0],"texts":["P","ONG"]},{"type":"chunk","time":1789227702572,"chunk":{"type":"block-end","index":0,"block":{"type":"reasoning","text":"The user wants me to reply with exactly the word \"PONG\" and not use any tools."}}},{"type":"chunk","time":1789227702572,"chunk":{"type":"block-end","index":1,"block":{"type":"text","text":"PONG"}}},{"type":"chunk","time":1789227702572,"chunk":{"type":"usage","usage":{"inputTokens":3091,"outputTokens":23,"cacheReadTokens":0,"reasoningTokens":20}}},{"type":"chunk","time":1789227702572,"chunk":{"type":"finish","reason":{"kind":"stop"}}}]},"surfaceOp":"append"}
++{"type":"session/title","data":{"title":"Reply with exactly the word:","messageSeqs":[11],"source":{"kind":"fallback"}}}
++{"type":"assistant/message","data":{"turn":1,"step":1,"message":{"role":"assistant","content":[{"type":"reasoning","text":"The user wants me to reply with exactly the word \"PONG\" and not use any tools."},{"type":"text","text":"PONG"}],"source":{"kind":"model","provider":"deepseek-official","model":"deepseek-v4-flash"},"id":"{{message:4}}"},"usage":{"inputTokens":3091,"outputTokens":23,"cacheReadTokens":0,"reasoningTokens":20},"stream":[{"type":"chunk","time":1789292368159,"chunk":{"type":"block-start","index":0,"blockType":"reasoning"}},{"type":"reasoning-chunks","time0":1789292368159,"index":0,"dt":[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],"texts":["The"," user"," wants"," me"," to"," reply"," with"," exactly"," the"," word"," \"","P","ONG","\""," and"," not"," use"," any"," tools","."]},{"type":"chunk","time":1789292368160,"chunk":{"type":"block-start","index":1,"blockType":"text"}},{"type":"text-chunks","time0":1789292368160,"index":1,"dt":[0],"texts":["P","ONG"]},{"type":"chunk","time":1789292368160,"chunk":{"type":"block-end","index":0,"block":{"type":"reasoning","text":"The user wants me to reply with exactly the word \"PONG\" and not use any tools."}}},{"type":"chunk","time":1789292368160,"chunk":{"type":"block-end","index":1,"block":{"type":"text","text":"PONG"}}},{"type":"chunk","time":1789292368160,"chunk":{"type":"usage","usage":{"inputTokens":3091,"outputTokens":23,"cacheReadTokens":0,"reasoningTokens":20}}},{"type":"chunk","time":1789292368160,"chunk":{"type":"finish","reason":{"kind":"stop"}}}]},"surfaceOp":"append"}
+ {"type":"step/end","data":{"turn":1,"step":1}}
+ {"type":"turn/end","data":{"turn":1,"reason":{"kind":"completed"}}}

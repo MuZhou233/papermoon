@@ -1,3 +1,5 @@
+import { SubmissionDialog } from './submission.tsx'
+import { FrozenCompilation } from './frozen.tsx'
 import { useEffect, useState, useSyncExternalStore, useRef } from 'react'
 import { BookIcon, Button, CodeDiff, Input, Select, Tabs } from '@papermoon/ui'
 import type {
@@ -369,10 +371,10 @@ function Overview({
       )}
       <div className="pm-cards" aria-busy={busy}>
         {rows.map((script) => (
-          <button
+          <div key={script.id} className="pm-card-container"><button
             key={script.id}
             className="pm-script-card"
-            onClick={() => go({ scriptId: script.id, tab: 'draft' })}
+            onClick={() => go({ scriptId: script.id, tab: 'latest' })}
           >
             <span className="pm-card-icon">
               <BookIcon size={28} />
@@ -387,7 +389,7 @@ function Overview({
               </span>
               <span aria-hidden="true">↗</span>
             </div>
-          </button>
+          </button><Button variant="primary" disabled={!script.latestOrdinal} onClick={() => window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { scriptId: script.id } }))}>{t('startPerformance')}</Button></div>
         ))}
       </div>
       {!rows.length && !busy && (
@@ -496,9 +498,9 @@ function Detail({
       <Tabs
         label={t('navigation')}
         value={route.tab}
-        items={['draft', 'history', 'settings'].map((id) => ({
+        items={['latest', 'draft', 'history', 'settings'].map((id) => ({
           id,
-          label: t(id as 'draft' | 'history' | 'settings'),
+          label: t(id as 'latest' | 'draft' | 'history' | 'settings'),
         }))}
         onChange={(tab) => go({ scriptId: id, tab: tab as Route['tab'] })}
       />
@@ -593,6 +595,7 @@ function Workspace({
     [error, setError] = useState<unknown>(null),
     [version, setVersion] = useState(0),
     [serverComparison, setServerComparison] = useState(false),
+    [submission, setSubmission] = useState(false),
     [target, setTarget] = useState<DiagnosticTarget>()
   const { operations, base } = state,
     dirty = operations.length > 0
@@ -790,6 +793,7 @@ function Workspace({
           )}
         </div>
       )}
+      {submission && <SubmissionDialog api={runtime.api} scriptId={info.id} sequence={base.draft.sequence} content={base.content ? fromDTO(base.content) : state.content} t={t} close={() => setSubmission(false)} committed={async result => { await editor.refresh(); setVersion(v => v + 1); go({ scriptId: info.id, tab: 'history', revisionId: result.revision.id }) }} />}
       {route.tab === 'draft' ? (
         <>
           <div className="pm-workbar">
@@ -824,42 +828,7 @@ function Workspace({
             <Button
               variant="primary"
               disabled={dirty || state.saving || !!state.conflict}
-              onClick={() =>
-                ask({
-                  api: runtime.api,
-                  title: t('commit'),
-                  description: t('commitHint'),
-                  fields: [
-                    {
-                      id: 'description',
-                      label: t('revisionDescription'),
-                      multiline: true,
-                    },
-                    {
-                      id: 'references',
-                      label: t('references'),
-                      references: true,
-                      multiple: true,
-                      optional: true,
-                    },
-                  ],
-                  submit: async (v) => {
-                    requireSaved()
-                    await runtime.api.call('commit', {
-                      scriptId: info.id,
-                      expectedSequence:
-                        editor.getSnapshot().base.draft.sequence,
-                      description: v.description!,
-                      references: v.references
-                        ?.split('\n')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                    await editor.refresh()
-                    setVersion((v) => v + 1)
-                  },
-                })
-              }
+              onClick={() => { requireSaved(); setSubmission(true) }}
             >
               {t('commit')}
             </Button>
@@ -1000,7 +969,7 @@ function RevisionBrowser({
     }>(),
     [busy, setBusy] = useState(false),
     [current, setCurrent] = useState<HistoryEntry>(),
-    [target, setTarget] = useState<DiagnosticTarget>()
+    [target] = useState<DiagnosticTarget>()
   useEffect(() => {
     let alive = true
     runtime.api
@@ -1019,12 +988,13 @@ function RevisionBrowser({
   useEffect(() => {
     setSnapshot(undefined)
     setComparison(undefined)
-    if (!route.revisionId) return
+    const selected = route.tab === 'latest' ? rows[0]?.revision.id : route.revisionId
+    if (!selected) return
     let alive = true
     runtime.api
       .call('revision', {
         scriptId: route.scriptId!,
-        revisionId: route.revisionId,
+        revisionId: selected,
       })
       .then((result) => {
         if (alive) {
@@ -1036,15 +1006,15 @@ function RevisionBrowser({
     return () => {
       alive = false
     }
-  }, [route.revisionId, runtime])
+  }, [route.revisionId, route.tab, route.scriptId, rows, runtime])
   return (
-    <section className="pm-history">
+    <section className={route.tab === 'latest' ? 'pm-latest' : 'pm-history'}>
       {error != null && (
         <div role="alert" className="pm-error">
           {message(error)}
         </div>
       )}
-      <aside className="pm-history-list">
+      {route.tab !== 'latest' && <aside className="pm-history-list">
         {!rows.length && <p className="pm-muted">{t('noRevisions')}</p>}
         {rows.map((row) => (
           <button
@@ -1059,7 +1029,7 @@ function RevisionBrowser({
               {t('revision')} {row.ordinal}
             </strong>
             <span>{row.revision.description}</span>
-            <small>{new Date(row.revision.createdAt).toLocaleString()}</small>
+            <small>{row.revision.attachments.items.length ? t('attachedResults') : t('noArtifactsShort')} · {new Date(row.revision.createdAt).toLocaleString()}</small>
           </button>
         ))}
         {next && (
@@ -1080,7 +1050,7 @@ function RevisionBrowser({
             {t('more')}
           </Button>
         )}
-      </aside>
+      </aside>}
       <div className="pm-revision-detail">
         {snapshot?.kind === 'revision' ? (
           <>
@@ -1108,6 +1078,7 @@ function RevisionBrowser({
                 </details>
               )}
               <div className="pm-actions">
+                <Button variant="primary" disabled={!snapshot.revision.attachments.items.length} onClick={() => window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { scriptId: route.scriptId, revisionId: snapshot.revision.id } }))}>{t('startPerformance')}</Button>
                 <Button
                   onClick={() =>
                     setComparison({
@@ -1173,15 +1144,7 @@ function RevisionBrowser({
                 />
               </div>
             </div>
-            <CompilationPanel
-              key={snapshot.revision.id}
-              api={runtime.api}
-              source={{ scriptId: route.scriptId!, ref: { kind: 'revision', revisionId: snapshot.revision.id } }}
-              content={fromDTO(snapshot.content)}
-              t={t}
-              ask={ask}
-              locate={(target) => { setComparison(undefined); setTarget(target) }}
-            />
+            <FrozenCompilation key={snapshot.revision.id} api={runtime.api} scriptId={route.scriptId!} revisionId={snapshot.revision.id} t={t} />
             {comparison ? (
               <Comparison
                 key={JSON.stringify(comparison)}

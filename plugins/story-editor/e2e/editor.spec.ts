@@ -56,7 +56,7 @@ test('explicit compilation saves artifacts and previews exact roles after refres
   await login(page)
   const project = await rpc(page, 'createProject', { name: 'Compilation' })
   const script = await rpc(page, 'createScript', { projectId: project.id, name: 'Opening', defaultLanguage: 'en' })
-  await goto(page, new URL('/#papermoon/' + script.id, server.url).href)
+  await goto(page, new URL('/#papermoon/' + script.id + '?tab=draft', server.url).href)
   const panel = page.getByRole('region', { name: 'Compilation', exact: true })
   await expect(panel.getByRole('status')).toHaveText('Not compiled')
   await expect(panel.locator('.pm-diagnostics')).toHaveCount(0)
@@ -93,9 +93,8 @@ test('explicit compilation saves artifacts and previews exact roles after refres
   await expect(panel).toContainText('Edited')
   const committed = await rpc(page, 'commit', { scriptId: script.id, expectedSequence: 2, description: 'Opening context' })
   await goto(page, new URL('/#papermoon/' + script.id + '?tab=history&revision=' + committed.revision.id, server.url).href)
-  await panel.getByRole('button', { name: 'Compile', exact: true }).click()
-  await expect(panel.getByRole('status')).toHaveText('Compiled')
-  await expect(panel.locator('.pm-compile-origin')).toContainText(committed.revision.id)
+  await expect(page.getByRole('button', { name: 'Compile', exact: true })).toHaveCount(0)
+  await expect(page.locator('.pm-compilation')).toContainText('Edited')
   await expect(page.locator('.cm-content[contenteditable=true]')).toHaveCount(0)
   await page.setViewportSize({ width: 520, height: 850 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -109,7 +108,7 @@ test('diagnostics navigate to source and text, and stale results cannot navigate
     { kind: 'create-file', path: 'story.js', source: '\nconst x = ;' },
     { kind: 'create-text', key: 'missing' },
   ] })
-  await goto(page, new URL('/#papermoon/' + script.id, server.url).href)
+  await goto(page, new URL('/#papermoon/' + script.id + '?tab=draft', server.url).href)
   const panel = page.getByRole('region', { name: 'Compilation', exact: true })
   await panel.getByRole('button', { name: 'Compile', exact: true }).click()
   await expect(panel.getByRole('status')).toHaveText('Compilation failed')
@@ -179,7 +178,10 @@ test('manual program and text edits persist as immutable revisions', async ({
   await page
     .getByRole('textbox', { name: 'Revision description', exact: true })
     .fill('First playable idea')
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit revision', exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('Compilation failed')
+  await page.getByRole('checkbox', { name: 'Allow submission when compilation fails', exact: true }).check()
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit revision', exact: true }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.getByRole('tab', { name: 'Revisions', exact: true }).click()
   await page.locator('.pm-history-row').first().click()
@@ -221,12 +223,12 @@ test('RPC authentication and cross-window conflicts preserve pending text', asyn
     expectedSequence: 0,
     operations: [{ kind: 'create-file', path: 'test.js', source: 'base' }],
   })
-  await goto(page, new URL('/#papermoon/' + script.id, server.url).href)
+  await goto(page, new URL('/#papermoon/' + script.id + '?tab=draft', server.url).href)
   await page.getByRole('button', { name: 'test.js', exact: true }).click()
   await page.locator('.cm-content[contenteditable=true]').fill('local pending')
   const other = await context.newPage()
   await login(other)
-  await goto(other, new URL('/#papermoon/' + script.id, server.url).href)
+  await goto(other, new URL('/#papermoon/' + script.id + '?tab=draft', server.url).href)
   await other.getByRole('button', { name: 'test.js', exact: true }).click()
   await other.locator('.cm-content[contenteditable=true]').fill('other saved')
   await other.getByRole('button', { name: 'Save draft', exact: true }).click()
@@ -281,7 +283,7 @@ test('responsive overview and independent script copy', async ({ page }) => {
   const committed = await rpc(page, 'commit', {
     scriptId: script.id,
     expectedSequence: 0,
-    description: 'Empty but valid',
+    description: 'Empty but valid', allowCompilationFailure: true,
   })
   const copied = await rpc(page, 'copy', {
     sourceScriptId: script.id,
@@ -337,7 +339,7 @@ test('historical comparison, partial restoration and copy use saved revisions', 
   const first = await rpc(page, 'commit', {
     scriptId: script.id,
     expectedSequence: 1,
-    description: 'Initial text',
+    description: 'Initial text', allowCompilationFailure: true,
   })
   await rpc(page, 'save', {
     scriptId: script.id,
@@ -355,7 +357,7 @@ test('historical comparison, partial restoration and copy use saved revisions', 
   await rpc(page, 'commit', {
     scriptId: script.id,
     expectedSequence: 3,
-    description: 'Revised text',
+    description: 'Revised text', allowCompilationFailure: true,
   })
   await goto(
     page,
@@ -414,7 +416,7 @@ test('code editing preserves CRLF and undo across program and text panels', asyn
       { kind: 'create-file', path: 'raw.js', source: 'first\r\nsecond\r\n' },
     ],
   })
-  await goto(page, new URL('/#papermoon/' + script.id, server.url).href)
+  await goto(page, new URL('/#papermoon/' + script.id + '?tab=draft', server.url).href)
   await page.getByRole('button', { name: 'raw.js', exact: true }).click()
   const source = page.locator('.cm-content[contenteditable=true]')
   await source.click()

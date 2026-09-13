@@ -1,3 +1,4 @@
+import { CompilationService, ArtifactStore } from '@papermoon/story-compiler/service'
 import { afterEach, expect, test } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -6,9 +7,9 @@ import { StoryStorage } from '@papermoon/story-storage'
 import { StoryRepository } from '@papermoon/story-core/repository'
 import { createStoryTools } from '../src/index.ts'
 import { toolCatalog, type ToolName } from '../src/catalog.ts'
-const cleanups: (() => void)[] = []
-afterEach(() => {
-  for (const cleanup of cleanups.splice(0).reverse()) cleanup()
+const cleanups: (() => void | Promise<void>)[] = []
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
 })
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'papermoon-tools-'))
@@ -24,7 +25,9 @@ function fixture() {
       name: 'A',
       defaultLanguage: 'en',
     })
-  const tools = createStoryTools(repository, script.id)
+  const compiler = new CompilationService(repository, new ArtifactStore(join(directory, 'compiled')))
+  cleanups.push(() => compiler.close())
+  const tools = createStoryTools(repository, script.id, undefined, compiler)
   const call = (name: ToolName, args: unknown) =>
     tools
       .find((tool) => tool.name === name)!
@@ -48,7 +51,7 @@ test('program batches preserve exact strings, validate final paths and commit im
       },
     ],
   })
-  const committed = await call('story_commit', {
+  const committed = await call('story_commit', { allowCompilationFailure: true,
     expectedSequence: 2,
     description: ' draft ',
     entryMetadata: { stage: 'first' },
@@ -216,7 +219,7 @@ test('draft pagination requires pinned identities and cancellation does not save
 })
 test('catalog includes only available operations and help is callable', async () => {
   const { tools, call } = fixture()
-  expect(toolCatalog().filter(tool => tool.name !== 'story_compile').map((tool) => tool.name)).toEqual(
+  expect(toolCatalog().map((tool) => tool.name)).toEqual(
     tools.map((tool) => tool.name),
   )
   expect(toolCatalog()).toHaveLength(15)
@@ -245,13 +248,13 @@ test('commit references identify revisions, reject file paths at their parameter
       { kind: 'set-translation', key: 'opening', language: 'en', text: 'Opening' },
     ],
   })
-  await call('story_commit', { expectedSequence: 2, description: 'First' })
+  await call('story_commit', { allowCompilationFailure: true, expectedSequence: 2, description: 'First' })
   const first = repository.listRevisions(script.id).items[0]!.revision
   const other = repository.createScript({ projectId: project.id, name: 'Other', defaultLanguage: 'en' })
   const foreign = repository.commitRevision({ scriptId: other.id, expectedSequence: 0, description: 'Other' }).revision.id
   const before = repository.readSnapshot({ kind: 'draft', scriptId: script.id })
   for (const invalid of ['story.js', 'missing-revision', foreign]) {
-    await expect(call('story_commit', {
+    await expect(call('story_commit', { allowCompilationFailure: true,
       expectedSequence: 3, description: 'Next', references: [first.id, invalid],
     })).rejects.toMatchObject({
       code: 'not-found',
@@ -260,8 +263,8 @@ test('commit references identify revisions, reject file paths at their parameter
     expect(repository.readSnapshot({ kind: 'draft', scriptId: script.id })).toEqual(before)
     expect(repository.listRevisions(script.id).items).toHaveLength(1)
   }
-  await call('story_commit', { expectedSequence: 3, description: 'With reference', references: [first.id] })
-  await call('story_commit', { expectedSequence: 4, description: 'Without reference' })
+  await call('story_commit', { allowCompilationFailure: true, expectedSequence: 3, description: 'With reference', references: [first.id] })
+  await call('story_commit', { allowCompilationFailure: true, expectedSequence: 4, description: 'Without reference' })
   const revisions = repository.listRevisions(script.id).items.map(entry => entry.revision)
   expect(revisions[1]!.references).toEqual([first.id])
   expect(revisions[2]!.references).toEqual([])

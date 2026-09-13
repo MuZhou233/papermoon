@@ -15,11 +15,12 @@ export function resolveOptions(content: StoryContent, options: CompileOptions = 
     throw new Error('compiler limits must be positive safe integers')
   return resolved
 }
+class SourceLimitError extends Error {}
 export function prepare(content: StoryContent, options: CompileOptions = {}) {
   const resolved = resolveOptions(content, options)
   const records = Object.fromEntries(encodeContent(content))
   const serialized = JSON.stringify(records)
-  if (Buffer.byteLength(serialized) > resolved.limits.inputBytes) throw new Error('content exceeds inputBytes')
+  if (Buffer.byteLength(serialized) > resolved.limits.inputBytes) throw new SourceLimitError('content exceeds inputBytes')
   const sourceHash = digest(records)
   const job: WorkerInput = {
     files: Object.fromEntries([...content.program.files].map(([path, file]) => [path, file.source])),
@@ -28,7 +29,7 @@ export function prepare(content: StoryContent, options: CompileOptions = {}) {
   }
   return { job, sourceHash, key: compilationKey(sourceHash, resolved) }
 }
-const failure = (code: string, message: string): CompileResult => ({ ok: false, diagnostics: [{ code, stage: 'execution', message }] })
+const failure = (code: string, message: string, kind: 'script' | 'operation' = 'operation'): CompileResult => ({ ok: false, failure: kind, diagnostics: [{ code, stage: 'execution', message }] })
 
 /** A compiler instance limits concurrent jobs without queuing or retaining module state. */
 export class StoryCompiler {
@@ -39,7 +40,7 @@ export class StoryCompiler {
     if (signal?.aborted) return failure('cancelled', 'compilation cancelled')
     let input: ReturnType<typeof prepare>
     try { input = prepare(content, options) } catch (error) {
-      return { ok: false, diagnostics: [{ code: 'invalid-input', stage: 'input', message: error instanceof Error ? error.message : 'invalid compiler input' }] }
+      return { ok: false, failure: error instanceof SourceLimitError ? 'script' : 'operation', diagnostics: [{ code: 'invalid-input', stage: 'input', message: error instanceof Error ? error.message : 'invalid compiler input' }] }
     }
     if (this.jobs.size >= input.job.options.limits.concurrency) return failure('busy', 'compiler concurrency limit reached')
     const controller = new AbortController()
@@ -67,9 +68,9 @@ export class StoryCompiler {
         worker.on('message', (result: WorkerResult) => {
           if (controller.signal.aborted) { cancel(); return }
           try {
-            if (!result.ok) { finish({ ok: false, diagnostics: [result.diagnostic] }); return }
+            if (!result.ok) { finish({ ok: false, failure: 'script', diagnostics: [result.diagnostic] }); return }
             const artifact = createArtifact(input.sourceHash, input.job.options, result.context)
-            if (Buffer.byteLength(JSON.stringify(artifact)) > input.job.options.limits.outputBytes) { finish(failure('output-limit', 'artifact exceeds outputBytes')); return }
+            if (Buffer.byteLength(JSON.stringify(artifact)) > input.job.options.limits.outputBytes) { finish(failure('output-limit', 'artifact exceeds outputBytes', 'script')); return }
             finish({ ok: true, artifact, diagnostics: [] })
           } catch { finish(failure('worker-failed', 'compiler returned an invalid result')) }
         })

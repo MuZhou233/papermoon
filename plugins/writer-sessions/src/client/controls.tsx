@@ -10,6 +10,7 @@ export function ScriptPicker({ runtime, t, folderPicker, pickerOpen: open, setPi
   const [query, setQuery] = useState(''), [busy, setBusy] = useState(false)
   const [scripts, setScripts] = useState<{ scriptId: string; scriptName: string; projectName: string }[]>([]), [error, setError] = useState('')
   useEffect(() => { if (open) void runtime.call<typeof scripts>('scripts').then(setScripts).catch(error => setError(String(error))) }, [open, runtime])
+  if (mode.current === 'papermoon-moderator') return null
   if (mode.current !== PRESET) return <>{folderPicker}</>
   const rows = scripts.filter(row => `${row.projectName} ${row.scriptName}`.toLowerCase().includes(query.toLowerCase()))
   return <>

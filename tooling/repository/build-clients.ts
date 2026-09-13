@@ -2,7 +2,7 @@
 import { build } from 'esbuild'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-for (const plugin of ['story-editor', 'writers', 'writer-sessions']) {
+for (const plugin of ['story-editor', 'writers', 'writer-sessions', 'performances']) {
   const out = resolve(`plugins/${plugin}/lib`)
   await mkdir(out, { recursive: true })
   await build({
@@ -38,3 +38,5 @@ return module.exports;}});
     JSON.stringify(result.metafile, null, 2) + '\n',
   )
 }
+
+for (const entry of ['index', 'host', 'prompt']) await build({ entryPoints: [`plugins/story-workspaces/src/${entry}.ts`], outfile: `plugins/story-workspaces/lib/${entry}.js`, bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external' })

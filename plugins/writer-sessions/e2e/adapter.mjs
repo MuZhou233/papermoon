@@ -10,7 +10,7 @@ export function apply(ctx) {
       options.signal?.throwIfAborted()
       appendFileSync(join(process.env.PAPERMOON_DATA_DIR, 'requests.jsonl'), JSON.stringify(options) + '\n')
       const hasResult = options.messages.some(message => message.content.some(block => block.type === 'tool-result'))
-      if (!hasResult) {
+      if (!hasResult && options.tools?.some(tool => tool.name === 'story_status')) {
         yield { type: 'block-start', index: 0, blockType: 'tool-call' }
         yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('fixture-status'), name: 'story_status', arguments: '{}' } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }

@@ -1,11 +1,11 @@
 /** Project and script ownership, immutable revisions and SQL-side content comparison. */
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import type { SQLInputValue } from 'node:sqlite'
 import { Connection } from './database.ts'
 import { databaseError, invalid, StorageError } from './error.ts'
 import { decode, decodeObject, encode, metadata, name, sequence, text } from './json.ts'
 import type {
-  ScriptQuery, ScriptSummary, HistoryOptions, CommitInput, CommitResult, CreateScriptInput, SnapshotRead, ContentRead, ContentRef, CopyInput, Difference, DifferencePage, Draft,
+  RevisionAttachment, RevisionAttachments, ScriptQuery, ScriptSummary, HistoryOptions, CommitInput, CommitResult, CreateScriptInput, SnapshotRead, ContentRead, ContentRef, CopyInput, Difference, DifferencePage, Draft,
   DraftWrite, EntryPage, EntryRead, HistoryEntry, JsonObject, KeyOptions, NamedInput, NamedUpdate,
   Page, PageOptions, Project, ProjectId, Publication, PublicationId, ResolvedRef, Revision, RevisionId, Script, ScriptId,
 } from './types.ts'
@@ -13,7 +13,7 @@ import type {
 type NamedRow = { id: string; name: string; metadata: string; created_at: string }
 type ScriptRow = NamedRow & { project_id: ProjectId; origin: string | null }
 type DraftRow = { script_id: ScriptId; sequence: number; base_revision_id: RevisionId | null; metadata: string }
-type RevisionRow = { id: RevisionId; description: string; metadata: string; source: string; references_json: string; created_at: string }
+type RevisionRow = { id: RevisionId; description: string; metadata: string; source: string; references_json: string; attachments: string; created_at: string }
 type PublicationRow = { id: PublicationId; script_id: ScriptId; revision_id: RevisionId; metadata: string; created_at: string }
 type EntryRow = { key: string; value: string }
 const now = (): string => new Date().toISOString()
@@ -26,8 +26,24 @@ const revisionFrom = (row: RevisionRow): Revision => {
   if (typeof source.projectId !== 'string' || typeof source.projectName !== 'string' || typeof source.scriptId !== 'string' || typeof source.scriptName !== 'string' ||
       !Number.isSafeInteger(source.draftSequence) || Number(source.draftSequence) < 0 || (source.baseRevisionId !== null && typeof source.baseRevisionId !== 'string') ||
       !Array.isArray(references) || references.some(value => typeof value !== 'string')) throw new StorageError('corrupt', 'invalid stored revision provenance')
-  return { id: row.id, description: row.description, metadata: decodeObject(row.metadata), source: source as unknown as Revision['source'], references: references as RevisionId[], createdAt: row.created_at }
+  return { id: row.id, description: row.description, metadata: decodeObject(row.metadata), source: source as unknown as Revision['source'], references: references as RevisionId[], createdAt: row.created_at, attachments: attachmentManifest(row.attachments) }
 }
+function attachmentManifest(raw: string): RevisionAttachments {
+  const parsed = decodeObject(raw)
+  const items = parsed.items
+  if (!parsed.metadata || typeof parsed.metadata !== 'object' || Array.isArray(parsed.metadata) || !Array.isArray(items))
+    throw new StorageError('corrupt', 'invalid revision attachment manifest')
+  const keys = new Set<string>()
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.key !== 'string' || !item.key ||
+        typeof item.checksum !== 'string' || !/^[a-f0-9]{64}$/.test(item.checksum) ||
+        !item.metadata || typeof item.metadata !== 'object' || Array.isArray(item.metadata) || keys.has(item.key))
+      throw new StorageError('corrupt', 'invalid revision attachment entry')
+    keys.add(item.key)
+  }
+  return parsed as unknown as RevisionAttachments
+}
+const checksum = (value: string) => createHash('sha256').update(value).digest('hex')
 const publicationFrom = (row: PublicationRow): Publication => ({ id: row.id, scriptId: row.script_id, revisionId: row.revision_id, metadata: decodeObject(row.metadata), createdAt: row.created_at })
 function requireRow<T>(row: T | undefined, entity: string): T {
   if (row === undefined) throw new StorageError('not-found', `${entity} does not exist`)
@@ -194,12 +210,23 @@ export class StoryStorage {
     const references = input.references ?? []
     for (const reference of references) text(reference, 'reference')
     const referenceJson = encode(references)
+    const keys = new Set<string>()
+    const attachments = (input.attachments ?? []).map(item => {
+      text(item.key, 'attachment key')
+      if (keys.has(item.key)) invalid('duplicate attachment key')
+      keys.add(item.key)
+      const itemMetadata = decodeObject(metadata(item.metadata))
+      const value = encode({ metadata: itemMetadata, value: item.value })
+      return { key: item.key, checksum: checksum(value), metadata: itemMetadata, value }
+    })
+    const manifest = encode({ metadata: decodeObject(metadata(input.attachmentMetadata)), items: attachments.map(({ value: _value, ...item }) => item) })
     return this.db.transaction(true, () => {
       const draft = this.checkDraft(input.scriptId, input.expectedSequence)
       const script = this.script(input.scriptId); const project = this.project(script.projectId)
       const id = randomUUID() as RevisionId
       const source = encode({ projectId: project.id, projectName: project.name, scriptId: script.id, scriptName: script.name, draftSequence: draft.sequence, baseRevisionId: draft.baseRevisionId })
-      this.db.run('INSERT INTO revisions VALUES (?, ?, ?, ?, ?, ?)', id, input.description, body, source, referenceJson, now())
+      this.db.run('INSERT INTO revisions VALUES (?, ?, ?, ?, ?, ?, ?)', id, input.description, body, source, referenceJson, manifest, now())
+      for (const item of attachments) this.db.run('INSERT INTO revision_attachments VALUES (?, ?, ?)', id, item.key, item.value)
       this.db.run('INSERT INTO revision_entries SELECT ?, key, value FROM draft_entries WHERE script_id = ?', id, script.id)
       const ordinal = this.db.get<{ordinal: number}>('SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM script_revisions WHERE script_id = ?', script.id)!.ordinal
       sequence(ordinal)
@@ -207,6 +234,19 @@ export class StoryStorage {
       this.advanceDraft(script.id, id)
       const revision = this.revision(id)
       return { revision, entry: { scriptId: script.id, ordinal, revision, metadata: decodeObject(historyBody) }, draft: this.draft(script.id) }
+    })
+  }
+  /** Read the immutable body named by the manifest; an absent body is corruption, not an empty revision. */
+  readRevisionAttachment(id: RevisionId, key: string): RevisionAttachment {
+    return this.db.transaction(false, () => {
+      const revision = this.revision(id)
+      const info = revision.attachments.items.find(item => item.key === key)
+      if (!info) throw new StorageError('not-found', 'attachment is not in the revision manifest')
+      const row = this.db.get<{value: string}>('SELECT value FROM revision_attachments WHERE revision_id=? AND key=?', id, key)
+      if (!row || checksum(row.value) !== info.checksum) throw new StorageError('corrupt', 'revision attachment is missing or damaged')
+      const body = decodeObject(row.value)
+      if (!Object.hasOwn(body, 'value') || encode(body.metadata!) !== encode(info.metadata)) throw new StorageError('corrupt', 'revision attachment metadata differs from its manifest')
+      return { ...info, value: body.value! }
     })
   }
   getRevision(id: RevisionId): Revision { return this.db.transaction(false, () => this.revision(id)) }

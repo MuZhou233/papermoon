@@ -406,11 +406,48 @@ describe('owner metadata and atomic snapshots', () => {
     expect(f.store.getDraft(f.script.id)).toMatchObject({ sequence: 0, metadata: {} })
     expect(f.store.readContent({ kind: 'draft', scriptId: f.script.id }).content.size).toBe(0)
   })
-  it('rejects format one without changing its database bytes', () => {
+  it.each([1, 2])('rejects format %s without changing its database bytes', (version) => {
     const f = fixture(); f.store.close()
-    const raw = new DatabaseSync(f.path); raw.exec('PRAGMA user_version=1'); raw.close()
+    const raw = new DatabaseSync(f.path); raw.exec('PRAGMA user_version=' + version); raw.close()
     const before = readFileSync(f.path)
     fails('format-mismatch', () => new StoryStorage({ path: f.path }))
     expect(readFileSync(f.path)).toEqual(before)
   })
+})
+
+describe('immutable revision attachments', () => {
+  it('shares attachment bodies and distinguishes an empty manifest from lost or corrupt data', () => {
+    const f = fixture()
+    const revision = f.store.commitRevision({ scriptId: f.script.id, expectedSequence: 0, description: 'Attached', attachments: [{ key: 'result', value: { opening: 'Hello' }, metadata: { type: 'text' } }] }).revision
+    expect(f.store.readRevisionAttachment(revision.id, 'result').value).toEqual({ opening: 'Hello' })
+    const db = f.raw()
+    db.prepare('UPDATE revision_attachments SET value=? WHERE revision_id=?').run('{}', revision.id)
+    fails('corrupt', () => f.store.readRevisionAttachment(revision.id, 'result'))
+    db.prepare('DELETE FROM revision_attachments WHERE revision_id=?').run(revision.id)
+    expect(f.store.getRevision(revision.id).attachments.items).toHaveLength(1)
+    fails('corrupt', () => f.store.readRevisionAttachment(revision.id, 'result'))
+    const empty = f.store.commitRevision({ scriptId: f.script.id, expectedSequence: 1, description: 'Empty' }).revision
+    expect(empty.attachments.items).toEqual([])
+    fails('not-found', () => f.store.readRevisionAttachment(empty.id, 'result'))
+  })
+  it('rolls back source, directory, attachments and draft position on an attachment write failure', () => {
+    const f = fixture(), db = f.raw()
+    db.exec("CREATE TRIGGER reject_attachment BEFORE INSERT ON revision_attachments BEGIN SELECT RAISE(ABORT, 'injected'); END")
+    expect(() => f.store.commitRevision({ scriptId: f.script.id, expectedSequence: 0, description: 'Failed', attachments: [{ key: 'result', value: 'Hello' }] })).toThrow()
+    expect(f.store.getDraft(f.script.id).sequence).toBe(0)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM revisions').get()).toMatchObject({ n: 0 })
+    expect(f.store.listRevisions(f.script.id).items).toEqual([])
+  })
+})
+
+it('shares attached revision bodies until their final directory reference is removed', () => {
+  const f = fixture()
+  const revision = f.store.commitRevision({ scriptId: f.script.id, expectedSequence: 0, description: 'Shared', attachments: [{ key: 'opening', value: 'Text' }] }).revision
+  const copy = f.store.copyScript({ sourceScriptId: f.script.id, source: { kind: 'revision', revisionId: revision.id }, targetProjectId: f.project.id, name: 'Copy', history: 'copy', publications: 'none' })
+  const raw = f.raw()
+  expect(raw.prepare('SELECT count(*) AS n FROM revision_attachments').get()).toMatchObject({ n: 1 })
+  f.store.deleteScript(f.script.id)
+  expect(f.store.readRevisionAttachment(revision.id, 'opening').value).toBe('Text')
+  f.store.deleteScript(copy.id)
+  expect(raw.prepare('SELECT count(*) AS n FROM revision_attachments').get()).toMatchObject({ n: 0 })
 })

@@ -12,7 +12,7 @@ System text and ordered user/assistant messages are sent literally. Names remain
 
 ## Ownership
 
-The plugin owns resource workspace targets, authenticated configuration and Agent-local tools. Preparation uses session/configuration records; accepted input carries its snapshot in source.admission. Fork inherits the snapshot and authored message identities. Restored and forked Agents create fresh tool registrations and observations. Script IDs are resource references, never directory paths; process cwd comes from plugin configuration.
+The plugin owns authenticated configuration and Agent-local tools. Preparation uses session/configuration records; accepted input carries its snapshot in source.admission. Fork inherits the snapshot and authored message identities. Restored and forked Agents create fresh tool registrations and observations. Script IDs are resource references, never directory paths; process cwd comes from plugin configuration.
 
 Multiple conversations and the manual editor may edit one script. Local editing tools require fresh observations of the affected objects, without a model-supplied draft sequence. Independent file and translation edits can save across sessions. Commits, restoration and language deletion retain explicit snapshot checks; the [tool documentation](../story-tools/README.md#session-observations) defines those checks and save retries. Lists, searches, history reads and browser previews do not authorize edits. Explicit restoration and language deletion use declared replacement scopes and clear affected observations. Deleting a script retains conversation history but blocks inputs and tools. Removing workspace registration does not delete the script.
 
@@ -21,3 +21,5 @@ Multiple conversations and the manual editor may edit one script. Local editing 
 Run `pnpm check`, `pnpm build:plugins`, `pnpm check:plugins:dsh` and `pnpm test:writer-sessions`. Integration uses isolated data, real DSH components and a deterministic model adapter. Generic DSH patches provide resource targets, admission, authored records and client slots; product rules stay in this plugin.
 
 The profile explicitly injects the [compiler service](../story-compiler/README.md) into session-local tool construction. Compilation uses the bound script and records its complete receipt through DSH tools, without changing initial prompts or read observations.
+
+The [shared script workspace provider](../story-workspaces/README.md) owns resource registration and groups writer and [performance](../performances/README.md) sessions together. Writer preparation and fixed context remain owned here. Writer and moderator presets do not replace each other’s configuration or scope contributions.

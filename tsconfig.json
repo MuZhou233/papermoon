@@ -50,6 +50,9 @@
       ],
       "@papermoon/story-compiler/plugin": [
         "./plugins/story-compiler/src/plugin.ts"
+      ],
+      "@papermoon/story-compiler/revisions": [
+        "./plugins/story-compiler/src/revisions.ts"
       ]
     },
     "jsx": "react-jsx",

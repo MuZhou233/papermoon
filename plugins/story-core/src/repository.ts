@@ -74,6 +74,7 @@ export class StoryRepository {
     const snapshot = this.readSnapshot({ kind: 'draft', scriptId: input.scriptId, sequence: input.expectedSequence })
     return { ...this.storage.commitRevision(input), content: snapshot.content }
   }
+  readRevisionAttachment(id: RevisionId, key: string) { return this.storage.readRevisionAttachment(id, key) }
   getRevision(id: RevisionId) { return this.storage.getRevision(id) }
   getHistoryEntry(id: ScriptId, revisionId: RevisionId) { return this.storage.getHistoryEntry(id, revisionId) }
   listRevisions(id: ScriptId, options: HistoryOptions = {}) { return this.storage.listRevisions(id, options) }

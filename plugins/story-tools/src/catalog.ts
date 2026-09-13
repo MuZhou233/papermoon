@@ -89,10 +89,7 @@ const textOperation = z.discriminatedUnion('kind', [
 ])
 export const schemas = {
   story_compile: object({
-    ref: z.discriminatedUnion('kind', [
-      object({ kind: z.literal('draft'), sequence: sequence.describe('Use the sequence of the draft snapshot to compile.') }),
-      object({ kind: z.literal('revision'), revisionId }),
-    ]),
+    ref: object({ kind: z.literal('draft'), sequence: sequence.describe('Use the sequence of the draft snapshot to compile.') }),
     entry: text.optional().describe('Select the CommonJS entry file. Defaults to story.js.'),
     language: text.optional().describe('Select a registered language. Defaults to the script\'s default language.'),
   }),
@@ -133,6 +130,8 @@ export const schemas = {
     description: text.refine((value) => !!value.trim()).describe('Describe the revision. The description must contain non-whitespace text.'),
     metadata: metadata.optional(),
     entryMetadata: metadata.optional(),
+    targets: z.array(object({ entry: text.optional(), language: text.optional() })).min(1).optional().describe('Compile these targets in order. Defaults to story.js in the draft default language. The first target is the default for performance.'),
+    allowCompilationFailure: z.boolean().optional().describe('Allow a revision without artifacts when script compilation fails. Defaults to false. Successful compilation always attaches all results.'),
     references: z.array(revisionId).optional().describe('Record additional revision IDs as references for this revision.'),
   }),
   story_diff: object({
@@ -156,7 +155,7 @@ export type ToolName = keyof typeof schemas
 export const help = {
   overview: [
     "The bound script contains a mutable draft and immutable revisions. Its draft stores program files and a multilingual text catalog.",
-    "Program tools list, read, search and edit virtual files. Text tools manage languages, entries and translations. story_status reports draft status. story_commit saves a complete revision, story_history lists revisions, story_diff compares content, and story_restore restores selected content. story_compile creates a saved starting context.",
+    "Program tools list, read, search and edit virtual files. Text tools manage languages, entries and translations. story_status reports draft status. story_commit compiles and saves a complete revision, story_history lists revisions, story_diff compares content, and story_restore restores selected content. story_compile creates a saved starting context.",
     "Programs use CommonJS. The default entry story.js exports a declaration through module.exports, with systemPrompt and an ordered messages array. require(\"@papermoon/story\") provides defineStory and t(key), which reads text in the selected language.",
     "Select a story_help topic for details: program covers files and a compilable entry; texts covers languages and translations; history covers revisions, comparisons and restoration; compilation covers the declaration and module API.",
   ].join('\n\n'),
@@ -174,11 +173,11 @@ export const help = {
   ].join('\n\n'),
   history: [
     "story_history lists revision metadata. Use its revision IDs to read content with ref:{kind:\"revision\",revisionId:\"...\"} or compare it with story_diff. For paginated draft queries, use the returned ref and next cursor.",
-    "story_commit({expectedSequence:2,description:\"Opening scene\"}) saves the complete draft as an immutable revision. Use the draft sequence returned by a read or edit. The description must contain non-whitespace text. Optional references records additional revision IDs from story_history as provenance.",
+    "story_commit({expectedSequence:2,description:\"Opening scene\"}) compiles the complete draft and saves an immutable revision with its results. Use the draft sequence returned by a read or edit. The description must contain non-whitespace text. Optional references records additional revision IDs from story_history as provenance. targets selects entry/language pairs; the default is story.js in the draft default language. Compilation failure prevents submission unless allowCompilationFailure:true is supplied. In that case a failed compilation saves the revision with no artifacts; successful compilation still saves all results. Frozen revisions cannot be compiled again; restore content to the draft before submitting a new revision.",
     "story_restore({expectedSequence:3,revisionId:\"...\",selection:{kind:\"file\",path:\"story.js\"}}) replaces the selected draft content. Selection supports all, program, catalog, file and text. Full restoration updates the draft origin; partial restoration preserves it.",
   ].join('\n\n'),
   compilation: [
-    "story_compile({ref:{kind:\"draft\",sequence:2},entry:\"story.js\",language:\"en\"}) compiles that draft snapshot and saves the result. Use the draft sequence returned by a read or edit, or select a revision with ref:{kind:\"revision\",revisionId:\"...\"}. The entry defaults to story.js, and language defaults to the script default.",
+    "story_compile({ref:{kind:\"draft\",sequence:2},entry:\"story.js\",language:\"en\"}) compiles that draft snapshot and saves the result. Use the draft sequence returned by a read or edit. The entry defaults to story.js, and language defaults to the script default.",
     "Use synchronous CommonJS. require accepts @papermoon/story or explicit relative .js paths, such as require(\"./parts/context.js\"). Each referenced module is evaluated once. Circular references are rejected.",
     "Export the declaration through module.exports. It accepts systemPrompt, systemPromptName and messages. systemPrompt is a required string; messages is a required array. Each message contains role (user or assistant), content (string) and optional name (string). systemPromptName is an optional string. Empty strings and repeated roles are valid. Names label preview entries; model context consists of systemPrompt and message role/content.",
     "Example: const {defineStory,t}=require(\"@papermoon/story\"); module.exports=defineStory({systemPrompt:t(\"opening.system\"),messages:[{name:\"Opening\",role:\"assistant\",content:t(\"opening.narration\")}]}); Store both text keys in the selected language with story_text_edit. t(key) reads that language only and returns the complete text. Missing entries or translations produce diagnostics.",
@@ -186,7 +185,7 @@ export const help = {
   ].join('\n\n'),
 }
 const descriptions: Record<ToolName, string> = {
-  story_compile: "Compile a draft or revision into a saved starting context.",
+  story_compile: "Compile a draft into a saved starting context.",
   story_status: "Read draft status, languages and content counts.",
   story_program_list: "List program file paths and metadata.",
   story_program_read: "Read a program file with its complete source and metadata.",
@@ -197,7 +196,7 @@ const descriptions: Record<ToolName, string> = {
   story_text_search: "Search text keys, usage descriptions and translations.",
   story_text_edit: "Apply language, text entry, translation and metadata edits as one batch.",
   story_history: "List revisions or read one revision's metadata.",
-  story_commit: "Save the complete draft as an immutable revision.",
+  story_commit: "Compile the draft and save an immutable revision with its results.",
   story_diff: "Compare program, text and metadata changes between two content snapshots.",
   story_restore: "Replace selected draft content with content from a revision.",
   story_help: "Read script API and tool usage by topic.",

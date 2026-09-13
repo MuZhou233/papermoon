@@ -1,13 +1,21 @@
 /** Persistence and source ownership stay outside the stateless compiler and text runtime. */
-import type { StoryRepository } from '@papermoon/story-core/repository'
-import type { ScriptId, RevisionId, ResolvedRef } from '@papermoon/story-core'
-import { StoryCompiler, prepare } from './index.ts'
+import type { StoryRepository, StoryCommitResult } from '@papermoon/story-core/repository'
+import { encodeContent, type ScriptId, type ResolvedRef, type JsonObject, type JsonValue } from '@papermoon/story-core'
+import { StoryCompiler, prepare, resolveOptions } from './index.ts'
 import { ArtifactStore } from './store.ts'
 export { ArtifactStore } from './store.ts'
-import { ArtifactError, initialize } from './runtime.ts'
+import { ArtifactError, initialize, canonical, digest } from './runtime.ts'
 import type { Artifact, CompileOptions, Diagnostic, OpeningContext } from './types.ts'
 
-export interface CompilationSource { scriptId: ScriptId; ref: { kind: 'draft'; sequence: number } | { kind: 'revision'; revisionId: RevisionId } }
+export interface CompilationSource { scriptId: ScriptId; ref: { kind: 'draft'; sequence: number } }
+export interface SubmissionInput {
+  scriptId: ScriptId; expectedSequence: number; description: string; metadata?: JsonObject; historyMetadata?: JsonObject
+  references?: readonly import('@papermoon/story-core').RevisionId[]
+  targets?: readonly { entry?: string; language?: string }[]; allowCompilationFailure?: boolean
+}
+export type SubmissionResult = { committed: false; compilation: import('./revisions.ts').RevisionCompilation } |
+  { committed: true; revision: StoryCommitResult['revision']; entry: StoryCommitResult['entry']; draft: StoryCommitResult['draft']; compilation: import('./revisions.ts').RevisionCompilation }
+
 export type CompilationReceipt = { source: ResolvedRef; diagnostics: Diagnostic[] } & (
   | { ok: true; artifactId: string; context: OpeningContext; options: Artifact['options'] }
   | { ok: false }
@@ -17,14 +25,13 @@ export class CompilationService {
   private readonly jobs = new Set<Promise<unknown>>()
   private readonly controllers = new Set<AbortController>()
   private closed = false
-  constructor(private readonly repository: StoryRepository, readonly store: ArtifactStore, readonly defaults: CompileOptions = {}) {}
+  constructor(private readonly repository: StoryRepository, readonly store: ArtifactStore, readonly defaults: CompileOptions = {}, readonly attachmentBytes = 16 * 1024 * 1024) {
+    if (!Number.isSafeInteger(attachmentBytes) || attachmentBytes < 1) throw new ArtifactError('invalid-input', 'attachmentBytes must be a positive integer')
+  }
   private snapshot(source: CompilationSource) {
     if (this.closed) throw new ArtifactError('closed', 'compilation service is closed')
     this.repository.getScript(source.scriptId)
-    if (source.ref.kind === 'revision') {
-      this.repository.getHistoryEntry(source.scriptId, source.ref.revisionId)
-      return this.repository.readSnapshot(source.ref)
-    }
+    if (source.ref.kind !== 'draft') throw new ArtifactError('invalid-input', 'only drafts can be compiled')
     if (!Number.isSafeInteger(source.ref.sequence) || source.ref.sequence < 0) throw new ArtifactError('invalid-input', 'draft compilation requires a known sequence')
     return this.repository.readSnapshot({ kind: 'draft', scriptId: source.scriptId, sequence: source.ref.sequence })
   }
@@ -44,6 +51,52 @@ export class CompilationService {
     })()
     this.jobs.add(work)
     void work.finally(() => { this.jobs.delete(work); this.controllers.delete(controller); signal?.removeEventListener('abort', abort) }).catch(() => {}) // The caller receives the original rejection; cleanup creates no second failure.
+    return work
+  }
+  /** Compile a fixed draft before one atomic revision commit; no prior artifact skips this evaluation. */
+  submit(input: SubmissionInput, signal?: AbortSignal): Promise<SubmissionResult> {
+    const snapshot = this.snapshot({ scriptId: input.scriptId, ref: { kind: 'draft', sequence: input.expectedSequence } })
+    if (!input.description.trim()) throw new ArtifactError('invalid-input', 'revision description must not be blank')
+    if (input.references) for (const id of input.references) this.repository.getRevision(id)
+    const requested = input.targets ?? [{}]
+    if (!requested.length) throw new ArtifactError('invalid-input', 'at least one compilation target is required')
+    const targets = requested.map(target => resolveOptions(snapshot.content, this.options(target)))
+    if (new Set(targets.map(target => JSON.stringify([target.entry, target.language]))).size !== targets.length)
+      throw new ArtifactError('invalid-input', 'compilation targets must be distinct')
+    const controller = new AbortController(), abort = () => controller.abort()
+    signal?.addEventListener('abort', abort, { once: true }); this.controllers.add(controller)
+    if (signal?.aborted) controller.abort()
+    const work = (async (): Promise<SubmissionResult> => {
+      const results: import('./types.ts').CompileResult[] = []
+      for (const target of targets) {
+        controller.signal.throwIfAborted()
+        const result = await this.compiler.compile(snapshot.content, target, controller.signal)
+        if (!result.ok && result.failure === 'operation') throw new ArtifactError(result.diagnostics[0]?.code ?? 'compilation-unavailable', result.diagnostics[0]?.message ?? 'compilation operation failed')
+        results.push(result)
+      }
+      const successful = results.every(result => result.ok)
+      const sourceHash = digest(Object.fromEntries(encodeContent(snapshot.content)))
+      const compilation: import('./revisions.ts').RevisionCompilation = {
+        format: 'papermoon.compilation', version: 1, status: successful ? 'success' : 'failed', sourceHash,
+        targets: targets.map((target, index) => ({ entry: target.entry, language: target.language, diagnostics: results[index]!.diagnostics,
+          ...(successful ? { attachmentKey: `opening/${index}` } : {}) })),
+      }
+      if (!successful && input.allowCompilationFailure !== true) return { committed: false, compilation }
+      const attachments = successful ? results.map((result, index) => {
+        if (!result.ok) throw new ArtifactError('invalid-artifact', 'successful submission has a failed target')
+        const artifact = result.artifact
+        if (artifact.sourceHash !== sourceHash) throw new ArtifactError('invalid-artifact', 'compiled source differs from submitted content')
+        return { key: `opening/${index}`, metadata: { kind: artifact.format, artifactId: artifact.id, entry: artifact.options.entry, language: artifact.options.language }, value: JSON.parse(canonical(artifact)) as JsonValue }
+      }) : []
+      if (Buffer.byteLength(canonical({ compilation, attachments })) > this.attachmentBytes) throw new ArtifactError('attachment-limit', 'revision attachments exceed attachmentBytes')
+      controller.signal.throwIfAborted()
+      const { revision, entry, draft } = this.repository.commitRevision({ scriptId: input.scriptId, expectedSequence: input.expectedSequence,
+        description: input.description, metadata: input.metadata, historyMetadata: input.historyMetadata, references: input.references,
+        attachments, attachmentMetadata: { compilation: JSON.parse(canonical(compilation)) as JsonValue } })
+      return { committed: true, revision, entry, draft, compilation }
+    })()
+    this.jobs.add(work)
+    void work.finally(() => { this.jobs.delete(work); this.controllers.delete(controller); signal?.removeEventListener('abort', abort) }).catch(() => {}) // The returned promise owns failures; this branch only releases resources.
     return work
   }
   async find(source: CompilationSource, options: Pick<CompileOptions, 'entry' | 'language'> = {}): Promise<CompilationReceipt | null> {

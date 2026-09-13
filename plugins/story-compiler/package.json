@@ -8,7 +8,8 @@
     "./runtime": "./lib/runtime.js",
     "./service": "./lib/service.js",
     "./plugin": "./lib/plugin.js",
-    "./types": "./lib/types.js"
+    "./types": "./lib/types.js",
+    "./revisions": "./lib/revisions.js"
   },
   "dependencies": {
     "@papermoon/story-core": "workspace:*",

@@ -61,8 +61,10 @@ const page = {
   limit: z.number().int().min(1).max(1000).optional(),
 }
 export const schemas = {
-  compile: object({ scriptId, ref: z.discriminatedUnion('kind', [object({ kind: z.literal('draft'), sequence }), object({ kind: z.literal('revision'), revisionId })]), entry: text.optional(), language: text.optional() }),
-  compiled: object({ scriptId, ref: z.discriminatedUnion('kind', [object({ kind: z.literal('draft'), sequence }), object({ kind: z.literal('revision'), revisionId })]), entry: text.optional(), language: text.optional() }),
+  compile: object({ scriptId, ref: object({ kind: z.literal('draft'), sequence }), entry: text.optional(), language: text.optional() }),
+  compiled: object({ scriptId, ref: object({ kind: z.literal('draft'), sequence }), entry: text.optional(), language: text.optional() }),
+  revisionArtifact: object({ scriptId, revisionId, key: text }),
+  revisionCompilation: object({ scriptId, revisionId }),
   catalog: object({
     ...page,
     projectId: projectId.optional(),
@@ -87,6 +89,8 @@ export const schemas = {
     expectedSequence: sequence,
     description: text.refine((s) => s.trim().length > 0),
     references: z.array(revisionId).optional(),
+    targets: z.array(object({ entry: text.optional(), language: text.optional() })).min(1).optional(),
+    allowCompilationFailure: z.boolean().optional(),
   }),
   revision: object({ scriptId, revisionId }),
   history: object({

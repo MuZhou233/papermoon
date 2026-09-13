@@ -92,7 +92,7 @@ compare 读取内容头和 SQL 筛选出的变化记录，不加载全部正文�
 
 业务格式为 papermoon.story，版本为 1。KV 编码保存一条内容头记录，每个程序文件、已登记语言和文案条目各占一条记录。内容头保存内容、程序、文案目录的元数据和默认语言；文案记录保存用途说明、元数据及全部译文。调用方使用有类型的 API，无需构造存储键。解码拒绝未声明记录、未知字段、不支持的格式及损坏的内容关系，不修补缺失数据。调用方的附加资料应放在元数据中。
 
-新建剧本时，空程序、默认语言登记和内容头在同一事务中保存，草稿序号从零开始。所需存储格式为 2；版本 1 数据库会被拒绝，不迁移、替换或删除。业务值格式变化并不必然要求修改 SQL 表。
+新建剧本时，空程序、默认语言登记和内容头在同一事务中保存，草稿序号从零开始。所需存储格式为 3；版本 1 和 2 数据库会被拒绝，不迁移、替换或删除。业务值格式变化并不必然要求修改 SQL 表。
 
 StoryError 提供 invalid-input、invalid-content、not-found 或 already-exists，并附带位置。conflict、busy、closed 和 format-mismatch 等存储错误保留原身份。译文缺失属于正常查询结果。错误不包含 UI 本地化文案或编译诊断。
 
@@ -101,3 +101,5 @@ StoryError 提供 invalid-input、invalid-content、not-found 或 already-exists
 在根目录执行 `pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm check:docs` 和 `pnpm check:notes`，无需 DSH。`pnpm build:plugins` 先构建存储，再构建核心。`pnpm check:plugins:pure` 阻止导入 Node 内置模块和 Cordis，再验证构建后的纯入口。`pnpm check:plugins:dsh` 还需要已构建的 DSH Cordis，验证真实依赖等待、使用者清理和重新挂载。测试使用临时数据库，不启动 Web 或调用模型。
 
 [核心决策](../../.agents/notes/implemented/architecture/2026-09-12-script-core.zh.md)记录职责和替代方案，[开发指南](../../docs/development.zh.md)维护根目录命令。
+
+仓库将通用修订附件传给存储，并提供 readRevisionAttachment。附件不进入程序与文案 KV 内容，也不参与内容恢复或业务比较。使用方负责解释附件，核心不导入编译器。

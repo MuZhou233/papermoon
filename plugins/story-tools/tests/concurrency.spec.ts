@@ -1,3 +1,4 @@
+import { CompilationService, ArtifactStore } from '@papermoon/story-compiler/service'
 import { afterEach, expect, test, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -9,8 +10,8 @@ import { StoryRepository } from '@papermoon/story-core/repository'
 import { createStoryTools, StoryObservations } from '../src/index.ts'
 import { schemas, type ToolName } from '../src/catalog.ts'
 
-const cleanup: (() => void)[] = []
-afterEach(() => { vi.restoreAllMocks(); for (const dispose of cleanup.splice(0).reverse()) dispose() })
+const cleanup: (() => void | Promise<void>)[] = []
+afterEach(async () => { vi.restoreAllMocks(); for (const dispose of cleanup.splice(0).reverse()) await dispose() })
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'papermoon-concurrent-tools-'))
   const path = join(directory, 'story.sqlite'), storage = new StoryStorage({ path })
@@ -27,8 +28,10 @@ function fixture() {
   const peerStorage = new StoryStorage({ path }), peer = new StoryRepository(peerStorage)
   cleanup.push(() => { peerStorage.close(); storage.close(); rmSync(directory, { recursive: true, force: true }) })
   const writePeer = (operations: readonly ContentOperation[]) => peer.editDraft({ scriptId: script.id, expectedSequence: peer.readSnapshot({ kind: 'draft', scriptId: script.id }).draft.sequence, operations })
+  const compiler = new CompilationService(repository, new ArtifactStore(join(directory, 'compiled')))
+  cleanup.push(() => compiler.close())
   const session = () => {
-    const tools = createStoryTools(repository, script.id, new StoryObservations())
+    const tools = createStoryTools(repository, script.id, new StoryObservations(), compiler)
     return (name: ToolName, args: unknown, signal = new AbortController().signal) => tools.find(tool => tool.name === name)!.execute(args, { signal })
   }
   const rawConnection = () => { const db = new DatabaseSync(path); cleanup.push(() => db.close()); return db }

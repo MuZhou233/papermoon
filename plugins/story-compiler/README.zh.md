@@ -11,9 +11,10 @@
 | @papermoon/story-compiler | compile(content, options, signal), StoryCompiler, resolveOptions |
 | @papermoon/story-compiler/runtime | loadArtifact(serialized), initialize(artifact) |
 | @papermoon/story-compiler/service | CompilationService, ArtifactStore |
+| @papermoon/story-compiler/revisions | RevisionArtifacts, revisionCompilation |
 | @papermoon/story-compiler/plugin | Cordis 服务 papermoonStoryCompiler |
 
-编译器接收内容和明确配置，不通过数据库或文件系统读取创作输入。服务先读取一致的仓库快照，再开始异步编译。草稿请求必须携带已知序号；修订版本必须属于指定剧本。来源身份保留在回执中，不传入程序求值。编译期间编辑草稿，不会改变已捕获的输入。
+编译器接收内容和明确配置，不通过数据库或文件系统读取创作输入。服务先读取一致的仓库快照，再开始异步编译。只允许编译草稿，请求必须携带已知序号。历史产物按冻结附件键读取。来源身份保留在回执中，不传入程序求值。编译期间编辑草稿，不会改变已捕获的输入。
 
 运行时不导入编译 Worker 或创作仓库。它校验产物，每次初始化都返回独立上下文。修改某次返回值，不影响后续结果。它不执行源码、读取文案、调用模型或保存进度。
 
@@ -45,10 +46,18 @@ CompilationService.compile 总会对捕获的输入求值。成功结果先保�
 
 ArtifactStore 将完整 JSON 写入临时文件，再通过不覆盖已有目标的原子链接落下记录。相同结果重复保存保持幂等，同一键出现不同结果时返回 artifact-conflict。保存失败会拒绝本次操作。记录不包含每次尝试的历史，也不保存失败诊断。独立存储适配器默认将单条记录限制为 16 MiB，可通过构造参数调整。[开发文档](../../docs/development.zh.md)说明产品目录及清理方式。
 
-插件依赖 papermoonStoryCore，通过 effect 提供 papermoonStoryCompiler。先清理依赖它的使用方，再关闭编译服务，最后由存储提供者释放连接。剧本数据库与业务内容格式不变。
+插件依赖 papermoonStoryCore，通过 effect 提供 papermoonStoryCompiler。先清理依赖它的使用方，再关闭编译服务，最后由存储提供者释放连接。修订附件使用存储格式 3，业务内容与开场产物格式不变。
 
 ## 验证
 
 主库测试使用临时数据库与确定性源码。pnpm check:compiler:built 在普通 Node 下运行构建后的 Worker 和独立运行时进程。pnpm check:plugins:dsh 验证真实 Cordis 清理、工具作用域及确定性模型收到的编译回执。pnpm test:editor 覆盖显式编译、程序与文案诊断、精确语言预览、旧结果标记和刷新恢复。测试不调用真实模型，也不使用用户运行数据。
 
 [决定记录](../../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)说明 CommonJS、文本冻结及独立产物存储的选择。
+
+## 提交与完整修订冻结
+
+CompilationService.submit 对同一份确定草稿编译全部目标。省略 targets 时使用 story.js 和草稿默认语言；明确传入的列表必须非空且不重复。列表顺序随修订版本冻结，第一项为默认演绎结果。allowCompilationFailure 默认 false，只有全部目标成功才附带产物。剧本错误默认只返回诊断，不创建修订版本；明确开启该选项后，失败提交保存源码和空附件清单。允许失败不代表跳过编译。
+
+取消、无效选项、服务占用或关闭、Worker 异常、存储失败及外层总时限都会中止提交。语法、模块加载、声明、译文和同步执行限制则属于可诊断的剧本错误。服务校验来源指纹和附件总量 attachmentBytes，默认上限为 16 MiB，再通过现有 SQLite 事务一并保存源码、有序产物正文和编译报告。最后的草稿序号校验会拒绝编译期间发生的编辑，成功提交后不会因响应丢失而撤销。
+
+RevisionArtifacts 读取冻结报告和完整附件，校验完整性后初始化文本，不执行编译。修订版本提交后不能追加或替换编译产物。明确的空清单与被引用正文缺失不同；正文缺失或损坏时失败，不重新编译。独立 ArtifactStore 只保存草稿检查结果，删除其中的文件不会移除修订版本附带的产物。

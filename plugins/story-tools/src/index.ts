@@ -116,7 +116,7 @@ export function createStoryTools(
       case 'story_compile': {
         const a = schemas[name].parse(raw)
         if (!compiler) throw new StoryToolError('unavailable', 'compiler service is not installed')
-        return compiler.compile({ scriptId, ref: a.ref.kind === 'revision' ? { kind: 'revision', revisionId: retained(a.ref.revisionId, 'ref.revisionId') } : a.ref },
+        return compiler.compile({ scriptId, ref: a.ref },
           { ...(a.entry === undefined ? {} : { entry: a.entry }), ...(a.language === undefined ? {} : { language: a.language }) }, signal)
       }
       case 'story_status': {
@@ -287,7 +287,8 @@ export function createStoryTools(
       }
       case 'story_commit': {
         const a = schemas[name].parse(raw)
-        const result = repository.commitRevision({
+        if (!compiler) throw new StoryToolError('unavailable', 'compiler service is not installed')
+        return compiler.submit({
           ...a,
           scriptId,
           metadata: a.metadata as
@@ -297,9 +298,7 @@ export function createStoryTools(
             | import('@papermoon/story-core').JsonObject
             | undefined,
           references: a.references?.map((id, index) => retained(id, `references[${index}]`)),
-        })
-        const { content: _content, ...receipt } = result
-        return receipt
+        }, signal)
       }
       case 'story_diff': {
         const a = schemas[name].parse(raw)
@@ -329,7 +328,7 @@ export function createStoryTools(
     story_program_edit: ' Read existing files with story_program_read before changing them. Read program metadata with story_status before replacing it. Edits fail if an observed object has changed.',
     story_text_edit: ' Read entries or translations with story_text_read before replacing, renaming or deleting those objects. Read catalog metadata, language metadata and the default language with story_status before replacing those values. Edits fail if an observed object has changed.',
   }
-  return toolCatalog().filter(descriptor => descriptor.name !== 'story_compile' || compiler !== undefined).map((descriptor) => ({
+  return toolCatalog().filter(descriptor => !['story_compile', 'story_commit'].includes(descriptor.name) || compiler !== undefined).map((descriptor) => ({
     ...descriptor,
     description: descriptor.description + (observations ? readRequirements[descriptor.name] ?? '' : ''),
     output: {

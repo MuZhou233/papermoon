@@ -1,14 +1,18 @@
 /** Authenticated editor operations keep saves, commits and explicit compilation separate. */
 import type { StoryRepository } from '@papermoon/story-core/repository'
 import type { CompilationService } from '@papermoon/story-compiler/service'
+import { RevisionArtifacts } from '@papermoon/story-compiler/revisions'
 import { ArtifactError } from '@papermoon/story-compiler/runtime'
 import { StoryError } from '@papermoon/story-core'
 import { StorageError } from '@papermoon/story-storage'
 import { schemas, type Input, type Method } from './protocol.ts'
-import { snapshotDTO, toDTO, recordDTO } from './wire.ts'
+import { snapshotDTO, recordDTO } from './wire.ts'
 export function handlers(repository: StoryRepository, compiler?: CompilationService) {
   const compilation = () => { if (!compiler) throw new ArtifactError('unavailable', 'compiler service is not installed'); return compiler }
+  const frozen = new RevisionArtifacts(repository)
   return {
+    revisionCompilation: (p: Input<'revisionCompilation'>) => frozen.describe(p.scriptId, p.revisionId),
+    revisionArtifact: (p: Input<'revisionArtifact'>) => ({ artifact: frozen.read(p.scriptId, p.revisionId, p.key), context: frozen.preview(p.scriptId, p.revisionId, p.key) }),
     compile: (p: Input<'compile'>, signal?: AbortSignal) => compilation().compile({ scriptId: p.scriptId, ref: p.ref }, { ...(p.entry === undefined ? {} : { entry: p.entry }), ...(p.language === undefined ? {} : { language: p.language }) }, signal),
     compiled: (p: Input<'compiled'>) => compilation().find({ scriptId: p.scriptId, ref: p.ref }, { ...(p.entry === undefined ? {} : { entry: p.entry }), ...(p.language === undefined ? {} : { language: p.language }) }),
     catalog: (p: Input<'catalog'>) => repository.queryScripts(p),
@@ -34,10 +38,7 @@ export function handlers(repository: StoryRepository, compiler?: CompilationServ
     snapshot: (p: Input<'snapshot'>) =>
       snapshotDTO(repository.readSnapshot(p.ref)),
     save: (p: Input<'save'>) => snapshotDTO(repository.editDraft(p)),
-    commit: (p: Input<'commit'>) => {
-      const result = repository.commitRevision(p)
-      return { ...result, content: toDTO(result.content) }
-    },
+    commit: (p: Input<'commit'>, signal?: AbortSignal) => compilation().submit(p, signal),
     revision: (p: Input<'revision'>) => ({
       entry: repository.getHistoryEntry(p.scriptId, p.revisionId),
       snapshot: snapshotDTO(

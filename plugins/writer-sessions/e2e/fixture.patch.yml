@@ -5,3 +5,7 @@
   config:
     provider: writer-fixture
     model: fixture
+- id: session-query-sqlite
+  config:
+    openAt: first-search
+    path: ":memory:"

@@ -84,7 +84,7 @@ export function createExample(path: string) {
 
 模块使用 Node 内置的 SQLite 连接，采用 DELETE 日志、EXTRA 同步、启用外键、零占用等待和关闭自动空间整理。数据库忙时立即报错。事务不等待模型调用或外部工作。删除后的空闲页可以复用，文件不一定缩小；缓存和页设置沿用 SQLite 默认值。
 
-数据库通过专用应用 ID 和格式版本 2 标识。版本 1 文件会被拒绝，不迁移、替换或删除。空数据库在一个事务中建立结构。既有数据库必须匹配身份、版本和声明的结构，并通过完整性检查。不支持或损坏的文件会被拒绝，不迁移、替换或修复。数据不与 DSH 会话数据库混存。备份应使用能保证一致性的数据库备份方式，或在全部连接关闭后复制文件。
+数据库通过专用应用 ID 和格式版本 3 标识。版本 1 和 2 文件会被拒绝，不迁移、替换或删除。空数据库在一个事务中建立结构。既有数据库必须匹配身份、版本和声明的结构，并通过完整性检查。不支持或损坏的文件会被拒绝，不迁移、替换或修复。数据不与 DSH 会话数据库混存。备份应使用能保证一致性的数据库备份方式，或在全部连接关闭后复制文件。
 
 构建后的包导出 `@papermoon/story-storage`、`@papermoon/story-storage/plugin` 和 `@papermoon/story-storage/value`。value 入口导出确定性 encodeJson 函数和 JSON 类型，不加载 Node 内置模块，业务模块无需打开存储即可复用其值规则。插件通过宿主的 provide/effect 接口注册 papermoonStoryStorage。生成器 effect 同时持有两个清理函数，先注销服务并等待依赖退出，再关闭连接；注册失败也会释放连接。最小宿主接口让 DSH 类型留在核心之外，独立集成检查使用真实 Cordis 声明和运行时验证它。
 
@@ -93,3 +93,7 @@ export function createExample(path: string) {
 在仓库根目录运行 `pnpm build:plugins`，生成包的 lib 目录。运行时只依赖 Node。`pnpm typecheck`、`pnpm lint` 和 `pnpm test` 无需 DSH 即可检查源码和单元测试。`pnpm check:plugins:dsh` 还需要已构建的插件与 DSH 产物，用真实 Cordis 检查宿主类型、导入构建产物、验证依赖清理和重新挂载，不启动 Web 或调用模型。
 
 [存储决策](../../.agents/notes/implemented/architecture/2026-09-12-script-storage.zh.md)记录替代方案和归属选择。主库与集成检查遵循[测试规范](../../docs/testing.zh.md)。
+
+## 不可变附件
+
+CommitInput 接受通用 attachments 和 attachmentMetadata，每项附件包含键、JSON 值和元数据。不可变清单保存顺序与校验哈希，readRevisionAttachment 按清单校验正文。存储模块不解释编译状态或产物格式。源码、修订版本、清单、附件正文、目录项和草稿位置共同提交。历史查询只返回摘要，不读取正文。复制历史共享附件，删除最后一个目录引用时回收附件。不提供追加、替换或单独删除附件的接口。

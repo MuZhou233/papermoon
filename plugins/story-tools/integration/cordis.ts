@@ -168,7 +168,7 @@ try {
   await success('story_text_search', { query: 'Hello' })
   await success('story_commit', {
     expectedSequence: 2,
-    description: 'Complete tool roundtrip',
+    description: 'Complete tool roundtrip', allowCompilationFailure: true,
   })
   const revisionId = repository.listRevisions(left.id).items[0]!.revision.id
   await success('story_history', {})

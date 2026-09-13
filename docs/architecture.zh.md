@@ -14,9 +14,9 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 当前启动方式与数据
 
-启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，在标准 Web profile 上加载 PaperMoon 组合配置。子模块内的依赖安装与构建使用 `CI=true`，启用 DSH 支持的自动化安装行为；否则，开发钩子安装器会拒绝子模块的 Git 配置。补丁检查和启动继承调用方环境，不强制设置此变量。
+启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，在标准 Web profile 上加载 PaperMoon 组合配置。子模块内的依赖安装、构建和登记的检查使用 `CI=true`，保持 DSH 的自动化安装行为和依赖布局。启动继承调用方环境。
 
-组合配置加入人工剧本编辑器、编剧管理和编剧会话，同时保留 DSH 的配置、认证、普通对话和设置。启动器提供独立的默认数据目录，也保留原版 Web 命令用于对照。[开发文档](development.zh.md)说明命令接口。
+组合配置加入人工剧本编辑器、编剧管理、编剧会话和文本演绎，同时保留 DSH 的配置、认证、普通对话和设置。启动器提供独立的默认数据目录，也保留原版 Web 命令用于对照。[开发文档](development.zh.md)说明命令接口。
 
 ## 剧本数据
 
@@ -38,8 +38,12 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 编剧会话
 
-[会话插件](../plugins/writer-sessions/README.zh.md)维护剧本工作区、已固定上下文和读取保护。通用 DSH 能力通过补丁维护，[决定记录](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.zh.md)说明职责与替代方案。
+[会话插件](../plugins/writer-sessions/README.zh.md)维护编剧配置、已固定上下文和读取保护。剧本目标登记由[共用工作区提供者](../plugins/story-workspaces/README.zh.md)负责。通用 DSH 能力通过补丁维护，[决定记录](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.zh.md)说明职责与替代方案。
 
 ## 编译与初始化
 
 [编译器](../plugins/story-compiler/README.zh.md)接收确定内容与明确配置，独立运行时使用冻结的起始文本。服务读取仓库快照，管理独立产物文件。编辑器与作用域内的工具共用该服务，存储与逻辑核心不反向依赖它。[决定记录](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)说明 CommonJS 与产物归属。
+
+## 修订提交与演绎
+
+[编译服务](../plugins/story-compiler/README.zh.md#提交与完整修订冻结)负责在修订事务前自动编译。存储保存通用不可变附件，核心只传递附件。独立修订读取器与文本运行时初始化[演绎会话](../plugins/performances/README.zh.md)，不执行编译或访问预览缓存。会话保存完整产物副本，源剧本删除后仍可继续。[共用剧本工作区](../plugins/story-workspaces/README.zh.md)通过稳定提供者组织编剧与主持人会话。

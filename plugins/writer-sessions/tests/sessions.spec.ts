@@ -92,7 +92,7 @@ test('scopes share a script without sharing observations and remounts require a 
   await call(a, 'story_program_read', { path: 'main.js' })
   await expect(call(b, 'story_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'second' }] })).rejects.toThrow(/not-observed/)
   await call(a, 'story_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'second' }] })
-  a.dispose(); expect(a.definitions.size).toBe(0); expect(b.definitions.size).toBe(14)
+  a.dispose(); expect(a.definitions.size).toBe(0); expect(b.definitions.size).toBe(13)
   const resumed = h.agent('a', a.events)
   await expect(call(resumed, 'story_program_edit', { operations: [{ kind: 'delete-file', path: 'main.js' }] })).rejects.toThrow(/not-observed/)
 })

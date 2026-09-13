@@ -92,7 +92,8 @@ describe('patch ownership and reconstruction', () => {
   it('runs declared checks in DSH and does not turn a failed check into source-only success', async () => {
     const root = make(); addPatch(root); rebuild(root)
     const calls: string[][] = []
-    await checkPatches(root, undefined, async (cwd, args, signal) => {
+    await checkPatches(root, undefined, async (cwd, args, signal, env) => {
+      expect(env?.CI).toBe('true')
       expect(cwd).toBe(join(root, 'dsh')); calls.push(args)
       await runProcess(process.execPath, [join(cwd, 'check.mjs')], cwd, process.env, signal)
     })

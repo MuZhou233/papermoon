@@ -16,8 +16,13 @@ export interface Script {
   origin: JsonObject | null
 }
 export interface Draft { scriptId: ScriptId; sequence: number; baseRevisionId: RevisionId | null; metadata: JsonObject }
+/** Immutable payloads accompany the revision without entering authored KV content. */
+export interface RevisionAttachmentInput { key: string; value: JsonValue; metadata?: JsonObject }
+export interface RevisionAttachmentInfo { key: string; checksum: string; metadata: JsonObject }
+export interface RevisionAttachment extends RevisionAttachmentInfo { value: JsonValue }
+export interface RevisionAttachments { metadata: JsonObject; items: readonly RevisionAttachmentInfo[] }
 export interface Revision {
-  id: RevisionId; description: string; metadata: JsonObject; createdAt: string
+  id: RevisionId; description: string; metadata: JsonObject; createdAt: string; attachments: RevisionAttachments
   source: { projectId: ProjectId; projectName: string; scriptId: ScriptId; scriptName: string; draftSequence: number; baseRevisionId: RevisionId | null }
   /** Informational references, not additional history or retention edges. */
   references: readonly RevisionId[]
@@ -40,6 +45,7 @@ export type Change = { kind: 'set'; key: string; value: JsonValue } | { kind: 'd
 export interface DraftWrite { scriptId: ScriptId; expectedSequence: number; changes: readonly Change[]; metadata?: JsonObject }
 export interface CommitInput {
   scriptId: ScriptId; expectedSequence: number; description: string; metadata?: JsonObject; historyMetadata?: JsonObject; references?: readonly RevisionId[]
+  attachments?: readonly RevisionAttachmentInput[]; attachmentMetadata?: JsonObject
 }
 export interface CommitResult { revision: Revision; entry: HistoryEntry; draft: Draft }
 export interface CopyInput {
