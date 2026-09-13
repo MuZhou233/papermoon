@@ -81,18 +81,28 @@ export function CodeEditor({
   readOnly = false,
   onChange,
   zh = false,
+  target,
 }: {
   value: string
   path: string
   readOnly?: boolean
   onChange?: (text: string) => void
   zh?: boolean
+  target?: { line?: number; column?: number; nonce: number }
 }) {
   const host = useRef<HTMLDivElement>(null),
     view = useRef<EditorView | undefined>(undefined),
     change = useRef(onChange),
     composing = useRef(false)
   change.current = onChange
+  useEffect(() => {
+    const editor = view.current
+    if (!editor || !target) return
+    const line = editor.state.doc.line(Math.min(editor.state.doc.lines, Math.max(1, target.line ?? 1)))
+    const position = Math.min(line.to, line.from + Math.max(0, (target.column ?? 1) - 1))
+    editor.dispatch({ selection: { anchor: position }, scrollIntoView: true })
+    editor.focus()
+  }, [target])
   const phrases = useRef(new Compartment())
   useLayoutEffect(() => {
     // A fixed separator preserves CRLF and mixed raw source on a no-edit round trip.

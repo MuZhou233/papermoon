@@ -35,6 +35,21 @@
       ],
       "@papermoon/writers": [
         "./plugins/writers/src/model.ts"
+      ],
+      "@papermoon/story-compiler": [
+        "./plugins/story-compiler/src/index.ts"
+      ],
+      "@papermoon/story-compiler/runtime": [
+        "./plugins/story-compiler/src/runtime.ts"
+      ],
+      "@papermoon/story-compiler/service": [
+        "./plugins/story-compiler/src/service.ts"
+      ],
+      "@papermoon/story-compiler/types": [
+        "./plugins/story-compiler/src/types.ts"
+      ],
+      "@papermoon/story-compiler/plugin": [
+        "./plugins/story-compiler/src/plugin.ts"
       ]
     },
     "jsx": "react-jsx",

@@ -23,7 +23,8 @@
     "@papermoon/ui": "workspace:*",
     "@papermoon/story-core": "workspace:*",
     "@papermoon/story-storage": "workspace:*",
-    "zod": "4.1.5"
+    "zod": "4.1.5",
+    "@papermoon/story-compiler": "workspace:*"
   },
   "peerDependencies": {
     "react": "^18.2.0",

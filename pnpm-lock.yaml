@@ -111,6 +111,15 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
 
+  plugins/story-compiler:
+    dependencies:
+      '@papermoon/story-core':
+        specifier: workspace:*
+        version: link:../story-core
+      acorn:
+        specifier: 8.15.0
+        version: 8.15.0
+
   plugins/story-core:
     dependencies:
       '@papermoon/story-storage':
@@ -119,6 +128,9 @@ importers:
 
   plugins/story-editor:
     dependencies:
+      '@papermoon/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
       '@papermoon/story-core':
         specifier: workspace:*
         version: link:../story-core
@@ -142,6 +154,9 @@ importers:
 
   plugins/story-tools:
     dependencies:
+      '@papermoon/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
       '@papermoon/story-core':
         specifier: workspace:*
         version: link:../story-core
@@ -154,6 +169,9 @@ importers:
 
   plugins/writer-sessions:
     dependencies:
+      '@papermoon/story-compiler':
+        specifier: workspace:*
+        version: link:../story-compiler
       '@papermoon/story-core':
         specifier: workspace:*
         version: link:../story-core
@@ -952,6 +970,11 @@ packages:
 
   '@vitest/utils@4.1.8':
     resolution: {integrity: sha512-uOJamYALNhfJ6iolExyQM40yIQwDqYnkKtQ5VCiSe17E33H0aQ/u+1GlRuz4LZBk6Mm3sg90G9hEbmEt37C1Zg==}
+
+  acorn@8.15.0:
+    resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -2525,6 +2548,8 @@ snapshots:
       '@vitest/pretty-format': 4.1.8
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.1
+
+  acorn@8.15.0: {}
 
   ansi-regex@5.0.1: {}
 

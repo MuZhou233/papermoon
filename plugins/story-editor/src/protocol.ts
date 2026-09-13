@@ -61,6 +61,8 @@ const page = {
   limit: z.number().int().min(1).max(1000).optional(),
 }
 export const schemas = {
+  compile: object({ scriptId, ref: z.discriminatedUnion('kind', [object({ kind: z.literal('draft'), sequence }), object({ kind: z.literal('revision'), revisionId })]), entry: text.optional(), language: text.optional() }),
+  compiled: object({ scriptId, ref: z.discriminatedUnion('kind', [object({ kind: z.literal('draft'), sequence }), object({ kind: z.literal('revision'), revisionId })]), entry: text.optional(), language: text.optional() }),
   catalog: object({
     ...page,
     projectId: projectId.optional(),

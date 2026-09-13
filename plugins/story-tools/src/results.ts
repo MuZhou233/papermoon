@@ -1,7 +1,7 @@
 /** Public result declarations, shared by catalog presentation and DSH output validation. */
 import type { ToolName } from './catalog.ts'
 export interface ResultSchema {
-  type?: 'object' | 'array' | 'string' | 'number' | 'integer'
+  type?: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean'
   additionalProperties?: boolean
   properties?: Record<string, ResultSchema>
   required?: string[]
@@ -33,12 +33,19 @@ const page = (item: ResultSchema, located = true): ResultSchema =>
 const edit = {
   schema: object({ sequence: number, affected: array(record) }),
   description:
-    'The committed draft sequence and affected file paths, text keys, languages or metadata targets.',
+    'Returns the saved draft sequence and affected objects.',
 }
 export const results: Record<
   ToolName,
   { schema: ResultSchema; description: string }
 > = {
+  story_compile: {
+    schema: { oneOf: [
+      object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record) }),
+      object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record), artifactId: string, context: record, options: record }),
+    ] },
+    description: 'Returns source identity and diagnostics. Success includes the artifact ID, options and starting context.',
+  },
   story_status: {
     schema: object({
       script: record,
@@ -50,12 +57,12 @@ export const results: Record<
       settings: record,
     }),
     description:
-      'Script and draft records, registered languages, content counts and content-level metadata. No source bodies.',
+      'Returns script and draft records, registered languages, content counts and metadata.',
   },
   story_program_list: {
     schema: page(object({ path: string, metadata: record })),
     description:
-      'Observed ref, file paths and metadata, and an optional next cursor; source text is omitted.',
+      'Returns the content reference, file paths, metadata and an optional next cursor.',
   },
   story_program_read: {
     schema: object({
@@ -63,12 +70,12 @@ export const results: Record<
       file: object({ path: string, source: string, metadata: record }),
     }),
     description:
-      'Observed ref and one complete file, with exact source and metadata.',
+      'Returns the content reference and the complete file with source and metadata.',
   },
   story_program_search: {
     schema: page(record),
     description:
-      'Observed ref, matching paths and UTF-16 source offsets, plus an optional next cursor.',
+      'Returns the content reference, matching paths, UTF-16 source offsets and an optional next cursor.',
   },
   story_program_edit: edit,
   story_text_list: {
@@ -84,7 +91,7 @@ export const results: Record<
       ),
     ),
     description:
-      'Observed ref, keys, usage descriptions, metadata and available languages; translation bodies are omitted.',
+      'Returns the content reference, keys, usage descriptions, metadata and available languages.',
   },
   story_text_read: {
     schema: {
@@ -94,12 +101,12 @@ export const results: Record<
       ],
     },
     description:
-      'Without language: the complete entry. With language: found translation or missing reason (language, entry or translation), alongside the observed ref.',
+      'Returns the content reference and requested entry or translation. A missing result identifies the language, entry or translation.',
   },
   story_text_search: {
     schema: page(record),
     description:
-      'Observed ref, matching keys, fields, exact-language identities and UTF-16 offsets, plus an optional next cursor.',
+      'Returns the content reference, matching keys, fields, languages, UTF-16 offsets and an optional next cursor.',
   },
   story_text_edit: edit,
   story_history: {
@@ -107,12 +114,12 @@ export const results: Record<
       oneOf: [page(record, false), object({ entry: record, revision: record })],
     },
     description:
-      'Directory and revision metadata as a page with optional ordinal cursor, or a single retained entry and revision. Source bodies are omitted.',
+      'Returns revision metadata with an optional ordinal cursor, or a single revision and its directory entry.',
   },
   story_commit: {
     schema: object({ revision: record, entry: record, draft: record }),
     description:
-      'The created immutable revision, its directory entry and the updated draft record. Does not include the complete content.',
+      'Returns the created revision, its directory entry and the updated draft record.',
   },
   story_diff: {
     schema: object(
@@ -120,15 +127,15 @@ export const results: Record<
       ['left', 'right', 'items'],
     ),
     description:
-      'Pinned left/right refs, grouped additions, removals and modifications with original business values, and an optional continuation cursor.',
+      'Returns both content references, added, removed and modified values, and an optional next cursor.',
   },
   story_restore: {
     schema: object({ draft: record, selection: record }),
     description:
-      'Updated draft record and the requested restoration selection.',
+      'Returns the updated draft record and restored selection.',
   },
   story_help: {
     schema: object({ topic: string, text: string }),
-    description: 'Selected help topic and its complete usage text.',
+    description: 'Returns the selected topic and its usage text.',
   },
 }

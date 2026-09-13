@@ -98,7 +98,7 @@ export class WriterSessions {
       }))
       disposers.push(prompt.section({ name: 'papermoon:writer', order: 0, text: '{{papermoon_writer_prompt}}' }))
       disposers.push(agent.ctx.tools.presentAs('native'))
-      if (scriptId) for (const tool of createStoryTools(this.services.core, scriptId as ScriptId, observations))
+      if (scriptId) for (const tool of createStoryTools(this.services.core, scriptId as ScriptId, observations, this.services.compiler))
         disposers.push(agent.ctx.tools.register({ ...tool, execute: async (...args) => {
           this.target(scriptId)
           if (writerState(agent.session).mode !== PRESET) throw new WriterSessionError('wrong-mode', 'writer mode is required')

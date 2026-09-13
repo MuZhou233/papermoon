@@ -1,10 +1,11 @@
 /** Exact routes use DSH's existing authenticated API carrier. */
 import type { StoryRepository } from '@papermoon/story-core/repository'
+import type { CompilationService } from '@papermoon/story-compiler/service'
 import { z } from 'zod'
 import { dispatcher } from './service.ts'
 import { schemas } from './protocol.ts'
 export const name = 'papermoon-story-editor'
-export const inject = ['papermoonStoryCore', 'connection']
+export const inject = ['papermoonStoryCore', 'papermoonStoryCompiler', 'connection']
 export interface EditorHost {
   get(key: string): unknown
   effect(body: () => () => void | Promise<void>, label?: string): unknown
@@ -29,6 +30,7 @@ export function apply(ctx: EditorHost): void {
   const dispatch = dispatcher(
     ctx.get('papermoonStoryCore') as StoryRepository,
     (error) => console.error('[PaperMoon editor]', error),
+    ctx.get('papermoonStoryCompiler') as CompilationService,
   )
   for (const method of Object.keys(schemas))
     ctx.effect(

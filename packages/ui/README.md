@@ -12,7 +12,7 @@ The theme adapter maps DSH CSS variables into PaperMoon variables. Controls inhe
 
 ## Editing
 
-CodeEditor wraps CodeMirror 6 with line numbers, highlighting, search, undo and readonly presentation. It reports changes without owning saves or revision identities. Each mounted file keeps its editor state while hidden by the file switcher. JavaScript, TypeScript, JSON and Markdown have highlighting; other files use plain text. Highlighting is not compilation.
+CodeEditor wraps CodeMirror 6 with line numbers, highlighting, search, undo and readonly presentation. It reports changes without owning saves or revision identities. An explicit diagnostic target selects and scrolls to its one-based line and column; the caller verifies which content that target belongs to. Each mounted file keeps its editor state while hidden by the file switcher. JavaScript, TypeScript, JSON and Markdown have highlighting; other files use plain text. Highlighting is not compilation.
 
 CodeDiff shows readonly before/after values. Its comparison controls do not merge or restore content. Text catalogs use ordinary multiline fields rather than code-oriented controls. The [script editor](../../plugins/story-editor/README.md) owns those workflows.
 

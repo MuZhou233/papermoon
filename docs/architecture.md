@@ -39,3 +39,7 @@ The [editor plugin](../plugins/story-editor/README.md) owns user-facing operatio
 ## Writer sessions
 
 The [session plugin](../plugins/writer-sessions/README.md) owns script workspaces, frozen context and observations. Generic DSH capabilities are maintained as patches; the [decision](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.md) records ownership and alternatives.
+
+## Compilation and initialization
+
+The [compiler](../plugins/story-compiler/README.md) consumes fixed content and explicit options, with a separate runtime for frozen starting text. Its service reads repository snapshots and owns independent artifact files. Editor and scoped tool consumers share it; the storage and logic core have no reverse dependency. The [decision](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md) records CommonJS and artifact ownership.

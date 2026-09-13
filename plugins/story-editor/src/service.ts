@@ -1,11 +1,16 @@
-/** Editor operations expose authored content, never compile or approve it. */
+/** Authenticated editor operations keep saves, commits and explicit compilation separate. */
 import type { StoryRepository } from '@papermoon/story-core/repository'
+import type { CompilationService } from '@papermoon/story-compiler/service'
+import { ArtifactError } from '@papermoon/story-compiler/runtime'
 import { StoryError } from '@papermoon/story-core'
 import { StorageError } from '@papermoon/story-storage'
 import { schemas, type Input, type Method } from './protocol.ts'
 import { snapshotDTO, toDTO, recordDTO } from './wire.ts'
-export function handlers(repository: StoryRepository) {
+export function handlers(repository: StoryRepository, compiler?: CompilationService) {
+  const compilation = () => { if (!compiler) throw new ArtifactError('unavailable', 'compiler service is not installed'); return compiler }
   return {
+    compile: (p: Input<'compile'>, signal?: AbortSignal) => compilation().compile({ scriptId: p.scriptId, ref: p.ref }, { ...(p.entry === undefined ? {} : { entry: p.entry }), ...(p.language === undefined ? {} : { language: p.language }) }, signal),
+    compiled: (p: Input<'compiled'>) => compilation().find({ scriptId: p.scriptId, ref: p.ref }, { ...(p.entry === undefined ? {} : { entry: p.entry }), ...(p.language === undefined ? {} : { language: p.language }) }),
     catalog: (p: Input<'catalog'>) => repository.queryScripts(p),
     projects: (p: Input<'projects'>) => repository.listProjects(p),
     createProject: (p: Input<'createProject'>) => repository.createProject(p),
@@ -63,7 +68,7 @@ export function handlers(repository: StoryRepository) {
   }
 }
 export type Results = {
-  [M in Method]: ReturnType<ReturnType<typeof handlers>[M]>
+  [M in Method]: Awaited<ReturnType<ReturnType<typeof handlers>[M]>>
 }
 export type RpcResult<T> =
   | { ok: true; value: T }
@@ -71,8 +76,9 @@ export type RpcResult<T> =
 export function dispatcher(
   repository: StoryRepository,
   onError: (error: unknown) => void,
+  compiler?: CompilationService,
 ) {
-  const run = handlers(repository)
+  const run = handlers(repository, compiler)
   return async (
     endpoint: string,
     payload: unknown,
@@ -110,10 +116,10 @@ export function dispatcher(
       }
     try {
       // The key and validated input come from the same closed schema table.
-      const call = run[method] as (input: typeof parsed.data) => unknown
-      return { ok: true, value: call(parsed.data) }
+      const call = run[method] as (input: typeof parsed.data, signal: AbortSignal) => unknown
+      return { ok: true, value: await call(parsed.data, signal) }
     } catch (error) {
-      if (error instanceof StoryError || error instanceof StorageError)
+      if (error instanceof StoryError || error instanceof StorageError || error instanceof ArtifactError)
         return {
           ok: false,
           error: {

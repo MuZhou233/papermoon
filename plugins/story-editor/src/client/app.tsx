@@ -13,6 +13,7 @@ import type { Api } from './api.ts'
 import { ApiError } from './api.ts'
 import { Dialog, type Ask, type DialogSpec } from './dialog.tsx'
 import { ContentEditor } from './content.tsx'
+import { CompilationPanel, type DiagnosticTarget } from './compilation.tsx'
 import { DraftEditor } from './draft.ts'
 import type { Backup, Backups } from './buffers.ts'
 import { fromDTO, type SnapshotDTO } from '../wire.ts'
@@ -591,7 +592,8 @@ function Workspace({
   const state = useSyncExternalStore(editor.subscribe, editor.getSnapshot),
     [error, setError] = useState<unknown>(null),
     [version, setVersion] = useState(0),
-    [serverComparison, setServerComparison] = useState(false)
+    [serverComparison, setServerComparison] = useState(false),
+    [target, setTarget] = useState<DiagnosticTarget>()
   const { operations, base } = state,
     dirty = operations.length > 0
   useEffect(() => {
@@ -607,7 +609,19 @@ function Workspace({
       }
     }
     window.addEventListener('beforeunload', beforeUnload)
+    let active = true
+    let timer: ReturnType<typeof setTimeout>
+    const poll = async () => {
+      if (!active) return
+      if (document.visibilityState === 'visible' && !editor.getSnapshot().saving) {
+        try { await editor.refresh() } catch (error) { if (active) setError(error) }
+      }
+      if (active) timer = setTimeout(() => void poll(), 5000)
+    }
+    timer = setTimeout(() => void poll(), 5000)
     return () => {
+      active = false
+      clearTimeout(timer)
       window.removeEventListener('focus', focus)
       window.removeEventListener('online', focus)
       window.removeEventListener('beforeunload', beforeUnload)
@@ -850,12 +864,33 @@ function Workspace({
               {t('commit')}
             </Button>
           </div>
+          <CompilationPanel
+            api={runtime.api}
+            source={{ scriptId: info.id, ref: { kind: 'draft', sequence: base.draft.sequence } }}
+            content={state.content}
+            t={t}
+            ask={ask}
+            dirty={dirty}
+            blocked={state.saving || !!state.conflict}
+            save={async () => {
+              await editor.save()
+              requireSaved()
+              return { scriptId: info.id, ref: { kind: 'draft', sequence: editor.getSnapshot().base.draft.sequence } }
+            }}
+            locate={setTarget}
+            verify={async () => {
+              await editor.refresh()
+              const latest = editor.getSnapshot()
+              return !latest.operations.length && !latest.conflict && latest.base.draft.sequence === base.draft.sequence
+            }}
+          />
           <ContentEditor
             content={state.content}
             identity={info.id}
             edit={(ops) => editor.edit(ops)}
             t={t}
             ask={ask}
+            target={target}
           />
         </>
       ) : (
@@ -964,7 +999,8 @@ function RevisionBrowser({
       right: ContentRef
     }>(),
     [busy, setBusy] = useState(false),
-    [current, setCurrent] = useState<HistoryEntry>()
+    [current, setCurrent] = useState<HistoryEntry>(),
+    [target, setTarget] = useState<DiagnosticTarget>()
   useEffect(() => {
     let alive = true
     runtime.api
@@ -1137,6 +1173,15 @@ function RevisionBrowser({
                 />
               </div>
             </div>
+            <CompilationPanel
+              key={snapshot.revision.id}
+              api={runtime.api}
+              source={{ scriptId: route.scriptId!, ref: { kind: 'revision', revisionId: snapshot.revision.id } }}
+              content={fromDTO(snapshot.content)}
+              t={t}
+              ask={ask}
+              locate={(target) => { setComparison(undefined); setTarget(target) }}
+            />
             {comparison ? (
               <Comparison
                 key={JSON.stringify(comparison)}
@@ -1152,6 +1197,7 @@ function RevisionBrowser({
                 content={fromDTO(snapshot.content)}
                 t={t}
                 ask={ask}
+                target={target}
                 restore={(selection) =>
                   restore(snapshot.revision.id, selection)
                 }

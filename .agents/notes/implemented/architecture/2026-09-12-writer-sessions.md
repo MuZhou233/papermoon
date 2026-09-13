@@ -10,7 +10,7 @@ Writer definitions need recoverable, inspectable conversations. Multiple Agents 
 
 ## Decision
 
-The [session plugin](../../../../plugins/writer-sessions/README.md) owns script targets, preparation and admission-time freezing. Accepted input records the complete writer snapshot. Authored messages retain their actual roles and stable identities. Runtime observations check object content together with the draft sequence; storage and the logical core remain independent of session policy.
+The [session plugin](../../../../plugins/writer-sessions/README.md) owns script targets, preparation and admission-time freezing. Accepted input records the complete writer snapshot. Authored messages retain their actual roles and stable identities. Runtime observations check returned object content; storage and the logical core remain independent of session policy. The [object-scoped edit decision](2026-09-13-object-scoped-edits.md) defines local conflict handling and keeps sequence checks inside persistence.
 
 ## Alternatives considered
 

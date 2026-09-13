@@ -46,4 +46,4 @@ export interface Host {
   }
   connection: { fetch: { register(route: { path: string; methods: readonly 'POST'[]; requestBody: 'buffered'; fetch(request: Request): Promise<Response> }): Dispose } }
 }
-export interface Services { core: StoryRepository; writers: WriterRepository }
+export interface Services { core: StoryRepository; writers: WriterRepository; compiler?: import('@papermoon/story-compiler/service').CompilationService }

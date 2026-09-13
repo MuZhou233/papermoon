@@ -167,7 +167,7 @@ test('writer settings preserve literal roles, preview, messages and read-only to
     ],
   })
   await page.getByRole('tab', { name: 'Tools', exact: true }).click()
-  await expect(page.locator('.pw-tool')).toHaveCount(14)
+  await expect(page.locator('.pw-tool')).toHaveCount(15)
   await page
     .getByRole('textbox', { name: 'Search tools', exact: true })
     .fill('story_program_edit')

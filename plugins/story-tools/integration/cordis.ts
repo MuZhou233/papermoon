@@ -9,9 +9,11 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { StoryStorage } from '../../story-storage/lib/index.js'
 import { StoryRepository } from '../../story-core/lib/repository.js'
-import { createStoryTools } from '../lib/index.js'
+import { createStoryTools, StoryObservations } from '../lib/index.js'
 import { registerStoryTools } from '../lib/plugin.js'
 import { toolCatalog } from '../lib/catalog.js'
+import { CompilationService } from '../../story-compiler/lib/service.js'
+import { ArtifactStore } from '../../story-compiler/lib/store.js'
 import * as writers from '../../writers/lib/index.js'
 import type { WriterRepository } from '../../writers/lib/repository.js'
 const base = new URL('../../../dsh/', import.meta.url)
@@ -31,6 +33,7 @@ const root = new Context(),
   directory = mkdtempSync(join(tmpdir(), 'papermoon-tool-registry-'))
 const storage = new StoryStorage({ path: join(directory, 'story.sqlite') }),
   repository = new StoryRepository(storage)
+const compiler = new CompilationService(repository, new ArtifactStore(join(directory, 'compiled')))
 try {
   await root.plugin(SystemPrompt, {})
   await root.plugin(ToolRuntime)
@@ -60,12 +63,12 @@ try {
   }
   const a = await scoped('left'),
     b = await scoped('right')
-  const typed: ToolDefinition[] = createStoryTools(repository, left.id)
-  assert.equal(typed.length, 14)
-  registerStoryTools(a.scope.ctx, repository, left.id)
-  const remove = registerStoryTools(b.scope.ctx, repository, right.id)
+  const typed: ToolDefinition[] = createStoryTools(repository, left.id, undefined, compiler)
+  assert.equal(typed.length, 15)
+  registerStoryTools(a.scope.ctx, repository, left.id, undefined, compiler)
+  const remove = registerStoryTools(b.scope.ctx, repository, right.id, undefined, compiler)
   assert.equal(root.tools.schemas().length, 0)
-  assert.equal(root.tools.schemas(a.agent).length, 14)
+  assert.equal(root.tools.schemas(a.agent).length, 15)
   assert.deepEqual(
     root.tools.schemas(a.agent).map((tool) => ({
       name: tool.name,
@@ -95,7 +98,6 @@ try {
   assert.equal(
     (
       await execute(a.agent, 'story_program_edit', {
-        expectedSequence: 0,
         operations: [{ kind: 'create-file', path: 'file', source: 'left' }],
       })
     ).isError,
@@ -115,6 +117,13 @@ try {
     ).isError,
     true,
   )
+  const invalidReference = await execute(a.agent, 'story_commit', {
+    expectedSequence: 1, description: 'Reference validation', references: ['story.js'],
+  })
+  assert.equal(invalidReference.isError, true)
+  assert.match(invalidReference.content.filter(block => block.type === 'text').map(block => block.text).join('\n'), /references\[0\]: "story\.js"/)
+  assert.equal(repository.readSnapshot({ kind: 'draft', scriptId: left.id }).draft.sequence, 1)
+  assert.equal(repository.listRevisions(left.id).items.length, 0)
   const abort = new AbortController()
   abort.abort()
   assert.equal(
@@ -142,7 +151,6 @@ try {
   await success('story_program_read', { path: 'file' })
   await success('story_program_search', { query: 'left' })
   await success('story_text_edit', {
-    expectedSequence: 1,
     operations: [
       { kind: 'create-text', key: 'greeting' },
       {
@@ -175,6 +183,43 @@ try {
     selection: { kind: 'all' },
   })
   await success('story_help', {})
+  await success('story_program_edit', {
+    operations: [{ kind: 'create-file', path: 'story.js', source: 'module.exports={systemPrompt:"Opening",messages:[]}' }],
+  })
+  await success('story_compile', { ref: { kind: 'draft', sequence: 5 } })
+  assert.equal((await execute(b.agent, 'story_compile', { ref: { kind: 'revision', revisionId } })).isError, true)
+
+  const shared = repository.createScript({ projectId: project.id, name: 'Shared', defaultLanguage: 'en' })
+  repository.editDraft({ scriptId: shared.id, expectedSequence: 0, operations: [
+    { kind: 'create-file', path: 'main.js', source: 'Before' },
+    { kind: 'add-language', language: 'zh-CN' },
+    { kind: 'create-text', key: 'opening' },
+    { kind: 'set-translation', key: 'opening', language: 'en', text: 'Hello' },
+    { kind: 'set-translation', key: 'opening', language: 'zh-CN', text: '你好' },
+  ] })
+  const c = await scoped('shared-c'), d = await scoped('shared-d')
+  registerStoryTools(c.scope.ctx, repository, shared.id, new StoryObservations(), compiler)
+  registerStoryTools(d.scope.ctx, repository, shared.id, new StoryObservations(), compiler)
+  for (const agent of [c.agent, d.agent]) {
+    assert.equal((await execute(agent, 'story_program_read', { path: 'main.js' })).isError, false)
+  }
+  assert.equal((await execute(c.agent, 'story_text_read', { key: 'opening', language: 'en' })).isError, false)
+  assert.equal((await execute(d.agent, 'story_text_read', { key: 'opening', language: 'zh-CN' })).isError, false)
+  const concurrent = await Promise.all([
+    execute(c.agent, 'story_text_edit', { operations: [{ kind: 'set-translation', key: 'opening', language: 'en', text: 'Changed' }] }),
+    execute(d.agent, 'story_text_edit', { operations: [{ kind: 'set-translation', key: 'opening', language: 'zh-CN', text: '新内容' }] }),
+    execute(c.agent, 'story_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'After' }] }),
+  ])
+  assert.ok(concurrent.every(result => !result.isError), JSON.stringify(concurrent))
+  const sharedContent = repository.readSnapshot({ kind: 'draft', scriptId: shared.id }).content
+  assert.equal(sharedContent.texts.entries.get('opening')!.translations.get('en')!.text, 'Changed')
+  assert.equal(sharedContent.texts.entries.get('opening')!.translations.get('zh-CN')!.text, '新内容')
+  const stale = await execute(d.agent, 'story_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'Stale' }] })
+  assert.equal(stale.isError, true)
+  assert.match(JSON.stringify(stale.content), /observation-stale/)
+  assert.equal(root.tools.schemas().length, 0)
+  await c.scope.dispose(); await d.scope.dispose()
+  assert.equal(root.tools.schemas(c.agent).length, 0); assert.equal(root.tools.schemas(d.agent).length, 0)
 
   a.scope.ctx.tools.register({
     ...typed[0]!,
@@ -236,6 +281,7 @@ try {
   )
 } finally {
   await root.fiber.dispose()
+  await compiler.close()
   storage.close()
   rmSync(directory, { recursive: true, force: true })
 }

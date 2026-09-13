@@ -34,11 +34,9 @@ function fixture() {
 test('program batches preserve exact strings, validate final paths and commit immutable revisions', async () => {
   const { call, repository, script } = fixture()
   await call('story_program_edit', {
-    expectedSequence: 0,
     operations: [{ kind: 'create-file', path: 'part', source: 'before\r\n尾' }],
   })
   await call('story_program_edit', {
-    expectedSequence: 1,
     operations: [
       { kind: 'create-file', path: 'part/main.js', source: 'before\r\n尾' },
       { kind: 'delete-file', path: 'part' },
@@ -61,7 +59,6 @@ test('program batches preserve exact strings, validate final paths and commit im
   })
   const revision = repository.listRevisions(script.id).items[0]!.revision
   await call('story_program_edit', {
-    expectedSequence: 3,
     operations: [{ kind: 'replace-file', path: 'part/main.js', source: '' }],
   })
   expect(
@@ -85,16 +82,14 @@ test('program batches preserve exact strings, validate final paths and commit im
     items: [{ path: 'part/main.js' }],
   })
 })
-test('failed matches, invalid operations and stale sequences leave no partial changes', async () => {
+test('failed matches and invalid arguments leave no partial changes', async () => {
   const { call } = fixture()
   await call('story_program_edit', {
-    expectedSequence: 0,
     operations: [{ kind: 'create-file', path: 'file', source: 'aaa' }],
   })
   for (const oldText of ['', 'aa', 'absent'])
     await expect(
       call('story_program_edit', {
-        expectedSequence: 1,
         operations: [
           { kind: 'create-file', path: 'new', source: '' },
           { kind: 'replace-text', path: 'file', oldText, newText: 'x' },
@@ -103,16 +98,14 @@ test('failed matches, invalid operations and stale sequences leave no partial ch
     ).rejects.toThrow()
   await expect(
     call('story_program_edit', { expectedSequence: 0, operations: [] }),
-  ).rejects.toThrow(/conflict/)
+  ).rejects.toThrow(/expectedSequence/)
   await expect(
     call('story_program_edit', {
-      expectedSequence: 1,
       operations: [{ kind: 'create-text', key: 'bad' }],
     }),
   ).rejects.toThrow()
   await expect(
     call('story_text_edit', {
-      expectedSequence: 1,
       operations: [{ kind: 'delete-file', path: 'file' }],
     }),
   ).rejects.toThrow()
@@ -125,7 +118,6 @@ test('failed matches, invalid operations and stale sequences leave no partial ch
 test('text tools preserve exact-language missing results and final language invariants', async () => {
   const { call } = fixture()
   await call('story_text_edit', {
-    expectedSequence: 0,
     operations: [
       { kind: 'create-text', key: 'opening', description: 'Greeting' },
       { kind: 'set-translation', key: 'opening', language: 'en', text: '' },
@@ -150,9 +142,8 @@ test('text tools preserve exact-language missing results and final language inva
     items: [{ key: 'opening' }],
   })
   await call('story_text_edit', {
-    expectedSequence: 1,
     operations: [
-      { kind: 'delete-language', language: 'en' },
+      { kind: 'delete-language', language: 'en', expectedSequence: 1 },
       { kind: 'set-default-language', language: 'zh-CN' },
     ],
   })
@@ -193,7 +184,6 @@ test('bound tools reject foreign revisions and script IDs, including comparison 
 test('draft pagination requires pinned identities and cancellation does not save', async () => {
   const { call, tools } = fixture()
   await call('story_program_edit', {
-    expectedSequence: 0,
     operations: ['a', 'b'].map((path) => ({
       kind: 'create-file',
       path,
@@ -205,7 +195,7 @@ test('draft pagination requires pinned identities and cancellation does not save
   await expect(call('story_program_list', { after: 'a' })).rejects.toThrow(
     /sequence/,
   )
-  await call('story_program_edit', { expectedSequence: 1, operations: [] })
+  await call('story_program_edit', { operations: [] })
   await expect(
     call('story_program_list', {
       ref: { kind: 'draft', sequence: 1 },
@@ -226,10 +216,10 @@ test('draft pagination requires pinned identities and cancellation does not save
 })
 test('catalog includes only available operations and help is callable', async () => {
   const { tools, call } = fixture()
-  expect(toolCatalog().map((tool) => tool.name)).toEqual(
+  expect(toolCatalog().filter(tool => tool.name !== 'story_compile').map((tool) => tool.name)).toEqual(
     tools.map((tool) => tool.name),
   )
-  expect(toolCatalog()).toHaveLength(14)
+  expect(toolCatalog()).toHaveLength(15)
   expect(
     tools
       .find((tool) => tool.name === 'story_program_read')!
@@ -242,4 +232,55 @@ test('catalog includes only available operations and help is callable', async ()
     topic: 'program',
     text: expect.stringContaining('exactly one'),
   })
+})
+
+test('commit references identify revisions, reject file paths at their parameter and preserve the complete draft', async () => {
+  const { call, repository, script, project } = fixture()
+  await call('story_program_edit', {
+    operations: [{ kind: 'create-file', path: 'story.js', source: 'unfinished program' }],
+  })
+  await call('story_text_edit', {
+    operations: [
+      { kind: 'create-text', key: 'opening' },
+      { kind: 'set-translation', key: 'opening', language: 'en', text: 'Opening' },
+    ],
+  })
+  await call('story_commit', { expectedSequence: 2, description: 'First' })
+  const first = repository.listRevisions(script.id).items[0]!.revision
+  const other = repository.createScript({ projectId: project.id, name: 'Other', defaultLanguage: 'en' })
+  const foreign = repository.commitRevision({ scriptId: other.id, expectedSequence: 0, description: 'Other' }).revision.id
+  const before = repository.readSnapshot({ kind: 'draft', scriptId: script.id })
+  for (const invalid of ['story.js', 'missing-revision', foreign]) {
+    await expect(call('story_commit', {
+      expectedSequence: 3, description: 'Next', references: [first.id, invalid],
+    })).rejects.toMatchObject({
+      code: 'not-found',
+      message: expect.stringContaining(`references[1]: ${JSON.stringify(invalid)}`),
+    })
+    expect(repository.readSnapshot({ kind: 'draft', scriptId: script.id })).toEqual(before)
+    expect(repository.listRevisions(script.id).items).toHaveLength(1)
+  }
+  await call('story_commit', { expectedSequence: 3, description: 'With reference', references: [first.id] })
+  await call('story_commit', { expectedSequence: 4, description: 'Without reference' })
+  const revisions = repository.listRevisions(script.id).items.map(entry => entry.revision)
+  expect(revisions[1]!.references).toEqual([first.id])
+  expect(revisions[2]!.references).toEqual([])
+  for (const revision of revisions) {
+    expect(repository.readSnapshot({ kind: 'revision', revisionId: revision.id }).content).toEqual(before.content)
+  }
+})
+
+test('missing revision errors locate each reference without changing the draft', async () => {
+  const { call, repository, script } = fixture()
+  const before = repository.readSnapshot({ kind: 'draft', scriptId: script.id })
+  for (const [name, args, parameter] of [
+    ['story_history', { revisionId: 'missing' }, 'revisionId'],
+    ['story_program_read', { path: 'story.js', ref: { kind: 'revision', revisionId: 'missing' } }, 'ref.revisionId'],
+    ['story_diff', { left: { kind: 'revision', revisionId: 'missing' }, right: { kind: 'draft' } }, 'left.revisionId'],
+    ['story_diff', { left: { kind: 'draft' }, right: { kind: 'revision', revisionId: 'missing' } }, 'right.revisionId'],
+    ['story_restore', { expectedSequence: 0, revisionId: 'missing', selection: { kind: 'all' } }, 'revisionId'],
+  ] as const) {
+    await expect(call(name, args)).rejects.toMatchObject({ code: 'not-found', message: expect.stringContaining(`${parameter}: "missing"`) })
+  }
+  expect(repository.readSnapshot({ kind: 'draft', scriptId: script.id })).toEqual(before)
 })

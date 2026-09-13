@@ -4,6 +4,7 @@ import type { StoryContent, RestoreSelection } from '@papermoon/story-core'
 import type { EditableOperation } from '../protocol.ts'
 import type { Ask } from './dialog.tsx'
 import type { T } from './locales.ts'
+import type { DiagnosticTarget } from './compilation.tsx'
 interface Props {
   content: StoryContent
   t: T
@@ -11,6 +12,7 @@ interface Props {
   identity: string
   edit?: (operations: EditableOperation[]) => void
   restore?: (selection: RestoreSelection) => void
+  target?: DiagnosticTarget
 }
 function stored(key: string) {
   try {
@@ -29,6 +31,7 @@ export function ContentEditor({
   identity,
   edit,
   restore,
+  target,
 }: Props) {
   const storageKey = 'papermoon.selection.v1/' + identity,
     [initial] = useState(() => stored(storageKey)),
@@ -60,6 +63,12 @@ export function ContentEditor({
     setFile(path)
     setVisited((before) => new Set([...before, path]))
   }
+  useEffect(() => {
+    if (!target) return
+    setSearch(''); setMissing(false)
+    if (target.key !== undefined) { setPart('texts'); setKey(target.key); if (target.language) setLang(target.language) }
+    else if (target.path) { setPart('program'); chooseFile(target.path) }
+  }, [target])
   const run = (ops: EditableOperation[]) => {
     try {
       edit?.(ops)
@@ -320,6 +329,7 @@ export function ContentEditor({
                         path={path}
                         value={content.program.files.get(path)!.source}
                         readOnly={!edit}
+                        target={target?.path === path ? target : undefined}
                         zh={t('program') === '程序'}
                         onChange={(source) =>
                           run([{ kind: 'replace-file', path, source }])

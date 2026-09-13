@@ -1,7 +1,7 @@
 import type { Method, Params } from '../protocol.ts'
 import type { Results, RpcResult } from '../service.ts'
 export interface Api {
-  call<M extends Method>(method: M, payload: Params<M>): Promise<Results[M]>
+  call<M extends Method>(method: M, payload: Params<M>, signal?: AbortSignal): Promise<Results[M]>
 }
 export class ApiError extends Error {
   constructor(
@@ -24,12 +24,12 @@ export interface Connection {
 }
 export function createApi(connection: Connection, signal: AbortSignal): Api {
   return {
-    async call(method, payload) {
+    async call(method, payload, requestSignal) {
       const result = await connection.rpc.call(
         '/api',
         'papermoon/' + method,
         payload,
-        signal,
+        requestSignal ? AbortSignal.any([signal, requestSignal]) : signal,
       )
       if (!result.ok)
         throw new ApiError(

@@ -6,7 +6,7 @@ PaperMoon is a DSH distribution for AI-driven interactive storytelling, providin
 
 ## Current implementation
 
-The [manual editor](plugins/story-editor/README.md) provides a script overview, program and multilingual-text editing, immutable revisions, comparison, copying and restoration. It uses the [logic core](plugins/story-core/README.md) and independent [storage](plugins/story-storage/README.md). The [writer manager](plugins/writers/README.md) edits system prompts and initial messages and displays the built-in script tools. [Writer sessions](plugins/writer-sessions/README.md) connect those definitions and tools to script workspaces while preserving ordinary DSH chats. Compilation is not available yet.
+The [manual editor](plugins/story-editor/README.md) provides a script overview, program and multilingual-text editing, immutable revisions, comparison, copying and restoration. It uses the [logic core](plugins/story-core/README.md) and independent [storage](plugins/story-storage/README.md). The [writer manager](plugins/writers/README.md) edits system prompts and initial messages and displays the built-in script tools. [Writer sessions](plugins/writer-sessions/README.md) connect those definitions and tools to script workspaces while preserving ordinary DSH chats. The [compiler](plugins/story-compiler/README.md) freezes CommonJS starting contexts into saved artifacts for preview and initialization.
 
 ## Start
 

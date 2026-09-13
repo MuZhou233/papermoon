@@ -2,13 +2,14 @@
 import { z } from 'zod'
 import { isAbsolute } from 'node:path'
 import type { StoryRepository } from '@papermoon/story-core/repository'
+import type { CompilationService } from '@papermoon/story-compiler/service'
 import type { ScriptId } from '@papermoon/story-core'
 import type { WriterRepository } from '../../writers/src/repository.ts'
 import { WriterSessions, configureSchema } from './service.ts'
 import { CONFIG_KEY, PRESET, TARGET_PROVIDER, WriterSessionError, writerState } from './model.ts'
 import type { Host } from './host.ts'
 export const name = 'papermoon-writer-sessions'
-export const inject = ['papermoonStoryCore', 'papermoonWriters', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
+export const inject = ['papermoonStoryCore', 'papermoonStoryCompiler', 'papermoonWriters', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
 export interface Config { cwd: string }
 const sessionRequest = z.strictObject({ sessionId: z.string().min(1) })
 const scriptRequest = z.strictObject({ scriptId: z.string().min(1) })
@@ -17,7 +18,7 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
   if (!isAbsolute(config.cwd)) throw new Error('writer sessions cwd must be absolute')
   const core = ctx.get('papermoonStoryCore') as StoryRepository
   const writers = ctx.get('papermoonWriters') as WriterRepository
-  const service = new WriterSessions(ctx, { core, writers }, config.cwd)
+  const service = new WriterSessions(ctx, { core, writers, compiler: ctx.get('papermoonStoryCompiler') as CompilationService }, config.cwd)
   ctx.effect(function* () {
     yield () => service.dispose()
     yield ctx.provide('papermoonWriterSessions', service)

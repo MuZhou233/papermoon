@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   resolve: { alias: [
+    {find: /^@papermoon\/story-compiler$/, replacement: fileURLToPath(new URL("./plugins/story-compiler/src/index.ts", import.meta.url))},
+    {find: /^@papermoon\/story-compiler\/(.*)$/, replacement: fileURLToPath(new URL("./plugins/story-compiler/src/", import.meta.url)) + "$1.ts"},
     {find: "@papermoon/story-tools/catalog", replacement: fileURLToPath(new URL("./plugins/story-tools/src/catalog.ts", import.meta.url))},
     {find: /^@papermoon\/story-tools$/, replacement: fileURLToPath(new URL("./plugins/story-tools/src/index.ts", import.meta.url))},
     {find: /^@papermoon\/story-core$/, replacement: fileURLToPath(new URL('./plugins/story-core/src/index.ts', import.meta.url))},

@@ -5,6 +5,10 @@
         path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/story.sqlite'"
     - id: papermoon-story-core
       name: '../../plugins/story-core/lib/plugin.js'
+    - id: papermoon-story-compiler
+      name: '../../plugins/story-compiler/lib/plugin.js'
+      config:
+        directory: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/compiled-stories'"
     - id: papermoon-story-editor
       name: '../../plugins/story-editor/lib/index.js'
     - id: papermoon-writers

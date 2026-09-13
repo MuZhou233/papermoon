@@ -12,6 +12,8 @@ Do not edit the managed DSH checkout without preserving intended changes in regi
 
 Use ESM and strict TypeScript. Explain public operations and non-obvious restrictions where callers use them; do not require comments that repeat code. Keep dependencies and checks independent of DSH's private maintenance scripts. Plugins may consume DSH interfaces without adopting its internal package layout or delivery system.
 
+When adding or changing tools, follow the [tool writing standard](docs/development.md#tool-writing) for descriptions, parameter and result explanations, and help.
+
 Update the owning documentation and tests with behavior. Every non-trivial main-repository change adds or updates an owning [Agent Note](.agents/notes/README.md); purely mechanical or local edits are exempt. Search existing decisions before adding another Note. Rules and rationale each have one maintained home.
 
 Human-facing documentation is bilingual. Follow [documentation rules](docs/AGENTS.md). Derived checker code retains its [provenance](tooling/checks/README.md) and license. Do not import historical product files, prompts, or data formats into this repository.

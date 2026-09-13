@@ -11,6 +11,7 @@
 | `pnpm run setup` | 重置 DSH、应用已登记补丁、安装锁定的 DSH 依赖 |
 | `pnpm build` | 构建主库插件，再清理 DSH 声明的产物并运行官方构建 |
 | `pnpm build:plugins` | 无需 DSH 即可构建主库插件 |
+| `pnpm check:compiler:built` | 用普通 Node 验证构建后的编译 Worker 和独立运行时 |
 | `pnpm check:plugins:pure` | 阻止导入 Node 内置模块和 Cordis，检查构建后的核心与编剧上下文纯入口 |
 | `pnpm check:plugins:dsh` | 使用真实 DSH Cordis 检查存储、核心、编剧服务的生命周期及独立 scope 工具 |
 | `pnpm start -- --port 3081 --no-open` | 在 Web 上启动 PaperMoon；参数分别通过 argv 传递 |
@@ -25,13 +26,21 @@
 
 setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保留命令。自动化脚本也使用前一种写法。
 
-[PaperMoon 组合配置](../profiles/papermoon/cordis.patch.yml)通过官方 profile 叠加机制挂载存储、核心、编辑器、编剧管理和编剧会话插件。它是配置，不是源码补丁。启动不会重建插件；修改主库插件或 UI 源码后，运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
+[PaperMoon 组合配置](../profiles/papermoon/cordis.patch.yml)通过官方 profile 叠加机制挂载存储、核心、编译器、编辑器、编剧管理和编剧会话插件。它是配置，不是源码补丁。启动不会重建插件；修改主库插件或 UI 源码后，运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
 
 ## 编辑与升级
 
 自定义插件保留在主库，源码定制保存在[补丁](../patches/README.zh.md)中。初始化会移除 DSH 内未跟踪且未忽略的文件，不会清理已忽略的文件。重新初始化前导出需要保留的源码修改。用户数据放在 DSH 子模块目录之外。
 
 更新 DSH 时，选择官方提交，暂存新的 Gitlink，调整补丁及所需检查，然后执行初始化、构建、补丁检查和启动验证。主库检查器源码单独审查，不随 Gitlink 自动更新。两套依赖锁文件各自独立。
+
+## 工具编写
+
+工具说明、参数说明、结果说明和帮助均使用陈述句或祈使句，客观描述能力。参照 DSH 文件编辑工具的信息披露方式，只提供选择工具、调用工具和理解结果所需的信息。
+
+工具说明写用途与效果，参数说明写输入、默认值及必要限制，结果说明解释返回值，帮助提供 API 规则和例子。
+
+删去无关限制、重复解释和不影响调用的内部机制。持久化与重试细节写在工程文档中；调用方需要使用序号或标识时，再在工具文案中解释。不加入创作要求、强制检查流程，也不要求模型向用户汇报内部状态。
 
 ## 故障处理
 
@@ -44,3 +53,9 @@ setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保�
 ## 工作区登记格式
 
 资源工作区使用 DSH 工作区域格式 3，拒绝旧登记数据。停止服务后，将旧 `workspace.json` 移出 DSH 存储目录，再启动并重新选择文件夹或剧本。默认路径为 `.papermoon/dsh/storages/workspace.json`；显式设置 `DSH_HOME` 会改变其上级目录。确认新列表无误后再处理备份。此操作不改写会话日志、剧本数据库或编剧数据库。
+
+## 编译产物
+
+编译插件的 directory 默认指向 `.papermoon/compiled-stories/`；提供 `PAPERMOON_DATA_DIR` 时，使用该目录下的产物子目录。每个按内容寻址的 JSON 文件都是独立派生结果，草稿变化和项目删除不会将其删除。本版不自动回收，也不记录失败尝试的历史。需要清理时，先停止服务，再仅删除配置指定的 compiled-stories 目录。清理后，重启预览需等待对应内容再次显式编译。保留创作数据库及其他产品数据。
+
+编译不使用 Node 实验参数。构建后 Worker 检查会打印实际 Node 版本，CI 独立运行其选定的 Node 24 版本。源码测试与正式构建各自使用源码和产物模块路径。

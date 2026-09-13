@@ -11,6 +11,7 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | `pnpm run setup` | Reset DSH, apply registered patches, install locked DSH dependencies |
 | `pnpm build` | Build main plugins, then clean declared DSH outputs and run its official build |
 | `pnpm build:plugins` | Build main plugins without DSH |
+| `pnpm check:compiler:built` | Run built compiler Worker and independent runtime under plain Node |
 | `pnpm check:plugins:pure` | Check built pure core and writer-context entries with Node built-ins and Cordis imports blocked |
 | `pnpm check:plugins:dsh` | Check storage/core/writer lifecycles and scoped script tools against actual DSH Cordis |
 | `pnpm start -- --port 3081 --no-open` | Start PaperMoon over Web; pass arguments as separate argv elements |
@@ -25,13 +26,21 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 
 The package script named setup must be invoked as `pnpm run setup`: `pnpm setup` is reserved by pnpm. Automation uses the explicit script form.
 
-The [PaperMoon composition](../profiles/papermoon/cordis.patch.yml) mounts storage, core, editor, writer-management and writer-session plugins through the official profile overlay. It is configuration, not a source patch. Startup does not rebuild plugins; use `pnpm build:plugins` after changing main plugin or UI sources. Browser tests need built DSH artifacts and Chromium, installed with `pnpm exec playwright install chromium`.
+The [PaperMoon composition](../profiles/papermoon/cordis.patch.yml) mounts storage, core, compiler, editor, writer-management and writer-session plugins through the official profile overlay. It is configuration, not a source patch. Startup does not rebuild plugins; use `pnpm build:plugins` after changing main plugin or UI sources. Browser tests need built DSH artifacts and Chromium, installed with `pnpm exec playwright install chromium`.
 
 ## Editing and upgrading
 
 Keep custom plugins in the main repository and preserve source customization in [patches](../patches/README.md). Initialization removes untracked, non-ignored files inside DSH; it never performs an ignored-file purge. Export intended source changes before rerunning setup. Keep user data outside that managed checkout.
 
 To change DSH, select an official commit, stage the new Gitlink, update patches and their required checks, then run setup, build, patch checks and smoke. Changes to main checker sources are reviewed separately; they do not follow the Gitlink automatically. Package locks remain independent.
+
+## Tool writing
+
+Write tool descriptions, parameter and result explanations, and help in declarative or imperative sentences. Describe capabilities objectively, using DSH file-editing tools as the reference for how much information to disclose. Include what callers need to choose a tool, call it and interpret the result.
+
+Tool descriptions state purpose and effects. Parameter descriptions explain inputs, defaults and necessary restrictions. Result descriptions explain returned values. Help provides API rules and examples.
+
+Omit irrelevant limitations, redundant explanations and internal mechanics that do not affect a call. Document persistence and retry details in engineering guides; explain a sequence or identifier in tool text when the caller needs to use it. Do not add creative requirements, mandatory checking routines or instructions to report internal state to the user.
 
 ## Troubleshooting
 
@@ -44,3 +53,9 @@ Writer settings share the product data directory selected by `PAPERMOON_DATA_DIR
 ## Workspace registration format
 
 Resource workspaces use DSH workspace domain format 3 and reject older registrations. With the service stopped, move the old `workspace.json` out of the DSH storage directory, then start and register folders or scripts again. The default path is `.papermoon/dsh/storages/workspace.json`; an explicit `DSH_HOME` changes the parent directory. Keep the backup until the new list is verified. Session logs, script and writer databases are not rewritten.
+
+## Compiled artifacts
+
+The compiler plugin's directory defaults to `.papermoon/compiled-stories/`, beneath `PAPERMOON_DATA_DIR` when supplied. Each content-addressed JSON file is an independent derived result; draft changes and project deletion do not delete it. No automatic collection or failed-attempt history is maintained. To clear compiled results, stop the service and remove only the configured compiled-stories directory. This also removes restart previews until the corresponding content is explicitly compiled again. Keep authored databases and other product data intact.
+
+Compilation uses no experimental Node flags. The built-worker check prints the actual Node version; CI runs its selected Node 24 release independently. Source tests and production builds use their own emitted/source module paths.

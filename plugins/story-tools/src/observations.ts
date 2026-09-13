@@ -4,12 +4,13 @@ import type { schemas } from './catalog.ts'
 
 type ProgramOperation = ReturnType<typeof schemas.story_program_edit.parse>['operations'][number]
 type TextOperation = ReturnType<typeof schemas.story_text_edit.parse>['operations'][number]
+export type DraftToolOperation = ProgramOperation | TextOperation
 type Target =
   | { kind: 'file'; path: string }
   | { kind: 'text'; key: string }
   | { kind: 'translation'; key: string; language: string }
   | { kind: 'language'; language: string }
-  | { kind: 'program' | 'catalog' }
+  | { kind: 'program' | 'catalog' | 'default-language' }
 
 /** Object member order does not change an observation; Map keys and values retain their identities. */
 function identity(value: unknown): string {
@@ -30,6 +31,7 @@ function value(content: StoryContent, target: Target): unknown {
     case 'language': return content.texts.languages.get(target.language)
     case 'program': return content.program.metadata
     case 'catalog': return content.texts.metadata
+    case 'default-language': return content.texts.defaultLanguage
   }
 }
 export class StoryObservationError extends Error {
@@ -45,6 +47,11 @@ export class StoryObservations {
   file(file: ProgramFile): void { this.set({ kind: 'file', path: file.path }, file) }
   text(entry: TextEntry): void {
     this.set({ kind: 'text', key: entry.key }, entry)
+    for (const id of this.observed.keys()) {
+      const target = JSON.parse(id) as Target
+      if (target.kind === 'translation' && target.key === entry.key && !entry.translations.has(target.language))
+        this.set(target, undefined)
+    }
     for (const [language, translation] of entry.translations)
       this.translation(entry.key, language, translation)
   }
@@ -54,6 +61,7 @@ export class StoryObservations {
   status(content: StoryContent): void {
     this.set({ kind: 'program' }, content.program.metadata)
     this.set({ kind: 'catalog' }, content.texts.metadata)
+    this.set({ kind: 'default-language' }, content.texts.defaultLanguage)
     for (const [language, current] of content.texts.languages)
       this.set({ kind: 'language', language }, current)
   }
@@ -70,14 +78,14 @@ export class StoryObservations {
   }
 
   /** Validate a complete batch without changing observations; the receipt runs only after persistence. */
-  prepare(content: StoryContent, operations: readonly (ProgramOperation | TextOperation)[]): (after: StoryContent) => void {
+  prepare(content: StoryContent, operations: readonly DraftToolOperation[]): (after: StoryContent) => void {
     const changed = new Map<string, Target>()
     const mark = (target: Target) => { changed.set(key(target), target) }
     const check = (target: Target, allowAbsent = false) => {
       if (changed.has(key(target))) return
       const current = value(content, target)
-      if (allowAbsent && current === undefined) return
       const seen = this.observed.get(key(target))
+      if (allowAbsent && current === undefined && seen === undefined) return
       if (seen === undefined) throw new StoryObservationError('not-observed', target)
       if (seen !== identity(current)) throw new StoryObservationError('observation-stale', target)
     }
@@ -109,7 +117,7 @@ export class StoryObservations {
         }
         case 'add-language': mark({ kind: 'language', language: op.language }); break
         case 'delete-language': clearTexts = true; mark({ kind: 'language', language: op.language }); break
-        case 'set-default-language': break
+        case 'set-default-language': { const target = { kind: 'default-language' as const }; check(target); mark(target); break }
         case 'set-metadata': check(op.target); mark(op.target); break
       }
     }
