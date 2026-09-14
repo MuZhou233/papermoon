@@ -1,6 +1,6 @@
 /** Explicit compilation and restored previews always retain the source identity that produced them. */
 import { useEffect, useRef, useState } from 'react'
-import { Button, Field, Input, PromptTrace, Select } from '@papermoon/ui'
+import { Button, Field, Input, PromptTrace, Select, FunctionPreview } from '@papermoon/ui'
 import type { StoryContent } from '@papermoon/story-core'
 import type { CompilationReceipt } from '@papermoon/story-compiler/service'
 import type { Diagnostic } from '@papermoon/story-compiler/types'
@@ -98,6 +98,7 @@ export function CompilationPanel({ api, source, content, t, ask, dirty = false, 
           {diagnostic.chain && <small>{diagnostic.chain.join(' → ')}</small>}
         </li>)}
       </ul>}
+      {receipt.ok && <FunctionPreview state={receipt.state.initial} functions={receipt.functions} labels={{ state: t('initialState'), functions: t('functions'), parameters: t('functionParameters'), returns: t('functionReturns') }} />}
       {receipt.ok && <details className="pm-opening-preview" open>
         <summary>{t('openingPreview')}</summary>
         <PromptTrace label={t('openingPreview')} labels={{ number: t('messageNumber'), role: t('messageRole'), content: t('messageContent') }} messages={[

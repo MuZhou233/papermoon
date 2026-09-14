@@ -9,7 +9,7 @@ import { WriterRepository } from '../../writers/src/repository.ts'
 import { WriterSessions } from '../src/service.ts'
 import { CONFIG_KEY, PRESET, initialContext, writerState, type LogRecord } from '../src/model.ts'
 import type { Agent, Host, InputMessage } from '../src/host.ts'
-import type { createStoryTools } from '@papermoon/story-tools'
+import type { NativeTool } from '../../story-tools/src/plugin.ts'
 const cleanup: (() => void)[] = []
 afterEach(() => { for (const dispose of cleanup.splice(0).reverse()) dispose() })
 function setup() {
@@ -27,7 +27,7 @@ function setup() {
   const service = new WriterSessions(host, { core, writers }, dir)
   cleanup.push(() => service.dispose())
   function agent(id: string, seed: readonly LogRecord[] = []) {
-    const events = structuredClone([...seed]), definitions = new Map<string, ReturnType<typeof createStoryTools>[number]>()
+    const events = structuredClone([...seed]), definitions = new Map<string, NativeTool>()
     const sections = new Map<string, string>(), variables = new Map<string, () => string>(), effects: (() => void)[] = []
     let busy = false
     const ctx: Agent['ctx'] = {
@@ -88,7 +88,7 @@ test('initial messages keep literal text, duplicate roles, names and stable fork
 test('scopes share a script without sharing observations and remounts require a new read', async () => {
   const h = setup(), a = h.agent('a'), b = h.agent('b'); await h.select(a.agent); await h.select(b.agent)
   h.core.editDraft({ scriptId: h.script.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'main.js', source: 'first' }] })
-  const call = (target: typeof a, name: string, args: unknown) => target.definitions.get(name)!.execute(args, { signal: new AbortController().signal })
+  const call = (target: typeof a, name: string, args: unknown) => target.definitions.get(name)!.execute(args, { callId: 'test-call', signal: new AbortController().signal })
   await call(a, 'story_program_read', { path: 'main.js' })
   await expect(call(b, 'story_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'second' }] })).rejects.toThrow(/not-observed/)
   await call(a, 'story_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'second' }] })
@@ -101,12 +101,12 @@ test('deleted targets retain history and refuse messages and tool execution', as
   h.core.deleteScript(h.script.id)
   expect(h.service.view(a.agent).targetMissing).toBe(true)
   expect(() => h.service.admit(a.agent, h.message)).toThrow(/no longer exists/)
-  await expect(a.definitions.get('story_status')!.execute({}, { signal: new AbortController().signal })).rejects.toThrow(/no longer exists/)
+  await expect(a.definitions.get('story_status')!.execute({}, { callId: 'test-call', signal: new AbortController().signal })).rejects.toThrow(/no longer exists/)
   expect(writerState(a.agent.session).fixed?.writer.name).toBe('W')
   a.dispose()
   const restored = h.agent('a', a.events)
   expect(h.service.view(restored.agent).targetMissing).toBe(true)
-  await expect(restored.definitions.get('story_status')!.execute({}, { signal: new AbortController().signal })).rejects.toThrow(/no longer exists/)
+  await expect(restored.definitions.get('story_status')!.execute({}, { callId: 'test-call', signal: new AbortController().signal })).rejects.toThrow(/no longer exists/)
 })
 
 

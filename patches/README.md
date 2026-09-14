@@ -33,3 +33,9 @@ The series separates resource workspaces, durable prompt admission with authored
 Select tests under the DSH rules for the pinned revision; the command runner does not infer those obligations. [Development](../docs/development.md) describes the complete upgrade sequence. Report which checks ran and their results; link to DSH’s rules instead of maintaining another copy.
 
 Registered DSH checks use the same CI package-manager environment as setup, so dependency-layout verification does not attempt a second installation or local Git hook setup.
+
+The inclusive-union patch extends tool schema validation and both language type renderers with anyOf. The retained-outcome patch allows a failed tool receipt to be corrected from earlier durable evidence while preserving its message and call identity. Both use existing registration and Session mechanisms, without product-specific rules.
+
+The typed-dictionary patch validates schema-valued additionalProperties and projects dictionary types. The reply-visibility patch provides effect-owned Client registrations for presets that keep intermediate Assistant text visible. PaperMoon registers the moderator preset; the DSH default remains unchanged.
+
+The tool-argument diagnostic patch preserves JSON parser failures in ordinary tool error results, including available locations. Malformed arguments do not execute tools; valid JSON continues through parameter validation.

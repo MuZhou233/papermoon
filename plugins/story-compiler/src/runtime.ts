@@ -1,6 +1,6 @@
-/** Frozen text artifacts load without the compiler, Worker or authored-content repository. */
+/** Frozen artifacts load without executing programs or importing the JSDoc compiler. */
 import { createHash } from 'node:crypto'
-import type { Artifact, OpeningContext, ResolvedOptions } from './types.ts'
+import type { Artifact, OpeningContext, ResolvedOptions, CompiledDeclaration } from './types.ts'
 
 export class ArtifactError extends Error {
   readonly code: string
@@ -29,7 +29,7 @@ export function validateContext(value: unknown): asserts value is OpeningContext
   }
 }
 export function compilationKey(sourceHash: string, options: ResolvedOptions): string {
-  return digest({ sourceHash, options, compiler: 'papermoon.commonjs/1', apiVersion: 1 })
+  return digest({ sourceHash, options, compiler: 'papermoon.commonjs/2', apiVersion: 2 })
 }
 function freeze<T>(value: T): T {
   if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value) }
@@ -39,8 +39,8 @@ function freeze<T>(value: T): T {
 export function loadArtifact(serialized: string): Artifact {
   let raw: unknown
   try { raw = JSON.parse(serialized) } catch { throw new ArtifactError('invalid-artifact', 'artifact is not JSON') }
-  object(raw, ['format', 'version', 'apiVersion', 'compiler', 'id', 'sourceHash', 'options', 'context', 'checksum'])
-  if (raw.format !== 'papermoon.opening' || raw.version !== 1 || raw.apiVersion !== 1 || raw.compiler !== 'papermoon.commonjs/1')
+  object(raw, ['format', 'version', 'apiVersion', 'compiler', 'id', 'sourceHash', 'options', 'context', 'state', 'functions', 'program', 'checksum'])
+  if (raw.format !== 'papermoon.story' || raw.version !== 2 || raw.apiVersion !== 2 || raw.compiler !== 'papermoon.commonjs/2')
     throw new ArtifactError('unsupported-artifact', 'unsupported artifact format or compiler')
   if (![raw.id, raw.sourceHash, raw.checksum].every(v => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v)))
     throw new ArtifactError('invalid-artifact', 'invalid artifact identity')
@@ -52,14 +52,36 @@ export function loadArtifact(serialized: string): Artifact {
   if (keys.some(key => !Number.isSafeInteger(limits[key]) || Number(limits[key]) < 1))
     throw new ArtifactError('invalid-artifact', 'invalid resource limits')
   validateContext(raw.context)
+  object(raw.state, ['initial', 'schema'])
+  for (const value of [raw.state.initial, raw.state.schema]) if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ArtifactError('invalid-artifact', 'invalid state declaration')
+  object(raw.program, ['files', 'texts'])
+  for (const [key, nullable] of [['files', false], ['texts', true]] as const) {
+    const value = raw.program[key]
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.values(value).some(v => typeof v !== 'string' && !(nullable && v === null))) throw new ArtifactError('invalid-artifact', 'invalid program bundle')
+  }
+  if (!Object.hasOwn(raw.program.files as object, raw.options.entry)) throw new ArtifactError('invalid-artifact', 'artifact entry is missing')
+  if (!Array.isArray(raw.functions)) throw new ArtifactError('invalid-artifact', 'invalid function declarations')
+  const names = new Set<string>()
+  for (const fn of raw.functions) {
+    object(fn, ['name', 'description', 'parameters', 'output', 'arguments', 'factoryHash', 'functionHash', 'location'])
+    if (typeof fn.name !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(fn.name) || names.has(fn.name) || typeof fn.description !== 'string' || !fn.description.trim()) throw new ArtifactError('invalid-artifact', 'invalid tool identity')
+    names.add(fn.name)
+    for (const hash of [fn.factoryHash, fn.functionHash]) if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)) throw new ArtifactError('invalid-artifact', 'invalid function source identity')
+    for (const schema of [fn.parameters, fn.output]) if (!schema || typeof schema !== 'object' || Array.isArray(schema)) throw new ArtifactError('invalid-artifact', 'invalid function schema')
+    if (!Array.isArray(fn.arguments) || fn.arguments.some(v => typeof v !== 'string') || new Set(fn.arguments).size !== fn.arguments.length) throw new ArtifactError('invalid-artifact', 'invalid function arguments')
+    const schema = fn.parameters as Record<string, unknown>
+    if (schema.type !== 'object' || !schema.properties || typeof schema.properties !== 'object' || Array.isArray(schema.properties) || Object.keys(schema.properties).length !== fn.arguments.length || fn.arguments.some(name => !Object.hasOwn(schema.properties as object, name))) throw new ArtifactError('invalid-artifact', 'function parameters do not match arguments')
+    object(fn.location, ['path', 'line', 'column'])
+    if (typeof fn.location.path !== 'string' || !Object.hasOwn(raw.program.files as object, fn.location.path) || !Number.isSafeInteger(fn.location.line) || Number(fn.location.line) < 1 || !Number.isSafeInteger(fn.location.column) || Number(fn.location.column) < 1) throw new ArtifactError('invalid-artifact', 'invalid function location')
+  }
   const { checksum, ...payload } = raw
   if (digest(payload) !== checksum || compilationKey(raw.sourceHash as string, raw.options as unknown as ResolvedOptions) !== raw.id)
     throw new ArtifactError('invalid-artifact', 'artifact checksum or identity does not match')
   return freeze(raw as unknown as Artifact)
 }
-export function createArtifact(sourceHash: string, options: ResolvedOptions, context: OpeningContext): Artifact {
-  validateContext(context)
-  const payload = { format: 'papermoon.opening', version: 1, apiVersion: 1, compiler: 'papermoon.commonjs/1', id: compilationKey(sourceHash, options), sourceHash, options, context }
+export function createArtifact(sourceHash: string, options: ResolvedOptions, compiled: CompiledDeclaration): Artifact {
+  validateContext(compiled.context)
+  const payload = { format: 'papermoon.story', version: 2, apiVersion: 2, compiler: 'papermoon.commonjs/2', id: compilationKey(sourceHash, options), sourceHash, options, context: compiled.context, state: compiled.state, functions: compiled.functions, program: compiled.program }
   return loadArtifact(canonical({ ...payload, checksum: digest(payload) }))
 }
 /** Return an independent context; mutating it cannot affect another initialization. */

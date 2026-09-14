@@ -50,6 +50,8 @@ Initialization does not start a server. Web stays attached to the terminal; stop
 
 Writer settings share the product data directory selected by `PAPERMOON_DATA_DIR`, using an independent `writers.sqlite`. The profile does not register script tools globally. Client plugin bundling is shared in `tooling/repository/build-clients.ts`.
 
+Host bundles leave PaperMoon package imports external so Worker paths resolve beside their owning emitted modules. Source aliases remain enabled for browser bundles and main source tests.
+
 ## Workspace registration format
 
 Resource workspaces use DSH workspace domain format 3 and reject older registrations. With the service stopped, move the old `workspace.json` out of the DSH storage directory, then start and register folders or scripts again. The default path is `.papermoon/dsh/storages/workspace.json`; an explicit `DSH_HOME` changes the parent directory. Keep the backup until the new list is verified. Session logs, script and writer databases are not rewritten.
@@ -62,4 +64,4 @@ Compilation uses no experimental Node flags. The built-worker check prints the a
 
 ## Frozen revision data
 
-Story storage requires format 3. Version 1 and 2 databases are refused and remain untouched. Keep old database files outside the configured new database path before starting with a fresh store; there is no migration or automatic deletion. Business KV and opening artifact formats remain at version 1. The compiled-stories directory contains independent draft checks and can be removed when those previews are no longer needed; authoritative revision artifacts reside inside Story SQLite, and running performances retain their own logged copies.
+Story storage requires format 3. Version 1 and 2 databases are refused and remain untouched. Keep old database files outside the configured new database path before starting with a fresh store; there is no migration or automatic deletion. Business KV remains format 1. Compiled artifacts and performance initialization require format 2. Old compiled files, attached artifacts and performance records are retained but refused; they are not migrated or recompiled in place. Restore source to a draft and submit a new revision to create a current artifact, then start a new performance. The compiled-stories directory contains independent draft checks and can be removed when those previews are no longer needed; authoritative revision artifacts reside inside Story SQLite, and running performances retain their own logged copies.

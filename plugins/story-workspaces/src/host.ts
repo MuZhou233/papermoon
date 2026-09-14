@@ -1,6 +1,6 @@
 /** Minimal public host faces; the logical model does not depend on DSH packages. */
 import type { ToolHost } from '../../story-tools/src/plugin.ts'
-export interface LogRecord { type: string; data: unknown }
+export interface LogRecord { seq?: number; time?: number; type: string; data: unknown; sourceEventSeqs?: readonly number[] }
 export interface SessionLog { header: { agentPreset?: string }; snapshotEvents(): readonly LogRecord[] }
 export interface InitialMessage { index: number; groupId: string; name?: string; message: { id: string; role: 'user' | 'assistant'; content: { type: 'text'; text: string }[]; source: { kind: 'plugin'; plugin: string } } }
 export type Dispose = () => void
@@ -17,7 +17,7 @@ export interface Agent {
     }
     tools: ToolHost['tools'] & { presentAs(mode: 'native'): Dispose }
   }
-  session: SessionLog & { append(type: string, data: unknown): unknown }
+  session: SessionLog & { append(type: string, data: unknown, intent?: { surfaceOp: 'append' | { op: 'replace'; startSeq: number; endSeq: number }; sourceEventSeqs?: number[] }): unknown }
   inbox: { nextTurn: readonly unknown[]; nextStep: readonly unknown[] }
   runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>
 }

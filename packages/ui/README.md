@@ -21,3 +21,5 @@ PromptTrace displays literal system, user and assistant messages, preserving ord
 ## Maintenance
 
 Main-repository checks validate component ownership and source records without reading DSH. Browser scenarios exercise the actual bundle, keyboard controls, readonly content and responsive layout. Dependencies and copies follow PaperMoon's [maintenance rules](../../AGENTS.md).
+
+FunctionPreview renders readonly initial state and function declarations with caller-provided labels. It imports no compiler service; author text is rendered as text and JSON.

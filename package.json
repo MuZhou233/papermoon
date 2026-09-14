@@ -21,7 +21,7 @@
     "note": "tsx tooling/checks/note-cli.ts",
     "test:smoke": "tsx tooling/tests/smoke.ts",
     "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json && tsc -p plugins/story-core/tsconfig.build.json && tsc -p plugins/story-compiler/tsconfig.build.json && tsc -p plugins/story-tools/tsconfig.build.json && tsc -p plugins/writers/tsconfig.build.json && tsx tooling/repository/build-clients.ts",
-    "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts && tsc -p plugins/story-core/integration/tsconfig.json && node --import tsx/esm plugins/story-core/integration/cordis.ts && tsc -p plugins/story-tools/integration/tsconfig.json && node --import tsx/esm plugins/story-tools/integration/cordis.ts && node plugins/writer-sessions/integration/runtime.mjs && node plugins/story-compiler/integration/cordis.mjs",
+    "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts && tsc -p plugins/story-core/integration/tsconfig.json && node --import tsx/esm plugins/story-core/integration/cordis.ts && tsc -p plugins/story-tools/integration/tsconfig.json && node --import tsx/esm plugins/story-tools/integration/cordis.ts && node plugins/writer-sessions/integration/runtime.mjs && node plugins/story-compiler/integration/cordis.mjs && node plugins/performances/integration/runtime.mjs",
     "check:plugins:pure": "node plugins/story-core/integration/pure-import.mjs && node plugins/performances/integration/pure-reader.mjs",
     "start:dsh": "tsx tooling/repository/cli.ts start-dsh",
     "test:editor": "playwright test --config plugins/story-editor/playwright.config.ts",

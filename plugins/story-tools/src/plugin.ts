@@ -3,11 +3,19 @@ import type { StoryRepository } from '@papermoon/story-core/repository'
 import type { ScriptId } from '@papermoon/story-core'
 import type { CompilationService } from '@papermoon/story-compiler/service'
 import { createStoryTools, type StoryObservations } from './index.ts'
+export interface NativeTool {
+  name: string
+  description: string
+  parameters: Record<string, unknown>
+  output: { schema: object; render(args: unknown, value: import('@papermoon/story-core').JsonValue): { type: 'text'; text: string }[] }
+  execute(args: unknown, exec: { callId: string; signal: AbortSignal }): Promise<unknown>
+  isConcurrencySafe?(args: unknown): boolean
+}
 export interface ToolHost {
   effect(body: () => () => void, label?: string): unknown
   tools: {
     register(
-      definition: ReturnType<typeof createStoryTools>[number],
+      definition: NativeTool,
     ): () => void
   }
 }

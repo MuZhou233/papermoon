@@ -1,8 +1,8 @@
 /** Stateless compilation over a fixed authored snapshot. Each job owns one short-lived Worker. */
-import { Worker } from 'node:worker_threads'
+import { Workers } from './workers.ts'
 import { encodeContent, type StoryContent } from '@papermoon/story-core'
 import { compilationKey, createArtifact, digest } from './runtime.ts'
-import type { CompileOptions, CompileResult, Limits, ResolvedOptions, WorkerInput, WorkerResult } from './types.ts'
+import type { CompileOptions, CompileResult, Limits, ResolvedOptions, WorkerInput } from './types.ts'
 export type * from './types.ts'
 
 export const defaultLimits: Readonly<Limits> = Object.freeze({ inputBytes: 8 * 1024 * 1024, modules: 256, outputBytes: 1024 * 1024, executionMs: 1000, totalMs: 10000, concurrency: 2, memoryMb: 128 })
@@ -33,54 +33,23 @@ const failure = (code: string, message: string, kind: 'script' | 'operation' = '
 
 /** A compiler instance limits concurrent jobs without queuing or retaining module state. */
 export class StoryCompiler {
-  private readonly jobs = new Set<AbortController>()
-  private closed = false
+  private readonly workers = new Workers()
   async compile(content: StoryContent, options: CompileOptions = {}, signal?: AbortSignal): Promise<CompileResult> {
-    if (this.closed) return failure('closed', 'compiler is closed')
-    if (signal?.aborted) return failure('cancelled', 'compilation cancelled')
     let input: ReturnType<typeof prepare>
     try { input = prepare(content, options) } catch (error) {
       return { ok: false, failure: error instanceof SourceLimitError ? 'script' : 'operation', diagnostics: [{ code: 'invalid-input', stage: 'input', message: error instanceof Error ? error.message : 'invalid compiler input' }] }
     }
-    if (this.jobs.size >= input.job.options.limits.concurrency) return failure('busy', 'compiler concurrency limit reached')
-    const controller = new AbortController()
-    const abort = () => controller.abort()
-    signal?.addEventListener('abort', abort, { once: true })
-    this.jobs.add(controller)
-    if (signal?.aborted) controller.abort()
+    const result = await this.workers.run(input.job, signal)
+    if (!result.ok) return { ok: false, failure: 'operation' in result ? 'operation' : 'script', diagnostics: [result.diagnostic] }
     try {
-      return await new Promise<CompileResult>((resolve) => {
-        let worker: Worker
-        try {
-          worker = new Worker(new URL(import.meta.url.endsWith('.ts') ? './worker.ts' : './worker.js', import.meta.url), { workerData: input.job, execArgv: [], env: {}, resourceLimits: { maxOldGenerationSizeMb: input.job.options.limits.memoryMb }, stdout: true, stderr: true })
-        } catch (error) { resolve(failure('worker-failed', String(error))); return }
-        worker.stdout.resume(); worker.stderr.resume()
-        let finished = false
-        const finish = (result: CompileResult) => {
-          if (finished) return
-          finished = true
-          clearTimeout(timer); controller.signal.removeEventListener('abort', cancel)
-          void worker.terminate().then(() => resolve(result), () => resolve(failure('worker-failed', 'compiler Worker could not terminate')))
-        }
-        const cancel = () => finish(failure('cancelled', 'compilation cancelled'))
-        const timer = setTimeout(() => finish(failure('timeout', 'compilation exceeded totalMs')), input.job.options.limits.totalMs)
-        controller.signal.addEventListener('abort', cancel, { once: true })
-        worker.on('message', (result: WorkerResult) => {
-          if (controller.signal.aborted) { cancel(); return }
-          try {
-            if (!result.ok) { finish({ ok: false, failure: 'script', diagnostics: [result.diagnostic] }); return }
-            const artifact = createArtifact(input.sourceHash, input.job.options, result.context)
-            if (Buffer.byteLength(JSON.stringify(artifact)) > input.job.options.limits.outputBytes) { finish(failure('output-limit', 'artifact exceeds outputBytes', 'script')); return }
-            finish({ ok: true, artifact, diagnostics: [] })
-          } catch { finish(failure('worker-failed', 'compiler returned an invalid result')) }
-        })
-        worker.on('error', () => finish(failure('worker-failed', 'compiler Worker failed')))
-        worker.on('exit', () => { if (!finished) finish(failure('worker-failed', 'compiler Worker exited without a result')) })
-        if (controller.signal.aborted) cancel()
-      })
-    } finally { this.jobs.delete(controller); signal?.removeEventListener('abort', abort) }
+      if (!('compiled' in result)) return failure('worker-failed', 'compiler returned an invalid result')
+      const artifact = createArtifact(input.sourceHash, input.job.options, result.compiled)
+      if (Buffer.byteLength(JSON.stringify(artifact)) > input.job.options.limits.outputBytes) return failure('output-limit', 'artifact exceeds outputBytes', 'script')
+      return { ok: true, artifact, diagnostics: [] }
+    } catch { return failure('worker-failed', 'compiler returned an invalid result') }
   }
-  close(): void { this.closed = true; for (const job of this.jobs) job.abort() }
+  close(): Promise<void> { return this.workers.close() }
+
 }
 const compiler = new StoryCompiler()
 export function compile(content: StoryContent, options: CompileOptions = {}, signal?: AbortSignal): Promise<CompileResult> {

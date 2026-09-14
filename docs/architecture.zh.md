@@ -42,8 +42,10 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 编译与初始化
 
-[编译器](../plugins/story-compiler/README.zh.md)接收确定内容与明确配置，独立运行时使用冻结的起始文本。服务读取仓库快照，管理独立产物文件。编辑器与作用域内的工具共用该服务，存储与逻辑核心不反向依赖它。[决定记录](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)说明 CommonJS 与产物归属。
+[编译器](../plugins/story-compiler/README.zh.md)接收确定内容与明确配置，通过独立入口初始化冻结的起始文本并执行函数。服务读取仓库快照，管理独立产物文件。编辑器与作用域内的工具共用该服务，存储与逻辑核心不反向依赖它。[决定记录](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)说明 CommonJS 与产物归属。
 
 ## 修订提交与演绎
 
-[编译服务](../plugins/story-compiler/README.zh.md#提交与完整修订冻结)负责在修订事务前自动编译。存储保存通用不可变附件，核心只传递附件。独立修订读取器与文本运行时初始化[演绎会话](../plugins/performances/README.zh.md)，不执行编译或访问预览缓存。会话保存完整产物副本，源剧本删除后仍可继续。[共用剧本工作区](../plugins/story-workspaces/README.zh.md)通过稳定提供者组织编剧与主持人会话。
+[编译服务](../plugins/story-compiler/README.zh.md#提交与冻结修订版本)负责在修订事务前自动编译。存储保存通用不可变附件，核心只传递附件。独立修订读取器与文本运行时初始化[演绎会话](../plugins/performances/README.zh.md)，不执行编译或访问预览缓存。会话保存完整产物副本，源剧本删除后仍可继续。[共用剧本工作区](../plugins/story-workspaces/README.zh.md)通过稳定提供者组织编剧与主持人会话。
+
+函数声明、冻结源码与调用由[编译器包](../plugins/story-compiler/README.zh.md)维护。[演绎插件](../plugins/performances/README.zh.md)串行执行调用，将完整动作持久保存到 Session 日志。函数状态不会隐式进入存储 KV 或模型上下文。

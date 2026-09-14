@@ -53,6 +53,9 @@
       ],
       "@papermoon/story-compiler/revisions": [
         "./plugins/story-compiler/src/revisions.ts"
+      ],
+      "@papermoon/story-compiler/execution": [
+        "./plugins/story-compiler/src/execution.ts"
       ]
     },
     "jsx": "react-jsx",

@@ -1,28 +1,31 @@
-# Script compiler and opening runtime
+# Script compiler and runtime
 
 English | [中文](README.zh.md)
 
-This package compiles a fixed [StoryContent](../story-core/README.md) snapshot into literal starting messages. Programs use restricted CommonJS; the package itself uses ESM. The [script API](api.md) defines declarations and text lookup. No model, world state, runtime action or performance session is created.
+This package compiles a fixed [StoryContent](../story-core/README.md) into starting messages, state and function declarations. Programs use restricted CommonJS; the package uses ESM. The [script API](api.md) defines declarations, JSDoc and text lookup.
 
 ## Entries and ownership
 
 | Entry | Public operations |
 |---|---|
-| @papermoon/story-compiler | compile(content, options, signal), StoryCompiler, resolveOptions |
-| @papermoon/story-compiler/runtime | loadArtifact(serialized), initialize(artifact) |
+| @papermoon/story-compiler | compile, StoryCompiler, resolveOptions |
+| @papermoon/story-compiler/runtime | loadArtifact, initialize |
+| @papermoon/story-compiler/execution | StoryRuntime.invoke, close |
 | @papermoon/story-compiler/service | CompilationService, ArtifactStore |
 | @papermoon/story-compiler/revisions | RevisionArtifacts, revisionCompilation |
 | @papermoon/story-compiler/plugin | Cordis service papermoonStoryCompiler |
 
-The compiler receives content and explicit options, with no database or filesystem access to authored inputs. The service reads a consistent repository snapshot before starting asynchronous work. Only draft requests are compiled, and they require a known sequence. Historical artifacts are read by their frozen attachment keys. Source identity stays in the receipt and does not enter program evaluation. Editing during compilation cannot change its captured input.
+Compilation accepts content and explicit options. The service first reads one consistent draft snapshot, with its known sequence, and then starts asynchronous work. Source identity belongs to receipts, not program inputs. Edits during compilation cannot change that input. Storage and the logic core do not import the compiler.
 
-The runtime imports neither the compiler Worker nor the authored repository. It validates the artifact and returns a detached context on each initialization. Changing one returned context cannot affect another. It never executes source, fetches text, calls a model or stores progress.
+The runtime entry validates frozen artifacts and returns independent initial contexts without loading Workers or executing source. The execution entry runs frozen modules and functions in Workers; it imports neither the compilation service nor the JSDoc parser. It does not read drafts, regenerate tool schemas or save progress. Performance sessions own state persistence.
 
 ## Execution and limits
 
-Every job owns a Worker, VM Context and module cache. Acorn checks loaded sources; vm.Script evaluates synchronous strict-mode wrappers and validates the declaration inside the same VM. The outer deadline covers parsing, evaluation and normalization. VM execution also has a synchronous timeout. Completion, failure and cancellation terminate the Worker before resolving. Closing the service cancels pending jobs and waits for them.
+Each compilation or invocation owns a new Worker, VM Context and module cache. Acorn checks restricted JavaScript, TypeScript parses explicit JSDoc during compilation, and vm.Script evaluates strict CommonJS wrappers. Invocation verifies factory and function identities against the frozen declarations. Only explicit state survives calls; module globals and closure locals start fresh.
 
-Only the entry and its actual dependencies are parsed. Contexts expose no host files, network, process, environment, clock, random source or asynchronous scheduler. Dynamic code generation is disabled. The Context has its own microtask queue. memoryMb caps the Worker's V8 old generation. These controls limit mistakes and resource use; [Node explicitly states that VM is not a security mechanism](https://nodejs.org/download/release/v24.3.0/docs/api/vm.html). Do not treat this as complete isolation for hostile source.
+Factories receive a guarded state reference. Property writes, nested writes, deletion and property-definition operations fail during factory construction. Function execution enables candidate changes. JSON Schema validation uses Ajv without coercion, default insertion or property removal. Invalid arguments, return values or candidate state fail before persistence. Unsupported state-schema keywords, asynchronous schemas or unresolved references fail compilation.
+
+The outer deadline covers parsing, evaluation and normalization. VM calls also have a synchronous timeout. Completion, cancellation and failure terminate the Worker before resolving; close cancels and drains jobs. Contexts provide no host files, network, process, environment, clock, randomness or asynchronous scheduling. Dynamic code generation is disabled. These controls bound mistakes and resource use; [Node states that VM is not a security mechanism](https://nodejs.org/download/release/v24.3.0/docs/api/vm.html).
 
 | Option under limits | Default |
 |---|---|
@@ -34,30 +37,28 @@ Only the entry and its actual dependencies are parsed. Contexts expose no host f
 | concurrency | 2 |
 | memoryMb | 128 |
 
-All limits are positive safe integers. Options resolve the entry to story.js and language to the content default before evaluation. Explicit languages must be registered. A compiler instance rejects excess concurrent jobs with busy; it does not queue them. The standalone compile function uses one shared instance. The Cordis adapter accepts directory and optional limits configuration. User and model interfaces expose only entry and language; deployment limits belong to plugin configuration.
+Limits are positive safe integers. Entry and language resolve before evaluation; defaults are story.js and the content's default language. Each compiler or executor instance rejects excess concurrent jobs with busy and has no background queue. The standalone compile function shares one instance. Plugin configuration accepts directory, limits and attachmentBytes; author-facing interfaces select only entry and language. Performance calls use their frozen artifact's limits.
 
-Diagnostics carry code, stage, message and available file, line, column, declaration field, text key or language. Unknown declaration fields identify the actual member and list the supported fields. ESM syntax diagnostics state the CommonJS requirement. Syntax positions refer to authored files, without wrapper line numbers in the message. Module cycles include the reference chain. Unknown source positions remain absent. Cancellation, resource failure and Worker failure return no successful artifact.
+Diagnostics carry code, stage, message and available file, line, column, declaration field, text key or language. Module cycles include their reference chain. JSDoc errors identify the invalid annotation or alias declaration when available, otherwise the source function. Unknown positions remain absent. Complete artifacts, invocation state/results, diagnostics and simulation results obey output limits; performance persistence additionally checks the complete action record.
 
 ## Artifacts and persistence
 
-Artifacts contain the format and compiler identity, canonical content fingerprint, resolved options, literal context and SHA-256 integrity data. They contain no executable source, closure, VM object or bytecode. Runtime loading rejects unsupported formats, malformed fields and mismatched hashes without repairing or recompiling them. Integrity hashes detect modification; they are not signatures.
+Artifact format 2 freezes compiler/API identity, canonical source fingerprint, effective options, starting context, initial state/schema, function declarations, loaded modules, selected-language text and SHA-256 integrity data. It stores no function objects, closures, VM instances or bytecode. Loading rejects unsupported versions, invalid fields and damaged hashes without recompilation or repair. Hashes detect modification; they are not signatures.
 
-CompilationService.compile always evaluates its captured input. Successful results are persisted before a usable identity is returned. CompilationService.find looks up an existing result by canonical content, effective options and compiler identity; it does not compile. read and initialize work by artifact ID without consulting the original draft. Saving or compiling never submits a revision or changes a publication record.
+CompilationService.compile evaluates a pinned draft and saves success before returning its artifact identity. find matches content, options and compiler identity without executing. read and initialize use artifact identity independently of the draft. ArtifactStore writes JSON with a temporary file and atomic no-overwrite link. Equal saves are idempotent; different results for one key fail. Failed attempts have no stored history. The store's default record limit is 16 MiB, configurable through its constructor. [Development](../../docs/development.md) owns data paths and cleanup.
 
-ArtifactStore writes complete JSON through a temporary file and an atomic no-overwrite link. Equal saves are idempotent; a different result for the same key raises artifact-conflict. Failed persistence rejects the operation. Records have no per-attempt history and do not store failed diagnostics. The standalone store defaults to a 16 MiB record limit, configurable through its constructor. [Development](../../docs/development.md) owns the product directory and cleanup procedure.
-
-The plugin depends on papermoonStoryCore and provides papermoonStoryCompiler as an effect. Dependent cleanup runs before the service closes; the storage provider then releases its connection. Revision attachments use storage format 3; business content and opening artifact formats remain unchanged.
-
-## Verification
-
-Main tests use temporary databases and deterministic sources. pnpm check:compiler:built runs the emitted Worker and a separate runtime process under ordinary Node. pnpm check:plugins:dsh verifies real Cordis cleanup, tool scopes and a deterministic model's compiler receipt. pnpm test:editor covers explicit compilation, source and text diagnostics, exact-language preview, stale results and refresh recovery. No test calls a real model or uses user runtime data.
-
-The [decision](../../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md) records CommonJS, frozen text and independent artifact storage.
+The Cordis service depends on papermoonStoryCore. Consumer cleanup precedes service shutdown, which drains compilation and simulation before storage releases its connection. The Story database remains format 3 and business KV remains format 1. Artifact format 1 is unsupported; existing files and revision attachments are not rewritten.
 
 ## Submission and frozen revisions
 
-CompilationService.submit compiles every target from the same pinned draft. An omitted targets list resolves to story.js and the draft default language; explicit lists must be nonempty and distinct. Their order freezes with the revision, and the first result is the performance default. allowCompilationFailure defaults to false. All targets must succeed to attach results. A script error returns diagnostics without a revision unless that option is explicitly true; an allowed failure commits source with an empty attachment list. Permission to fail never skips compilation.
+submit compiles every target from the same pinned draft. Omitted targets select story.js and the default language; explicit lists are nonempty and distinct. Order freezes with the revision, and its first result is the default performance target. allowCompilationFailure defaults to false. Every target must succeed to attach results. An explicitly allowed script failure commits source with an empty attachment list; it never skips compilation.
 
-Cancellation, invalid options, busy or closed services, Worker failures, storage failures and the outer deadline abort submission. Script syntax, load, declaration, translation and synchronous execution limits are diagnostic failures. The service checks source fingerprints and the aggregate attachmentBytes limit (default 16 MiB), then commits source, ordered artifact bodies and report in the existing SQLite transaction. The final draft sequence check rejects edits made during compilation. A committed revision remains committed if its response is lost.
+Cancellation, invalid options, unavailable services, Worker failures, storage failures and the outer deadline abort submission. Script syntax, load, declaration, translation and synchronous execution limits return diagnostics. The service checks source identity and aggregate attachmentBytes, then commits source, ordered artifact bodies and report in one SQLite transaction. A final sequence check rejects concurrent edits. A committed revision survives a lost response.
 
-RevisionArtifacts reads the frozen report and full attachment, validates integrity and initializes its text without compiler execution. Compiled artifacts cannot be added to or replaced in a submitted revision. An explicit empty list differs from a missing referenced body; missing or corrupt bodies fail rather than compile again. The standalone ArtifactStore holds only draft checks. Deleting its files cannot remove a revision's attached artifacts.
+RevisionArtifacts reads frozen reports and attachments without compiling. Submitted artifacts cannot be added, changed or replaced. An explicit empty list differs from a missing body; missing or corrupt bodies fail. The standalone ArtifactStore holds draft checks only, so deleting it cannot remove historical artifacts.
+
+## Simulation and verification
+
+simulate pins a draft, compiles it without saving an artifact, then invokes functions in order on temporary state. Each step contains arguments, prior state and either the raw value with resulting state or diagnostics. A script error preserves the prior state and later calls continue; cancellation or service failure stops the operation. The whole simulation has an outer deadline and aggregate output limit. It saves neither draft content nor revisions or performance state.
+
+Main tests use temporary data and deterministic source. pnpm check:compiler:built exercises emitted Workers and independent artifact loading under ordinary Node. pnpm check:plugins:dsh verifies real Cordis teardown and native function calls through DSH. Browser tests cover previews, tool history, readonly state, reload and narrow layouts. No check calls a real model or uses user data. The [closure decision](../../.agents/notes/implemented/architecture/2026-09-13-closure-functions.md) extends the [CommonJS decision](../../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md).

@@ -9,10 +9,13 @@
     "./service": "./lib/service.js",
     "./plugin": "./lib/plugin.js",
     "./types": "./lib/types.js",
-    "./revisions": "./lib/revisions.js"
+    "./revisions": "./lib/revisions.js",
+    "./execution": "./lib/execution.js"
   },
   "dependencies": {
     "@papermoon/story-core": "workspace:*",
-    "acorn": "8.15.0"
+    "acorn": "8.15.0",
+    "ajv": "8.20.0",
+    "typescript": "6.0.3"
   }
 }

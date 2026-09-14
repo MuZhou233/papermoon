@@ -113,6 +113,13 @@ export function createStoryTools(
     repository.getScript(scriptId)
     // Each arm parses its own declaration, keeping input inference tied to the catalog.
     switch (name) {
+      case 'story_simulate': {
+        const a = schemas[name].parse(raw)
+        if (!compiler) throw new StoryToolError('unavailable', 'compiler service is not installed')
+        const snapshot = repository.readSnapshot({ kind: 'draft', scriptId })
+        return compiler.simulate({ scriptId, ref: { kind: 'draft', sequence: snapshot.draft.sequence } }, a.calls as { name: string; args: import('@papermoon/story-core').JsonObject }[],
+          { ...(a.entry === undefined ? {} : { entry: a.entry }), ...(a.language === undefined ? {} : { language: a.language }) }, signal)
+      }
       case 'story_compile': {
         const a = schemas[name].parse(raw)
         if (!compiler) throw new StoryToolError('unavailable', 'compiler service is not installed')
@@ -328,7 +335,7 @@ export function createStoryTools(
     story_program_edit: ' Read existing files with story_program_read before changing them. Read program metadata with story_status before replacing it. Edits fail if an observed object has changed.',
     story_text_edit: ' Read entries or translations with story_text_read before replacing, renaming or deleting those objects. Read catalog metadata, language metadata and the default language with story_status before replacing those values. Edits fail if an observed object has changed.',
   }
-  return toolCatalog().filter(descriptor => !['story_compile', 'story_commit'].includes(descriptor.name) || compiler !== undefined).map((descriptor) => ({
+  return toolCatalog().filter(descriptor => !['story_compile', 'story_commit', 'story_simulate'].includes(descriptor.name) || compiler !== undefined).map((descriptor) => ({
     ...descriptor,
     description: descriptor.description + (observations ? readRequirements[descriptor.name] ?? '' : ''),
     output: {

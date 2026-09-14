@@ -72,7 +72,7 @@ describe('CommonJS initialization', () => {
     const root = await compile(story('module.exports={scene:{},run(){}};'))
     expect(root).toMatchObject({ ok: false, diagnostics: [{
       code: 'invalid-declaration', location: { field: 'scene' },
-      message: 'unknown declaration field "scene"; allowed fields: ["systemPrompt","systemPromptName","messages"]',
+      message: 'unknown declaration field "scene"; allowed fields: ["systemPrompt","systemPromptName","messages","state","functions"]',
     }] })
     const nested = await compile(story('module.exports={systemPrompt:"",messages:[{role:"assistant",content:"",speaker:"A"}]};'))
     expect(nested).toMatchObject({ ok: false, diagnostics: [{
@@ -131,7 +131,7 @@ describe('CommonJS initialization', () => {
     const damaged = structuredClone(artifact)
     Reflect.set(damaged.context, 'systemPrompt', 'tampered')
     expect(() => loadArtifact(JSON.stringify(damaged))).toThrow('checksum')
-    expect(() => loadArtifact(JSON.stringify({ ...artifact, version: 2 }))).toThrow('unsupported')
+    expect(() => loadArtifact(JSON.stringify({ ...artifact, version: 1 }))).toThrow('unsupported')
     const { checksum: _checksum, ...invalid } = artifact
     const payload = { ...invalid, context: { systemPrompt: '', messages: [{ role: ['user'], content: '' }] } }
     expect(() => loadArtifact(JSON.stringify({ ...payload, checksum: digest(payload) }))).toThrow('invalid initial message')

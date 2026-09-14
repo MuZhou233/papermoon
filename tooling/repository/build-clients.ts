@@ -13,6 +13,7 @@ for (const plugin of ['story-editor', 'writers', 'writer-sessions', 'performance
     format: 'esm',
     target: 'node24',
     packages: 'external',
+    external: ['@papermoon/*'],
   })
   const result = await build({
     entryPoints: [`plugins/${plugin}/src/client/index.tsx`],

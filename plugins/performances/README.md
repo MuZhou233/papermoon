@@ -1,25 +1,40 @@
-# Text performances
+# Performances
 
 English | [中文](README.zh.md)
 
-This plugin starts moderator conversations from a revision's frozen opening artifact. It depends on the [revision reader](../story-compiler/README.md), text runtime and [shared script workspaces](../story-workspaces/README.md). It imports no compiler execution entry or Worker. Starting a conversation makes no model request.
-
+This plugin starts moderator conversations from complete frozen revision artifacts. It uses the [revision reader and executor](../story-compiler/README.md) and [shared script workspaces](../story-workspaces/README.md). Starting a performance initializes its context without compiling or requesting a model response.
 ## Starting and continuing
 
-The overview, revision page and performance mode use one start dialog. It selects the latest revision by ordinal unless a historical revision is specified. The first frozen target is the default. A newer revision with no artifacts disables starting; it does not select an older usable revision. The model catalog and defaults come from DSH.
+The overview, revision page and performance mode share one start dialog. It selects the greatest revision ordinal unless a historical revision is specified, then selects the first frozen target by default. A newer revision without artifacts disables starting rather than selecting an older one. Model choices and defaults come from DSH.
 
-Initialization records the script and revision identities, names, description, attachment key, complete artifact, original session identity and integrity hash. The stable session ID makes retries idempotent, including after source deletion. A pending or malformed initialization rejects input. Version, artifact and mode remain fixed; changing language or version requires another conversation.
+Initialization format 2 records source identities, names, description, attachment identity, the full artifact and a checksum. Stable session identity makes retries idempotent, including after source deletion. Pending or malformed initialization rejects input. Mode, revision and artifact remain fixed. Format 1 is unsupported and is not migrated or recompiled.
 
-Authored assistant text appears as the opening; authored user text appears as background. Names and producer labels stay outside message bodies. System text is inspectable. Empty messages and repeated roles are preserved. The first real user message starts the model. DSH logs the exact initial roles for request reconstruction without inventing model attempts or usage. Initialization and later authored-context records share a stable display identity for refresh, pagination and copying.
+Authored assistant text appears as opening prose; authored user text appears as background. System text is inspectable. Names and producer labels do not enter message bodies. The first real user input starts the model. DSH logs the original roles, order and content without inventing model attempts or usage. Stable message identities prevent duplicate openings after reload or Fork.
 
-The moderator composition contains no script tools, coding instructions, automatic compaction or result-file clipping. Other explicitly mounted plugins use ordinary logged extension points. Fork and resume use the retained initialization, including after the source is deleted. A corrupt original attachment prevents new starts but does not invalidate an existing session's complete copy. A corrupt session copy fails; neither path recompiles or repairs data.
+## Function calls and durable state
 
-## Interfaces and lifecycle
+Each performance starts with its own copy of initial state. Frozen function names, descriptions and parameter schemas register in its Agent scope and unload with that scope. Native DSH tools display arguments, raw results and ordinary errors. There is no default state-query tool, automatic state appendix or extra prompt. Authors expose the information they need through function return values or query functions.
 
-The authenticated routes under /api/papermoon-performances expose scripts, models, choices, state and start. Performances offers the same internal operations. Registration, admission guards and per-Agent prompt contributions are effects. Closing the service waits for active initialization before disposing contributions. The shared workspace provider retains writer and moderator conversations together; source deletion preserves their history.
+Calls serialize within a performance. A call's identity is its logged tool-call sequence, with the original call ID and parsed arguments. Successful execution validates candidate state, return value and complete record size, then appends one papermoon.performance.action configuration record containing the call, result, resulting state and predecessor checksum. Session persistence must acknowledge the record before the result is returned. A repeated invocation of the same logged call returns its original result; a separate call can execute again.
 
-The browser uses PaperMoon UI and DSH theme variables. Source information belongs in the session header. Initialization is visible in trajectory separately from actual model requests; only the latter contribute model usage. The DSH patch supplies generic list and search presentation, without interpreting script data.
+Throws, cancellation, timeout and validation failure before append leave state unchanged. Cancellation after commit does not undo it. If persistence cannot confirm a commit, the actor stops further calls and records a delivery-failure marker before the host's error receipt. It does not claim rollback or rerun the function. Reload reads whichever complete records survived storage; it never rebuilds state by replaying functions.
+
+Recovery replaces interrupted or cancelled tool receipts with their recorded committed results, using DSH's surface-replacement mechanism. A delivery-failure marker also identifies the plugin's persistence error without matching error prose. The old receipt remains in the immutable log; earlier requests remain reconstructable. Other tool-policy failures are preserved. Recovery itself requires persistence confirmation. An active actor with unconfirmed persistence remains blocked until its runtime actor is reloaded from storage.
+
+Fork inherits the selected log prefix's state and then advances independently. Deleting source content does not affect sessions holding their own artifact. A corrupt source attachment prevents new starts; a damaged session artifact or action chain prevents continuing. Neither is repaired or recompiled.
+
+## Interfaces and inspection
+
+Authenticated routes under /api/papermoon-performances expose scripts, models, choices, state and start. Performances provides the same internal operations. Session configuration holds initialization, committed actions and failed-delivery markers; these records do not automatically enter model history. Model history contains authored messages and the ordinary tool receipts.
+
+The header source menu offers readonly current state and action inspection. Committed actions also appear in trajectory. Compiler and revision previews show initial state and generated function declarations. The UI uses PaperMoon components and DSH theme variables; parameters and returns retain the standard DSH tool presentation.
+
+State inspection follows the current session’s action events, refreshes when a commit arrives or history reloads, and releases its subscription when the session changes or the plugin unloads.
+
+The composition contains no coding guidance, automatic compaction or result-file clipping. Explicitly mounted plugins retain their ordinary logged contributions. Closing cancels and drains function calls, unregisters tools and releases prompt contributions. Shared script workspaces retain writer and moderator conversations together.
 
 ## Verification
 
-Unit tests use temporary SQLite files and stop compilation before exercising artifact-only initialization. pnpm test:writer-sessions uses real DSH with a deterministic adapter to check the opening before the first request, exact roles, empty content, tool absence, reload, Fork, source deletion and narrow layouts. It owns and stops its temporary Web server. No check uses user data or real models.
+Temporary-database tests cover raw returns, thrown failures, serial commits, deduplication, interrupted receipts, failed persistence, damaged history and independent Fork state. Real DSH integration closes the compiler before starting, checks native requests and scoped tools, acknowledges records and verifies cleanup. Browser cases cover declarations, tool history, state inspection, refresh, source deletion and narrow layouts. Test servers use isolated data and are stopped; no check calls a real model.
+
+Moderator replies remain visible in Compact conversation display, including replies preceding a function call. Reasoning and tool details remain in the expandable process group. This profile setting does not change ordinary DSH conversation display or model requests.

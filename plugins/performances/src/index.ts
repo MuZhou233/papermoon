@@ -9,7 +9,7 @@ export { Performances } from './service.ts'
 export { performanceState, openingMessages, validateFrozen } from './model.ts'
 export { PRESET } from './constants.ts'
 export const name = 'papermoon-performances'
-export const inject = ['papermoonStoryCore', 'papermoonStoryWorkspaces', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
+export const inject = ['papermoonStoryCore', 'papermoonStoryWorkspaces', 'agents', 'sessions', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
 const envelope = z.strictObject({ type: z.literal('client-request'), rpcId: z.string().min(1), method: z.string(), payload: z.unknown() })
 const methods = {
   scripts: z.strictObject({}), models: z.strictObject({}),

@@ -39,12 +39,13 @@ export const results: Record<
   ToolName,
   { schema: ResultSchema; description: string }
 > = {
+  story_simulate: { schema: record, description: 'Returns the fixed source identity, per-call results and state changes. Simulation does not save draft or performance state.' },
   story_compile: {
     schema: { oneOf: [
       object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record) }),
-      object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record), artifactId: string, context: record, options: record }),
+      object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record), artifactId: string, context: record, options: record, state: record, functions: array(record) }),
     ] },
-    description: 'Returns source identity and diagnostics. Success includes the artifact ID, options and starting context.',
+    description: 'Returns source identity and diagnostics. Success includes the artifact ID, options, starting context, initial state and function declarations.',
   },
   story_status: {
     schema: object({

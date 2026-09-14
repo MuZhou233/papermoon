@@ -222,7 +222,7 @@ test('catalog includes only available operations and help is callable', async ()
   expect(toolCatalog().map((tool) => tool.name)).toEqual(
     tools.map((tool) => tool.name),
   )
-  expect(toolCatalog()).toHaveLength(15)
+  expect(toolCatalog()).toHaveLength(16)
   expect(
     tools
       .find((tool) => tool.name === 'story_program_read')!

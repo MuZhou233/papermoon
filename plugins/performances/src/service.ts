@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { RevisionId, ScriptId } from '@papermoon/story-core'
 import type { StoryRepository } from '@papermoon/story-core/repository'
 import { RevisionArtifacts } from '@papermoon/story-compiler/revisions'
+import { StoryRuntime } from '@papermoon/story-compiler/execution'
+import { PerformanceActions, projectActions } from './actions.ts'
 import { digest } from '@papermoon/story-compiler/runtime'
 import type { Host, Agent, Dispose, InputMessage } from '../../story-workspaces/src/host.ts'
 import type { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
@@ -12,6 +14,7 @@ import { PRESET, CONFIG_KEY, PREPARATION_KEY } from './constants.ts'
 export interface ModelSelection { provider: string; model: string; reasoningEffort?: string }
 export interface ModelCatalog { default: ModelSelection; routableProviders: string[]; groups: { id: string; name: string; models: { id: string; name: string; reasoning?: { defaultEffort?: string; efforts: { id: string; name: string }[] } }[] }[]; failures: { id: string; name: string; message: string }[] }
 export interface PerformanceHost extends Host {
+  sessions: { flush(session: Agent['session']): Promise<boolean> }
   sessionController: Host['sessionController'] & {
     create(input: { sessionId: string; workspaceId: string; agentPreset: string }): Promise<{ sessionId: string }>
     selectModel(input: ModelSelection & { sessionId: string }): Promise<unknown>
@@ -24,6 +27,8 @@ export const startSchema = z.strictObject({ sessionId: id, scriptId: id, revisio
   model: z.strictObject({ provider: id, model: id, reasoningEffort: id.optional() }).optional() })
 export class Performances {
   private readonly runtimes = new Map<Agent, Dispose>()
+  private readonly actions = new Map<Agent, PerformanceActions>()
+  private readonly execution = new StoryRuntime()
   private readonly starts = new Map<string, { identity: string; task: Promise<{ sessionId: string; fixed: FrozenPerformance }> }>()
   private closed = false
   readonly artifacts: RevisionArtifacts
@@ -47,7 +52,7 @@ export class Performances {
     const state = performanceState(result.agent.session)
     let sourceMissing = false
     if (state.fixed) try { this.core.getScript(state.fixed.scriptId as ScriptId) } catch (error) { if (error && typeof error === 'object' && 'code' in error && error.code === 'not-found') sourceMissing = true; else throw error }
-    return { ...state, sourceMissing }
+    return { ...state, sourceMissing, ...(state.fixed ? { runtime: projectActions(result.agent.session.snapshotEvents(), state.fixed) } : {}) }
   }
   start(input: z.infer<typeof startSchema>) {
     if (this.closed) return Promise.reject(new Error('performance service is closed'))
@@ -77,7 +82,7 @@ export class Performances {
     const choice = this.choices(input.scriptId, input.revisionId)
     if (!choice.entry) throw new Error('revision does not exist')
     const artifact = this.artifacts.read(choice.script.id, choice.entry.revision.id, input.key)
-    const payload = { version: 1 as const, originSessionId: input.sessionId, scriptId: input.scriptId, revisionId: input.revisionId, ordinal: choice.entry.ordinal, scriptName: choice.script.name, projectName: choice.project.name, description: choice.entry.revision.description, attachmentKey: input.key, artifact }
+    const payload = { version: 2 as const, originSessionId: input.sessionId, scriptId: input.scriptId, revisionId: input.revisionId, ordinal: choice.entry.ordinal, scriptName: choice.script.name, projectName: choice.project.name, description: choice.entry.revision.description, attachmentKey: input.key, artifact }
     const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
     const workspace = await this.workspaces.workspace(input.scriptId)
     if (this.closed) throw new Error('performance service is closed')
@@ -95,7 +100,7 @@ export class Performances {
       if (state.mode !== PRESET || agent.inbox.nextTurn.length || agent.inbox.nextStep.length) throw new Error('performance session is not ready for initialization')
       this.prepare(agent, input.scriptId)
       agent.session.append('session/configuration', { key: CONFIG_KEY, value: fixed, presentation: { initialized: true, label: '演绎', text: [fixed.artifact.context.systemPrompt, ...fixed.artifact.context.messages.map(message => message.content)].join('\n') } })
-      this.attach(agent)
+      this.bindActions(agent, fixed)
       return { sessionId: agent.id, fixed }
     })
   }
@@ -110,21 +115,42 @@ export class Performances {
   }
   attach(agent: Agent) {
     if (performanceState(agent.session).mode !== PRESET) { this.runtimes.get(agent)?.(); return }
-    if (this.runtimes.has(agent)) return
+    if (this.runtimes.has(agent)) { const fixed = performanceState(agent.session).fixed; if (fixed) this.bindActions(agent, fixed); return }
     const disposers: Dispose[] = []
     let disposed = false
-    const dispose = () => { if (disposed) return; disposed = true; for (const remove of disposers.reverse()) remove(); this.runtimes.delete(agent) }
+    const dispose = () => { if (disposed) return; disposed = true; for (const remove of disposers.reverse()) remove(); this.runtimes.delete(agent); this.actions.get(agent)?.dispose(); this.actions.delete(agent) }
     const required = () => { const fixed = performanceState(agent.session).fixed; if (!fixed) throw new Error('performance initialization is missing'); return fixed }
     try {
       disposers.push(...configureLiteralPrompt(agent, 'papermoon_performance_prompt', () => required().artifact.context.systemPrompt))
       disposers.push(agent.ctx.tools.presentAs('native'))
       disposers.push(agent.ctx.on('agent/pre-step', async (_payload, next) => {
-        const fixed = required(), decision = await next()
+        const fixed = required(); await this.actions.get(agent)?.recover(); const decision = await next()
         return decision.kind === 'reject' ? decision : { ...decision, initialMessages: [...(decision.initialMessages ?? []), ...openingMessages(fixed)] }
       }))
       this.runtimes.set(agent, dispose)
       agent.ctx.effect(() => dispose, 'papermoon.performance-runtime')
+      const fixed = performanceState(agent.session).fixed
+      if (fixed) this.bindActions(agent, fixed)
     } catch (error) { dispose(); throw error }
   }
-  async close() { this.closed = true; await Promise.allSettled([...this.starts.values()].map(value => value.task)); for (const dispose of this.runtimes.values()) dispose() }
+  private bindActions(agent: Agent, fixed: FrozenPerformance) {
+    if (this.actions.has(agent)) return
+    const actions = new PerformanceActions(agent, fixed, this.execution, () => this.host.sessions.flush(agent.session))
+    const disposers: Dispose[] = []
+    const dispose = () => { actions.dispose(); for (const remove of disposers.splice(0).reverse()) remove(); if (this.actions.get(agent) === actions) this.actions.delete(agent) }
+    try {
+      for (const tool of actions.tools()) disposers.push(agent.ctx.tools.register(tool))
+      this.actions.set(agent, actions)
+      agent.ctx.effect(() => dispose, 'papermoon.performance-actions')
+      const previous = this.runtimes.get(agent)!
+      this.runtimes.set(agent, () => { dispose(); previous() })
+    } catch (error) { dispose(); throw error }
+  }
+  async close() {
+    this.closed = true
+    await Promise.allSettled([...this.starts.values()].map(value => value.task))
+    const pending = [...this.actions.values()].map(actions => actions.close())
+    for (const dispose of this.runtimes.values()) dispose()
+    await this.execution.close(); await Promise.all(pending)
+  }
 }

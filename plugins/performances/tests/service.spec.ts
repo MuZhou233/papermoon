@@ -40,7 +40,7 @@ async function fixture() {
     return agent
   }
   let service: Performances
-  const host = { agents: { get: (id: string) => agents.get(id), list: () => [...agents.values()] },
+  const host = { sessions: { flush: async () => true }, agents: { get: (id: string) => agents.get(id), list: () => [...agents.values()] },
     sessionController: {
       list: async () => ({ items: [...logs.keys()].map(sessionId => ({ sessionId })) }),
       inspect: async (id: string) => ({ meta: { agentPreset: PRESET }, events: logs.get(id)! }),

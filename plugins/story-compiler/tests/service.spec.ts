@@ -115,7 +115,7 @@ describe('saved compilation', () => {
     const artifact = await f.service.read(result.artifactId)
     const copies = await Promise.all([f.store.save(artifact), f.store.save(artifact)])
     expect(copies).toEqual([artifact, artifact])
-    const conflicting = createArtifact(artifact.sourceHash, artifact.options, { systemPrompt: 'Different', messages: [] })
+    const conflicting = createArtifact(artifact.sourceHash, artifact.options, { context: { systemPrompt: 'Different', messages: [] }, state: artifact.state, functions: artifact.functions, program: artifact.program })
     await expect(f.store.save(conflicting)).rejects.toMatchObject({ code: 'artifact-conflict' })
     expect(await f.store.read(artifact.id)).toEqual(artifact)
     expect(await readdir(f.store.directory)).toEqual([artifact.id + '.json'])
@@ -159,4 +159,30 @@ it('does not permit service failures to create an uncompiled revision', async ()
   await rejected
   expect(() => f.service.submit(input)).toThrow(expect.objectContaining({ code: 'closed' }))
   expect(f.repository.listRevisions(f.script.id).items).toEqual([])
+})
+
+it('simulates frozen draft content with raw results, rollback and no persistent changes', async () => {
+  const f = await fixture()
+  const program = `function factory({state}) {
+/** Increase the value.
+ * @param {number} amount Amount.
+ * @returns {number} New value.
+ */
+return function add(amount) { state.value += amount; if(amount < 0) throw new Error('negative'); return state.value; }
+}
+module.exports={systemPrompt:'',messages:[],state:{initial:{value:0},schema:{type:'object',properties:{value:{type:'number'}},required:['value'],additionalProperties:false}},functions:[factory]};`
+  f.repository.editDraft({ scriptId: f.script.id, expectedSequence: 1, operations: [{ kind: 'replace-file', path: 'story.js', source: program }] })
+  const pending = f.service.simulate(f.source(2), [{ name: 'add', args: { amount: 3 } }, { name: 'add', args: { amount: -1 } }, { name: 'add', args: { amount: 2 } }])
+  f.repository.editDraft({ scriptId: f.script.id, expectedSequence: 2, operations: [{ kind: 'replace-file', path: 'story.js', source: '' }] })
+  const result = await pending
+  expect(result).toMatchObject({ ok: true, source: { sequence: 2 }, state: { value: 5 }, steps: [
+    { before: { value: 0 }, result: { ok: true, value: 3, state: { value: 3 } } },
+    { before: { value: 3 }, result: { ok: false, diagnostics: [{ message: 'negative' }] } },
+    { before: { value: 3 }, result: { ok: true, value: 5, state: { value: 5 } } },
+  ] })
+  expect(f.repository.readSnapshot({ kind: 'draft', scriptId: f.script.id }).draft.sequence).toBe(3)
+  expect(f.repository.listRevisions(f.script.id).items).toHaveLength(0)
+  expect(await readdir(f.directory)).not.toContain('compiled')
+  const tools = createStoryTools(f.repository, f.script.id, undefined, f.service)
+  expect(await tools.find(t => t.name === 'story_simulate')!.execute({ calls: [] }, { signal: new AbortController().signal })).toMatchObject({ ok: false })
 })

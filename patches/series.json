@@ -4,7 +4,12 @@
     "0001-resource-workspaces.patch",
     "0002-session-admission-and-authored-context.patch",
     "0003-client-selection-and-authored-context.patch",
-    "0004-initialized-session-presentation.patch"
+    "0004-initialized-session-presentation.patch",
+    "0005-inclusive-tool-unions.patch",
+    "0006-retained-tool-outcomes.patch",
+    "0007-typed-tool-dictionaries.patch",
+    "0008-preset-reply-visibility.patch",
+    "0009-tool-argument-json-errors.patch"
   ],
   "checks": [
     {
@@ -25,7 +30,11 @@
         "packages/session/session-format-catalog/tests",
         "packages/test-support/session-snapshot/tests/suite.spec.ts",
         "scripts/gen-session-format-catalog.spec.ts",
-        "packages/session-query/session-query-sqlite/tests/sqlite.spec.ts"
+        "packages/session-query/session-query-sqlite/tests/sqlite.spec.ts",
+        "packages/core/tools/tests",
+        "packages/client/ui-chat/tests",
+        "packages/core/agent-loop/tests/coverage-edges.spec.ts",
+        "packages/core/agent-loop/tests/tool-calls.spec.ts"
       ]
     },
     {
@@ -44,7 +53,7 @@
       "script": "test:snapshot",
       "args": [
         "-t",
-        "authored-context|ptc-turn|persistent-tools|system-prompt-in-history"
+        "authored-context|ptc-turn|persistent-tools|system-prompt-in-history|union-tool-schema|retained-tool-outcome|typed-tool-dictionary|cordis-inspect-jsdoc|tool-argument-json-errors"
       ]
     }
   ]

@@ -88,6 +88,11 @@ const textOperation = z.discriminatedUnion('kind', [
   }),
 ])
 export const schemas = {
+  story_simulate: object({
+    calls: z.array(object({ name: text, args: z.record(z.string(), z.unknown()) })),
+    entry: text.optional().describe('Select the CommonJS entry file. Defaults to story.js.'),
+    language: text.optional().describe('Select a registered language. Defaults to the script default language.'),
+  }),
   story_compile: object({
     ref: object({ kind: z.literal('draft'), sequence: sequence.describe('Use the sequence of the draft snapshot to compile.') }),
     entry: text.optional().describe('Select the CommonJS entry file. Defaults to story.js.'),
@@ -148,16 +153,24 @@ export const schemas = {
     selection,
   }),
   story_help: object({
-    topic: z.enum(['overview', 'program', 'texts', 'history', 'compilation']).optional().describe('Select a help topic. Defaults to overview.'),
+    topic: z.enum(['overview', 'program', 'texts', 'history', 'compilation', 'functions']).optional().describe('Select a help topic. Defaults to overview.'),
   }),
 }
 export type ToolName = keyof typeof schemas
 export const help = {
+  functions: [
+    "Declare state:{initial,schema} and functions:[factory]. Each factory receives {state} and returns an ordinary named function. Factories cannot modify state. Only the returned function becomes a tool; its name is unchanged.",
+    "Add one JSDoc description, an explicit @param type for each named parameter and an explicit @returns JSON type. Optional parameters and JavaScript defaults are supported. Basic JSON types, arrays, declared object fields, literal unions and same-file nonrecursive @typedef declarations are supported, including consecutive typedef blocks with @property tags. String-key dictionaries use Record<string, T>, Object<string, T> or {[key:string]: T}, with an explicit JSON value type. Bare object, rest/destructured parameters, other generics, recursive types and external imports are not supported.",
+    "A normal return commits the candidate state after validation and delivers the original value. An exception discards all changes. Fields such as status or rejected are ordinary data; the platform does not interpret them. Query functions return selected state explicitly. No state is automatically appended to tool results.",
+    "This complete program exposes a numeric tool: function factory({state}) {\n/** Read the stored value.\n * @returns {number} Stored value.\n */\nreturn function readValue() { return state.value; };\n}\nmodule.exports={systemPrompt:\"\",messages:[],state:{initial:{value:0},schema:{type:\"object\",properties:{value:{type:\"number\"}},required:[\"value\"],additionalProperties:false}},functions:[factory]};",
+    "story_simulate({calls:[{name:\"readValue\",args:{}}]}) compiles the current draft snapshot and calls the functions in order on temporary state. Results include the snapshot identity, original values, errors and state changes. The draft and real performances are not changed. Exceptions preserve the prior simulated state and later calls continue; cancellation or service failure stops the simulation.",
+    "Each call constructs a fresh closure from frozen modules. Only state persists across calls. t(key) reads frozen text in the selected language; missing text fails without a language fallback. Functions cannot access host files, network, asynchronous work, clocks or randomness.",
+  ].join('\n\n'),
   overview: [
     "The bound script contains a mutable draft and immutable revisions. Its draft stores program files and a multilingual text catalog.",
-    "Program tools list, read, search and edit virtual files. Text tools manage languages, entries and translations. story_status reports draft status. story_commit compiles and saves a complete revision, story_history lists revisions, story_diff compares content, and story_restore restores selected content. story_compile creates a saved starting context.",
+    "Program tools list, read, search and edit virtual files. Text tools manage languages, entries and translations. story_status reports draft status. story_commit compiles and saves a complete revision, story_history lists revisions, story_diff compares content, and story_restore restores selected content. story_compile checks and saves a compiled artifact; story_simulate executes declared functions on temporary state.",
     "Programs use CommonJS. The default entry story.js exports a declaration through module.exports, with systemPrompt and an ordered messages array. require(\"@papermoon/story\") provides defineStory and t(key), which reads text in the selected language.",
-    "Select a story_help topic for details: program covers files and a compilable entry; texts covers languages and translations; history covers revisions, comparisons and restoration; compilation covers the declaration and module API.",
+    "Select a story_help topic for details: program covers files and a compilable entry; texts covers languages and translations; history covers revisions, comparisons and restoration; compilation covers the declaration and module API; functions covers closures, JSDoc and simulation.",
   ].join('\n\n'),
   program: [
     "story_program_read({path:\"story.js\"}) reads the complete file. Paths are relative virtual paths with / separators. create-file requires an unused path; replace-file replaces the complete source. replace-text requires a nonempty oldText with exactly one literal match. Edits in a batch execute in order and save together.",
@@ -179,13 +192,14 @@ export const help = {
   compilation: [
     "story_compile({ref:{kind:\"draft\",sequence:2},entry:\"story.js\",language:\"en\"}) compiles that draft snapshot and saves the result. Use the draft sequence returned by a read or edit. The entry defaults to story.js, and language defaults to the script default.",
     "Use synchronous CommonJS. require accepts @papermoon/story or explicit relative .js paths, such as require(\"./parts/context.js\"). Each referenced module is evaluated once. Circular references are rejected.",
-    "Export the declaration through module.exports. It accepts systemPrompt, systemPromptName and messages. systemPrompt is a required string; messages is a required array. Each message contains role (user or assistant), content (string) and optional name (string). systemPromptName is an optional string. Empty strings and repeated roles are valid. Names label preview entries; model context consists of systemPrompt and message role/content.",
+    "Export the declaration through module.exports. It accepts systemPrompt, systemPromptName, messages, optional state:{initial,schema} and optional functions:[factory]. The functions topic describes factory signatures, JSDoc and state changes. systemPrompt is a required string; messages is a required array. Each message contains role (user or assistant), content (string) and optional name (string). systemPromptName is an optional string. Empty strings and repeated roles are valid. Names label preview entries; model context consists of systemPrompt and message role/content.",
     "Example: const {defineStory,t}=require(\"@papermoon/story\"); module.exports=defineStory({systemPrompt:t(\"opening.system\"),messages:[{name:\"Opening\",role:\"assistant\",content:t(\"opening.narration\")}]}); Store both text keys in the selected language with story_text_edit. t(key) reads that language only and returns the complete text. Missing entries or translations produce diagnostics.",
-    "The result includes source identity and diagnostics. Success also returns the saved artifact ID and starting context. Program diagnostics locate files and declaration fields; text diagnostics identify the key and language.",
+    "The result includes source identity and diagnostics. Success also returns the saved artifact ID, starting context, initial state and function declarations. Program diagnostics locate files and declaration fields; text diagnostics identify the key and language.",
   ].join('\n\n'),
 }
 const descriptions: Record<ToolName, string> = {
-  story_compile: "Compile a draft into a saved starting context.",
+  story_simulate: 'Compile the current draft and call its functions in order on temporary state.',
+  story_compile: "Compile a draft into a saved story artifact.",
   story_status: "Read draft status, languages and content counts.",
   story_program_list: "List program file paths and metadata.",
   story_program_read: "Read a program file with its complete source and metadata.",

@@ -1,4 +1,5 @@
 export const en = {
+  initialState: 'Initial state', functions: 'Functions', functionParameters: 'Parameters', functionReturns: 'Return type',
   noArtifactsShort: 'No compilation artifacts',
   startPerformance: 'Start performance',
   compileTargets: "Compilation targets",
@@ -164,6 +165,7 @@ export const en = {
 export type Key = keyof typeof en
 export type T = (key: Key, params?: Record<string, string | number>) => string
 export const zh: Record<Key, string> = {
+  initialState: '初始状态', functions: '函数', functionParameters: '参数', functionReturns: '返回类型',
   noArtifactsShort: '无编译产物',
   startPerformance: '开始演绎',
   compileTargets: "编译目标",

@@ -1,0 +1,7 @@
+.root { display: grid; gap: 0.5rem; min-width: 0; }
+.root details { border: 1px solid var(--dsw-alias-border-l2); border-radius: 0.5rem; padding: 0.65rem; min-width: 0; }
+.root details details { margin-top: 0.5rem; }
+.root summary { cursor: pointer; }
+.root p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.root pre { max-height: 22rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.8rem; }
+.root h4 { margin: 0.75rem 0 0.25rem; font-weight: 500; }

@@ -21,3 +21,5 @@ PromptTrace 展示 system、user 和 assistant 消息的原文，保留顺序与
 ## 维护
 
 主库检查在不读取 DSH 的情况下校验组件归属和来源记录。浏览器场景验证实际构建产物、键盘控件、只读内容和响应式布局。依赖与源码副本遵循 PaperMoon 的[维护规则](../../AGENTS.md)。
+
+FunctionPreview 使用调用方提供的标签，只读展示初始状态和函数声明，不导入编译服务。编剧文字以文本和 JSON 显示。

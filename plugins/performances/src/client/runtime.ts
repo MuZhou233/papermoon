@@ -1,11 +1,13 @@
 import type { ComponentType } from 'react'
 import type { Performances } from '../service.ts'
-import { PRESET } from '../constants.ts'
+import { PRESET, ACTION_KEY } from '../constants.ts'
 import type { T } from './locales.ts'
 export interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
+interface EventWindow { change: { kind: string; entries?: readonly { event: { type: string; data: unknown } }[] } }
 export interface ClientHost {
+  chatPresentation: { preserveReplies(preset: string): () => void }
   connection: { rpc: { call(channel: string, method: string, payload: unknown, signal?: AbortSignal): Promise<{ ok: true; value: unknown } | { ok: false; error: { message: string; code: string } }> } }
-  sessions: { list: Observable<{ current?: string; byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }>; refresh(): Promise<void>; open(id: string): void }
+  sessions: { list: Observable<{ current?: string; byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }>; refresh(): Promise<void>; open(id: string): void; binding(id: string): { eventSource: Observable<EventWindow> } | undefined }
   uiAgentPreset: { store: Observable<{ current: string; busy: boolean }>; load(): Promise<void> }
   conversation: { blocks: { set(id: string, block: { reason: string } | undefined, owner?: string): void } }
   layout: { selectPanel(id: string | null): void }
@@ -21,6 +23,9 @@ export class Runtime {
   private state: { sessionId?: string; view?: View; error?: string } = {}
   private generation = 0
   private observed = ''
+  private followed?: string
+  private stopEvents?: () => void
+  private refreshTimer?: ReturnType<typeof setTimeout>
   private blocked = new Set<string>()
   readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   readonly getSnapshot = () => this.state
@@ -32,9 +37,19 @@ export class Runtime {
   }
   observe = () => {
     const list = this.host.sessions.list.getSnapshot(), mode = this.host.uiAgentPreset.store.getSnapshot().current
+    const target = mode === PRESET ? list.current : undefined
+    if (target !== this.followed) {
+      this.stopEvents?.(); this.stopEvents = undefined; this.followed = target
+      const source = target ? this.host.sessions.binding(target)?.eventSource : undefined
+      if (source) this.stopEvents = source.subscribe(() => {
+        const change = source.getSnapshot().change
+        if (change.kind === 'replace' || change.entries?.some(({event}) => event.type === 'session/configuration' && (event.data as {key?: string}).key === ACTION_KEY)) this.scheduleRefresh()
+      })
+    }
     const identity = JSON.stringify([list.current, list.current && list.byId[list.current]?.blank, mode])
-    if (identity !== this.observed) { this.observed = identity; void this.refresh() }
+    if (identity !== this.observed) { this.observed = identity; this.scheduleRefresh() }
   }
+  private scheduleRefresh() { clearTimeout(this.refreshTimer); this.refreshTimer = setTimeout(() => { void this.refresh() }, 150) }
   private publish(state: typeof this.state) {
     this.state = state
     for (const id of this.blocked) this.host.conversation.blocks.set(id, undefined, 'papermoon-performance')
@@ -60,5 +75,5 @@ export class Runtime {
     history.replaceState(null, '', '#conversation')
     await this.refresh()
   }
-  dispose() { this.abort.abort(); for (const id of this.blocked) this.host.conversation.blocks.set(id, undefined, 'papermoon-performance') }
+  dispose() { this.stopEvents?.(); clearTimeout(this.refreshTimer); this.abort.abort(); for (const id of this.blocked) this.host.conversation.blocks.set(id, undefined, 'papermoon-performance') }
 }

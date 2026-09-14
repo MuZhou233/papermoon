@@ -1,6 +1,6 @@
 /** Opening display and later request events share the same authored identity. */
 import { Button } from '@papermoon/ui'
-import { CONFIG_KEY, PRODUCER } from '../constants.ts'
+import { CONFIG_KEY, PRODUCER, ACTION_KEY } from '../constants.ts'
 import type { FrozenPerformance } from '../model.ts'
 import type { T } from './locales.ts'
 interface Event { type: string; seq: number; time: number; data: unknown }
@@ -44,4 +44,18 @@ export function Opening({ node, t }: { node: { data: { system?: string; systemNa
     {node.data.system !== undefined && <details><summary>{node.data.systemName || t('system')}</summary><pre>{node.data.system}</pre></details>}
     {node.data.messages.map((message,index) => <article key={index} className={'ppm-authored ppm-' + message.role}><header><small>{message.role === 'assistant' ? t('opening') : t('background')}</small><strong>{message.name}</strong><Button size="sm" variant="ghost" onClick={() => void navigator.clipboard.writeText(message.content)}>{t('copy')}</Button></header><div className="ppm-preserve">{message.content}</div></article>)}
   </section>
+}
+
+/** Complete action commits remain inspectable without becoming model messages. */
+export const actionDefinition = {
+  kind: 'papermoon-action', target: 'trajectory',
+  match: (event: Event) => event.type === 'session/configuration' && (event.data as { key?: string }).key === ACTION_KEY ? { id: String(event.seq), role: 'start' as const } : null,
+  start: () => true, update: () => true,
+  buildViewNode(context: Context) {
+    const first = context.matches[0]
+    if (!first) return null
+    const value = (first.event.data as { value: unknown }).value
+    return { key: context.key, id: context.id, kind: 'papermoon-action', target: 'trajectory', anchorSeq: first.event.seq, location: first.location, visibility: 'visible', independent: true,
+      data: { kind: 'node', node: { kind: 'context', seq: first.event.seq, time: first.event.time, content: [{ type: 'text', text: JSON.stringify(value, null, 2) }], source: { kind: 'plugin', plugin: 'papermoon-performance-action' }, provenance: { role: 'inject', label: 'PaperMoon' }, form: 'snapshot' } } }
+  },
 }

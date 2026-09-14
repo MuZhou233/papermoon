@@ -1,6 +1,6 @@
 /** Historical previews only read attached artifacts; there is no compilation action here. */
 import { useEffect, useState } from 'react'
-import { PromptTrace, Select } from '@papermoon/ui'
+import { PromptTrace, Select, FunctionPreview } from '@papermoon/ui'
 import type { Results } from '../service.ts'
 import type { Api } from './api.ts'
 import type { T } from './locales.ts'
@@ -24,6 +24,7 @@ export function FrozenCompilation({ api, scriptId, revisionId, t }: { api: Api; 
     {report !== undefined && <p>{report?.status === 'success' ? t('attachedResults') : t('noArtifacts')}</p>}
     {report?.status === 'success' && <Select label={t('frozenResult')} value={key} options={report.targets.map(target => ({ id: target.attachmentKey!, label: target.language + ' · ' + target.entry }))} onChange={setKey} />}
     {report?.targets.map((target, i) => target.diagnostics.length > 0 && <details key={i}><summary>{target.entry} · {target.language}</summary><ul>{target.diagnostics.map((d,j) => <li key={j}>{d.code}: {d.message}</li>)}</ul></details>)}
+    {result && <FunctionPreview state={result.artifact.state.initial} functions={result.artifact.functions} labels={{ state: t('initialState'), functions: t('functions'), parameters: t('functionParameters'), returns: t('functionReturns') }} />}
     {result && <PromptTrace label={t('openingPreview')} labels={{ number: t('messageNumber'), role: t('messageRole'), content: t('messageContent') }} messages={[
       { id: 'system', role: 'system', name: result.context.systemPromptName, content: result.context.systemPrompt },
       ...result.context.messages.map((message,index) => ({ ...message, id: String(index) })),

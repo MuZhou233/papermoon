@@ -42,8 +42,10 @@ The [session plugin](../plugins/writer-sessions/README.md) owns writer configura
 
 ## Compilation and initialization
 
-The [compiler](../plugins/story-compiler/README.md) consumes fixed content and explicit options, with a separate runtime for frozen starting text. Its service reads repository snapshots and owns independent artifact files. Editor and scoped tool consumers share it; the storage and logic core have no reverse dependency. The [decision](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md) records CommonJS and artifact ownership.
+The [compiler](../plugins/story-compiler/README.md) consumes fixed content and explicit options, with separate entries for frozen starting text and function execution. Its service reads repository snapshots and owns independent artifact files. Editor and scoped tool consumers share it; the storage and logic core have no reverse dependency. The [decision](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md) records CommonJS and artifact ownership.
 
 ## Revision submission and performances
 
 The [compiler service](../plugins/story-compiler/README.md#submission-and-frozen-revisions) owns automatic compilation before an atomic revision commit. Storage carries generic immutable attachments; the core only transports them. A separate revision reader and text runtime initialize [performance sessions](../plugins/performances/README.md) without compiler execution or preview-cache access. Sessions retain complete artifact copies, so source deletion does not destroy continued play. [Shared script workspaces](../plugins/story-workspaces/README.md) group writer and moderator sessions under one stable provider.
+
+Function declarations, frozen code and invocation live in the [compiler package](../plugins/story-compiler/README.md). The [performance plugin](../plugins/performances/README.md) serializes calls and persists complete actions in Session logs. Function state does not enter storage KV or model context implicitly.

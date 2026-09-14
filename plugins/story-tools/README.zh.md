@@ -14,7 +14,7 @@
 | 程序 | `story_program_list`, `story_program_read`, `story_program_search`, `story_program_edit` | 文件查询、完整源码读取、字面搜索和原子程序修改 |
 | 文案 | `story_text_list`, `story_text_read`, `story_text_search`, `story_text_edit` | 条目查询、指定语言读取、搜索、语言、用途说明、译文及元数据 |
 | 历史 | `story_history`, `story_commit`, `story_diff`, `story_restore` | 元数据、不可变修订版本、业务内容差异及内容恢复 |
-| 编译 | `story_compile` | 确定草稿、已保存产物、上下文与诊断 |
+| 编译 | `story_compile`, `story_simulate` | 固定草稿编译与临时函数执行 |
 | 帮助 | `story_help` | 按主题提供用法、失败条件和小例子 |
 
 程序和文案分别使用自己的修改列表。两者都不接受批次级 `expectedSequence`。会话工具将受影响对象与读取记录比较，分别修改文件或译文时无需刷新整份草稿序号。对象校验或操作失败时，不保存任何修改。程序的 `replace-text` 要求 `oldText` 非空且仅匹配一次，重叠匹配也计入次数。替换保留周围源码及其换行。结构约束按整批操作的最终结果校验。写入成功后返回新序号和受影响对象，不回传全部源码。
@@ -47,4 +47,6 @@
 
 createStoryTools 的第四个参数、registerStoryTools 的第五个参数可传入 CompilationService。完整管理目录包含 story_compile，实际执行注册只有在提供服务时才包含它。PaperMoon profile 明确装配该服务。这个不修改源码的操作会等待编译与保存，支持取消，不改变读取观察。调用必须指定草稿序号。完整上下文与诊断进入普通工具结果，不向提示词注入编译指导。用法见[剧本 API](../story-compiler/api.zh.md)。
 
-story_commit 使用[提交时编译](../story-compiler/README.zh.md#提交与完整修订冻结)，返回 committed、编译诊断及冻结附件摘要，接受 targets 和 allowCompilationFailure，默认要求成功。story_compile 只检查草稿，两者都不授予文件读取权限，且要求编译服务；未提供服务时，可执行工具集中不包含它们。模型侧历史和恢复仍限于绑定剧本，人工参考选择可以引用其他保留的修订版本。
+story_commit 使用[提交时编译](../story-compiler/README.zh.md#提交与冻结修订版本)，返回 committed、编译诊断及冻结附件摘要，接受 targets 和 allowCompilationFailure，默认要求成功。story_compile 只检查草稿，两者都不授予文件读取权限，且要求编译服务；未提供服务时，可执行工具集中不包含它们。模型侧历史和恢复仍限于绑定剧本，人工参考选择可以引用其他保留的修订版本。
+
+story_simulate 固定当前草稿，编译后在临时状态中依次执行声明的函数。它返回原始结果、诊断与调用前后状态，不写入产物、修订版本或真实演绎状态。它依赖编译服务，支持取消，不授予修改所需的读取权限。functions 帮助主题说明闭包工厂、JSDoc 和调用语义。

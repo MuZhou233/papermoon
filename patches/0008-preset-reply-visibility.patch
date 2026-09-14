@@ -1,0 +1,457 @@
+diff --git a/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.i18n.yaml
+new file mode 100644
+index 0000000000..688528093e
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.i18n.yaml
+@@ -0,0 +1,6 @@
++# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
++# side as of the last confirmed-consistent state. Both languages carry equal authority;
++# after editing either side, bring the other along and re-record with:
++#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.md
++2026-09-14-preset-reply-visibility.md: ed3e470c6b95c580fd7797a4532102413fdf75f7
++2026-09-14-preset-reply-visibility.zh.md: c887c466f971f198be8977e7ea3ad700b410a39e
+diff --git a/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.md b/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.md
+new file mode 100644
+index 0000000000..ed3e470c6b
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.md
+@@ -0,0 +1,21 @@
++# Agent Note: Preset-specific reply visibility
++
++Status: implemented
++
++English | [中文](2026-09-14-preset-reply-visibility.zh.md)
++
++## Problem
++
++Compact display treats intermediate Assistant replies as process details. For conversations whose replies are cumulative, folding those steps hides content the reader still needs.
++
++## Decision
++
++Client plugins register presets whose reply-bearing steps remain visible through chatPresentation. Registrations are observable effects and disappear with their owners. The Session preset selects this policy. Reasoning and Tool rows retain the existing process disclosure. Without registrations the list is empty, and Normal mode remains fully expanded.
++
++## Alternatives considered
++
++Changing the global preference also affects unrelated sessions. Disabling process folding exposes reasoning and tool details along with replies. Changing conversation records would mix presentation with model history.
++
++## Consequences
++
++The same view policy applies to streaming completion and restored records. Component tests cover preset selection, retained text, folded reasoning and Tool rows, and ordinary behavior. No Session, request or SDK format changes.
+diff --git a/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.zh.md b/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.zh.md
+new file mode 100644
+index 0000000000..c887c466f9
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-14-preset-reply-visibility.zh.md
+@@ -0,0 +1,21 @@
++# Agent Note: 按预设保留回复正文
++
++Status: implemented
++
++[English](2026-09-14-preset-reply-visibility.md) | 中文
++
++## 问题
++
++紧凑显示将中间 Assistant 回复归入过程详情。某些对话的回复需要连贯阅读，折叠这些步骤会隐藏读者仍需查看的正文。
++
++## 决定
++
++客户端插件通过 chatPresentation 登记需要保留回复步骤的预设。登记按 effect 管理，变化可被订阅，并随所属插件清理，由会话预设选择显示策略。思考和工具行保留现有过程折叠。未登记时列表为空，标准模式仍全部展开。
++
++## 考虑过的替代方案
++
++修改全局偏好会影响其他会话。关闭过程折叠会同时展开思考、工具详情和回复。修改对话记录则会把显示方式混入模型历史。
++
++## 后果
++
++同一显示策略适用于流式完成和历史恢复。组件测试覆盖预设选择、正文保留、思考与工具行折叠，以及普通会话行为。不改变 Session、请求或 SDK 格式。
+diff --git a/packages/client/ui-chat/README.i18n.yaml b/packages/client/ui-chat/README.i18n.yaml
+index 2c5c3fda05..1f730c1e93 100644
+--- a/packages/client/ui-chat/README.i18n.yaml
++++ b/packages/client/ui-chat/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-chat/README.md
+-README.md: 2333739f2827eb673525b9f00547d12e8d343888
+-README.zh.md: 0de859abfcfac1679d605cf4447a2f4ac2312f5d
++README.md: 4af338e1b43fb540ecd10d9a605120974e0421c3
++README.zh.md: 22be12234072cb81b8d2992dc980e30ac9345520
+diff --git a/packages/client/ui-chat/README.md b/packages/client/ui-chat/README.md
+index 2333739f28..4af338e1b4 100644
+--- a/packages/client/ui-chat/README.md
++++ b/packages/client/ui-chat/README.md
+@@ -90,3 +90,5 @@ None.
+ </details>
+ 
+ **Runtime invariant:** No companion is published. Conversation and Slot registration enforce Chat target consistency.
++
++Client plugins call ctx.chatPresentation.preserveReplies(preset) to keep every reply-bearing Assistant step visible in Compact mode for that preset. Reasoning within those steps and separate Tool rows still fold. Registrations are effects; disposal restores ordinary behavior. The policy applies equally to live and restored history without changing model requests or the persisted Normal/Compact preference.
+diff --git a/packages/client/ui-chat/README.zh.md b/packages/client/ui-chat/README.zh.md
+index 0de859abfc..22be122340 100644
+--- a/packages/client/ui-chat/README.zh.md
++++ b/packages/client/ui-chat/README.zh.md
+@@ -92,3 +92,5 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点。没有
+ </details>
+ 
+ **运行时不变式：** 不发布伴生入口。Conversation 与 slot 注册已经强制 Chat target 一致。
++
++客户端插件调用 ctx.chatPresentation.preserveReplies(preset)，让指定预设在紧凑模式下保留所有含有回复正文的 Assistant 步骤。其中的思考及独立工具行仍会折叠。登记按 effect 管理，撤销后恢复普通行为。策略对实时与恢复的历史同样生效，不改变模型请求，也不修改已保存的标准／紧凑显示偏好。
+diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
+index e0b5718ecc..da9e1fc34b 100644
+--- a/packages/client/ui-chat/src/client/apply.ts
++++ b/packages/client/ui-chat/src/client/apply.ts
+@@ -32,6 +32,7 @@ import { registerConversationNodes } from './conversation-nodes/register.ts'
+ import { en, NS, zh } from './locale.ts'
+ import { TranscriptViewRow, type TranscriptViewRowInjected } from './settings/TranscriptViewRow.tsx'
+ import { createChatStore } from './stores.ts'
++import { ChatPresentation } from './chat-presentation.ts'
+ import { TranscriptViewPolicy } from './transcript-view.ts'
+ import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../chat-settings.ts'
+ import { useTurnDataValue } from './chat/use-turn-data.ts'
+@@ -55,6 +56,7 @@ export const inject = [
+  * @param ctx - Client root context.
+  */
+ export function apply(ctx: Context): void {
++  const presentation = new ChatPresentation(ctx)
+   const chatSources = new WeakMap<SessionBinding, ObservableSnapshot<ChatSnapshot>>()
+   const chatSource = (binding: SessionBinding): ObservableSnapshot<ChatSnapshot> => {
+     let source = chatSources.get(binding)
+@@ -112,7 +114,7 @@ export function apply(ctx: Context): void {
+         const session = binding.session
+         const chat = chatSource(binding)
+         return {
+-          hooks: { transcriptView: transcriptView.mode },
++          hooks: { transcriptView: transcriptView.mode, replyPresets: presentation.presets },
+           keyedHooks: {
+             chatNode: key => chat.getSnapshot().nodes.source(key),
+             chatNodeProcess: key => chat.getSnapshot().nodes.processSource(key),
+diff --git a/packages/client/ui-chat/src/client/chat-presentation.ts b/packages/client/ui-chat/src/client/chat-presentation.ts
+new file mode 100644
+index 0000000000..5660398875
+--- /dev/null
++++ b/packages/client/ui-chat/src/client/chat-presentation.ts
+@@ -0,0 +1,48 @@
++/** Client-owned presentation registrations; no Session or model input changes. */
++import { Service, type Context } from '@deepseek-ai/cordis'
++import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
++
++/** Presentation policies registered by Client plugins. */
++export interface IChatPresentation {
++  /** Presets whose reply-bearing steps remain visible in Compact display. */
++  readonly presets: ObservableSnapshot<readonly string[]>
++  /**
++   * Keep reply text visible for one preset while retaining process disclosures.
++   * @param preset - Session preset identity.
++   * @returns release this registration; also released with the calling plugin.
++   */
++  preserveReplies(preset: string): () => void
++}
++
++declare module '@deepseek-ai/cordis' {
++  interface Context {
++    /** Client Chat presentation registrations. */
++    chatPresentation: IChatPresentation
++  }
++}
++
++/** Effect-owned preset policies with observable registration and removal. */
++export class ChatPresentation extends Service implements IChatPresentation {
++  private readonly registrations = new Map<symbol, string>()
++  private readonly store = createSnapshotStore<readonly string[]>([])
++  /** Shared immutable preset snapshot. */
++  readonly presets: ObservableSnapshot<readonly string[]> = this.store
++
++  /**
++   * Install the Client presentation service.
++   * @param ctx - Owning Chat plugin context.
++   */
++  constructor(ctx: Context) { super(ctx, 'chatPresentation') }
++
++  preserveReplies(preset: string): () => void {
++    const dispose = this.ctx.effect(() => {
++      const id = Symbol(preset)
++      this.registrations.set(id, preset)
++      this.publish()
++      return () => { this.registrations.delete(id); this.publish() }
++    }, `chatPresentation.preserveReplies(${JSON.stringify(preset)})`)
++    return () => { void dispose() }
++  }
++
++  private publish(): void { this.store.set([...new Set(this.registrations.values())]) }
++}
+diff --git a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
+index 399897a9b5..69d6db5fd2 100644
+--- a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
++++ b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
+@@ -22,8 +22,8 @@ export const AssistantNodeView = memo(function AssistantNodeView({
+   )
+   const reasoningHidden = turnProcess !== undefined
+     && turnProcess.foldable
+-    && turnProcess.spec.answerStep === data.step
+-    && turnProcess.spec.inlineReasoning
++    && (turnProcess.preserveReply === true
++      || (turnProcess.spec.answerStep === data.step && turnProcess.spec.inlineReasoning))
+     && !turnProcess.open
+   const revealProcess = useCallback(() => { turnProcess?.setOpen(true) }, [turnProcess])
+   return (
+diff --git a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
+index 3e80df9fab..74bfaf5bbe 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
+@@ -4,6 +4,7 @@ import type { ConversationLocationDataStore, ConversationTurnDataMap } from '@de
+ import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../contract/slots.ts'
+ import type { ChatNode } from '../contract/chat-nodes.ts'
+ import { TURN_PROCESS_INDEPENDENT_KINDS } from '../contract/turn-process.ts'
++import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
+ import { storedTurnProcessEntry } from '../stores.ts'
+ import { useSearchableHidden } from './searchable-hidden.ts'
+ import css from './ChatView.module.css'
+@@ -14,6 +15,7 @@ interface ChatNodeSeatProps extends ChatNodeOwnerProps {
+   readonly useChatNodeProcess: ChatViewSlotProps['useChatNodeProcess']
+   readonly historyIncomplete: boolean
+   readonly compactTranscript: boolean
++  readonly preserveReplies: boolean
+   readonly useStore: ChatViewSlotProps['useStore']
+   readonly actions: ChatViewSlotProps['actions']
+   readonly renderSlot: ChatViewSlotProps['renderSlot']
+@@ -36,7 +38,7 @@ function turnOf(node: ChatNode | undefined): number | undefined {
+ 
+ /** Subscribe, apply Turn-process visibility, and dispatch one stable Context key. */
+ export const ChatNodeSeat = memo(function ChatNodeSeat({
+-  nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript,
++  nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript, preserveReplies,
+   cwd, openFile, openSkill, inspectCall, forkAt,
+   loadImage, renderMessageImages, fileMentions, useStore, actions, renderSlot, t,
+ }: ChatNodeSeatProps) {
+@@ -79,15 +81,18 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+   const foldable = processWindowReady
+     && (processMember || (ownsDisclosure
+       && (processPresentation.hasExternalProcess || processSpec.inlineReasoning)))
++  const preserveReply = preserveReplies && routedNode?.kind === 'assistant-step'
++    && hasAssistantReplyContent(routedNode.data.blocks)
+   const turnProcess = useMemo(() => processSpec === undefined
+     ? undefined
+     : {
+       spec: processSpec,
+       foldable,
++      preserveReply,
+       open: processOpen,
+       setOpen,
+     }, [
+-    foldable, processOpen, processSpec, setOpen,
++    foldable, preserveReply, processOpen, processSpec, setOpen,
+   ])
+   const controllerInactive = routedNode?.kind === 'turn-process'
+     && !foldable
+@@ -95,7 +100,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+     && foldable
+     && processPresentation.compactAnswer
+     && !processOpen
+-  const processHidden = controllerInactive || (foldable && processMember && !processOpen)
++  const processHidden = controllerInactive || (foldable && processMember && !preserveReply && !processOpen)
+   const revealProcess = useCallback(() => {
+     if (processMember) setOpen(true)
+   }, [processMember, setOpen])
+diff --git a/packages/client/ui-chat/src/client/chat/ChatView.tsx b/packages/client/ui-chat/src/client/chat/ChatView.tsx
+index 1bb0dcdf63..7a19a02f8d 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatView.tsx
++++ b/packages/client/ui-chat/src/client/chat/ChatView.tsx
+@@ -217,7 +217,7 @@ const ChatNodeList = memo(function ChatNodeList({ order, ...seatProps }: ChatNod
+ export function ChatView({
+   useSession, useChat, useChatNode, useChatNodeProcess, useSessions, useStore, actions, renderSlot,
+   sessionId, openFile, openSkill, loadOlder, loadThrough, loadImage, openView, chatScroll, forkAt, fileMentions,
+-  useTranscriptView, useProjection, t,
++  useTranscriptView, useProjection, useReplyPresets, t,
+ }: ChatViewSlotProps) {
+   const order = useChat(s => s.order)
+   const nodeStore = useChat(s => s.nodes)
+@@ -236,6 +236,11 @@ export function ChatView({
+   const inbox = useSession(s => s.queue)
+   // Workspace root off the session list row: path summaries display relative to it.
+   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
++  const preserveRepliesForPresets = useReplyPresets(presets => presets)
++  const preserveReplies = useSessions((s) => {
++    const preset = s.byId[sessionId]?.projectionValues?.agentPreset
++    return typeof preset === 'string' && preserveRepliesForPresets.includes(preset)
++  })
+   const running = useSession(s => s.running)
+   const openState = useSession(s => s.openState)
+   const openError = useSession(s => s.openError)
+@@ -787,6 +792,7 @@ export function ChatView({
+             useChatNodeProcess={useChatNodeProcess}
+             historyIncomplete={hasMore}
+             compactTranscript={compactTranscript}
++            preserveReplies={preserveReplies}
+             useStore={useStore}
+             actions={actions}
+             cwd={cwd}
+diff --git a/packages/client/ui-chat/src/client/contract/slots.ts b/packages/client/ui-chat/src/client/contract/slots.ts
+index fa02cc4092..23fae7c8a0 100644
+--- a/packages/client/ui-chat/src/client/contract/slots.ts
++++ b/packages/client/ui-chat/src/client/contract/slots.ts
+@@ -9,7 +9,7 @@ import type {
+   InjectFace, KeyedSnapshotSelectorHook, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
+   SlotHookFactory, SnapshotSelectorHook,
+ } from '@deepseek-ai/dsh-client-ui-slots'
+-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
++import type { SnapshotStore, ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+ import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+ import type { createChatStore } from '../stores.ts'
+@@ -100,6 +100,8 @@ export interface ChatNodeOwnerProps {
+ /** Shared presentation state for one Turn-process answer generation. */
+ export interface TurnProcessOwnerProps {
+   readonly spec: TurnProcessSpec
++  /** Keep this Assistant reply visible while its reasoning stays in the process disclosure. */
++  readonly preserveReply?: boolean
+   readonly foldable: boolean
+   readonly open: boolean
+   setOpen(open: boolean): void
+@@ -131,6 +133,8 @@ export interface ChatScrollPosition {
+ /** Business callbacks injected into the Chat view. */
+ export interface ChatViewInjected {
+   hooks: {
++    /** Presets exempting reply text from completed-Turn folding. */
++    replyPresets: ObservableSnapshot<readonly string[]>
+     /** Persisted completed-Turn transcript presentation. */
+     transcriptView: SnapshotStore<TranscriptViewMode>
+   }
+diff --git a/packages/client/ui-chat/src/client/index.ts b/packages/client/ui-chat/src/client/index.ts
+index 450ce00fce..3f1db50fd6 100644
+--- a/packages/client/ui-chat/src/client/index.ts
++++ b/packages/client/ui-chat/src/client/index.ts
+@@ -59,3 +59,5 @@ type PublicChatNodeDataMap = ChatNodeDataMap
+ declare module './contract/chat-nodes.ts' {
+   interface ChatNodeDataMap extends PublicChatNodeDataMap {}
+ }
++
++export type { IChatPresentation } from './chat-presentation.ts'
+diff --git a/packages/client/ui-chat/tests/chat-presentation.client.spec.ts b/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
+new file mode 100644
+index 0000000000..61929933d5
+--- /dev/null
++++ b/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
+@@ -0,0 +1,24 @@
++// @vitest-environment jsdom
++import { Context } from '@deepseek-ai/cordis'
++import { expect, it, vi } from 'vitest'
++import { ChatPresentation } from '../src/client/chat-presentation.ts'
++
++it('publishes late registrations and releases only the disposing owner', async () => {
++  const ctx = new Context()
++  const provider = ctx.plugin({ apply: (inner: Context) => { new ChatPresentation(inner) } })
++  await provider
++  const service = ctx.chatPresentation
++  const changed = vi.fn()
++  const unsubscribe = service.presets.subscribe(changed)
++  expect(service.presets.getSnapshot()).toEqual([])
++  const owner = () => ctx.plugin({ inject:['chatPresentation'], apply(inner: Context) { inner.chatPresentation.preserveReplies('narrator') } })
++  const first = owner(), second = owner()
++  await first; await second
++  expect(service.presets.getSnapshot()).toEqual(['narrator'])
++  await first.dispose()
++  expect(service.presets.getSnapshot()).toEqual(['narrator'])
++  await second.dispose()
++  expect(service.presets.getSnapshot()).toEqual([])
++  expect(changed).toHaveBeenCalled()
++  unsubscribe(); await provider.dispose()
++})
+diff --git a/packages/client/ui-chat/tests/chat-view.client.spec.tsx b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+index c724bf7ba6..f4622249f7 100644
+--- a/packages/client/ui-chat/tests/chat-view.client.spec.tsx
++++ b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+@@ -366,6 +366,7 @@ function makeHarness(
+   // ChatView never invokes it (pass-through stub).
+   const SessionProviderStub: ChatViewSlotProps['SessionProvider'] = ({ children }) => <>{children}</>
+   const props: ChatViewSlotProps = {
++    useReplyPresets: selector => selector([]),
+     usePanelInfo: selector => selector({ activePanelId: null }),
+     sessionId: SID,
+     useSession: bindSnapshotSelector(session.source),
+@@ -1598,6 +1599,25 @@ describe('ChatView', () => {
+     expect(view.getByText('private analysis')).toBeTruthy()
+   })
+ 
++  it('keeps intermediate replies for configured presets while folding reasoning and tools', () => {
++    const first = assistant(2, 'intermediate reply', 1, 1)
++    first.blocks = [{ kind:'reasoning', text:'intermediate reasoning' }, ...first.blocks]
++    const h = makeHarness({ nodes:[user(1,'question'), first, toolResult(3,'call-1'), assistant(4,'final reply',1,2)], turnEnds:new Map([[1,5]]) })
++    const list = createSnapshotStore<SessionListState>({ byId:{ [SID]:{ projectionValues:{ agentPreset:'narrator' } } }, order:[SID] } as unknown as SessionListState)
++    h.props.useSessions = bindSnapshotSelector(list)
++    h.props.useReplyPresets = selector => selector(['narrator'])
++    const view = render(<h.ChatView {...h.props} />)
++    const row = view.getByText('intermediate reply').closest('[data-chat-flow-kind="assistant-step"]')!
++    expect(row.hasAttribute('hidden')).toBe(false)
++    expect(row.querySelector('[data-turn-process-inline]')?.getAttribute('hidden')).toBe('until-found')
++    expect(view.getByTestId('tool-seat-call-1').closest('[data-chat-flow-kind="tool-call"]')?.getAttribute('hidden')).toBe('until-found')
++    fireEvent.click(turnProcessControl(view.container)!)
++    expect(view.getByText('intermediate reasoning').closest('[hidden]')).toBeNull()
++    fireEvent.click(turnProcessControl(view.container)!)
++    view.rerender(<h.ChatView {...h.props} useReplyPresets={selector => selector([])} />)
++    expect(row.getAttribute('hidden')).toBe('until-found')
++  })
++
+   it('folds a completed Turn even while the reader is away from the tail', () => {
+     const first = assistant(2, 'first answer', 1, 1)
+     const h = makeHarness({ nodes: [user(1, 'question'), first], running: true })
+diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+index a87e019d27..fa4a20d78e 100644
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -174,7 +174,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.assistant-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.assistant-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:217',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:221',
+   },
+   {
+     key: 'conversation.chat.commandview',
+@@ -221,7 +221,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     occupants: [],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.commandview\', () => ctx.slots.register(\n      { name: \'conversation.chat.commandview\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:205',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:209',
+   },
+   {
+     key: 'conversation.chat.node',
+@@ -289,7 +289,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'shadows-shipped-ui',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.node\', () => ctx.slots.register(\n      { name: \'conversation.chat.node\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:186',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:190',
+   },
+   {
+     key: 'conversation.chat.turnTail',
+@@ -336,7 +336,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turnTail\', () => ctx.slots.register(\n      { name: \'conversation.chat.turnTail\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:211',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:215',
+   },
+   {
+     key: 'conversation.composer',
+@@ -1055,7 +1055,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'shadows-shipped-ui',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.message.images\', () => ctx.slots.register(\n      { name: \'conversation.message.images\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:199',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:203',
+   },
+   {
+     key: 'conversation.session',
+diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
+index da22df727a..fbe8589394 100644
+--- a/scripts/gen-cordis-catalog.ts
++++ b/scripts/gen-cordis-catalog.ts
+@@ -158,6 +158,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+   fileUpload: 'client-side browser upload service — packages/client/file-upload/README.md owns the API',
+   uiRenderer: 'client-side interface-typed browser service — packages/client/ui-renderer/README.md owns the API',
+   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
++  chatPresentation: 'client-side Chat display registrations — packages/client/ui-chat/README.md owns the API',
+   uiConversation: 'client-side Conversation registries and assembler — packages/client/ui-conversation/README.md owns the API',
+   uiAgentPreset: 'client-side mode selection adapter — packages/client/ui-agent-preset/README.md owns the API',
+   uiWorkspace: 'client-side Workspace navigation adapter — packages/client/ui-workspace/README.md owns the API',
