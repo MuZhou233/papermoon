@@ -10,6 +10,7 @@ import type { Host, Agent, Dispose, InputMessage } from '../../story-workspaces/
 import type { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
 import { configureLiteralPrompt } from '../../story-workspaces/src/prompt.ts'
 import { performanceState, openingMessages, type FrozenPerformance } from './model.ts'
+import { Worldlines, activeRecords, pathTo, pathRanges, recordsFor, type WorldOperation } from './worldlines.ts'
 import { PRESET, CONFIG_KEY, PREPARATION_KEY } from './constants.ts'
 export interface ModelSelection { provider: string; model: string; reasoningEffort?: string }
 export interface ModelCatalog { default: ModelSelection; routableProviders: string[]; groups: { id: string; name: string; models: { id: string; name: string; reasoning?: { defaultEffort?: string; efforts: { id: string; name: string }[] } }[] }[]; failures: { id: string; name: string; message: string }[] }
@@ -28,6 +29,7 @@ export const startSchema = z.strictObject({ sessionId: id, scriptId: id, revisio
 export class Performances {
   private readonly runtimes = new Map<Agent, Dispose>()
   private readonly actions = new Map<Agent, PerformanceActions>()
+  private readonly lines = new Map<Agent, Worldlines>()
   private readonly execution = new StoryRuntime()
   private readonly starts = new Map<string, { identity: string; task: Promise<{ sessionId: string; fixed: FrozenPerformance }> }>()
   private closed = false
@@ -49,10 +51,61 @@ export class Performances {
   async view(sessionId: string) {
     const result = await this.host.sessionController.resolveAgent(sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
+    const lines = this.lines.get(result.agent)
+    await lines?.ready()
     const state = performanceState(result.agent.session)
+    const tree = lines?.state()
+    const path = tree?.selected ? pathTo(tree.nodes, tree.selected).map(node => node.id) : []
+    const parents = new Set(path)
     let sourceMissing = false
     if (state.fixed) try { this.core.getScript(state.fixed.scriptId as ScriptId) } catch (error) { if (error && typeof error === 'object' && 'code' in error && error.code === 'not-found') sourceMissing = true; else throw error }
-    return { ...state, sourceMissing, ...(state.fixed ? { runtime: projectActions(result.agent.session.snapshotEvents(), state.fixed) } : {}) }
+    return { ...state, sourceMissing, ...(state.fixed ? { runtime: projectActions(activeRecords(result.agent.session.snapshotEvents(), state.fixed), state.fixed) } : {}),
+      worldline: tree ? { legacy: tree.legacy, version: tree.version, selected: tree.selected, pending: tree.pending,
+        path, count: tree.nodes.size,
+        nodes: [...tree.nodes.values()].filter(node => {
+          return parents.has(node.id) || (node.parent !== null && parents.has(node.parent))
+        }) } : undefined }
+  }
+  /** Page immutable node summaries in their permanent creation order. */
+  async tree(sessionId: string, offset = 0, limit = 100) {
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('invalid worldline page')
+    const result = await this.host.sessionController.resolveAgent(sessionId)
+    if ('error' in result) throw new Error('performance session is unavailable')
+    const lines = this.lines.get(result.agent); if (!lines) throw new Error('worldline is unavailable')
+    const tree = lines.state(), ordered = [...tree.nodes.values()], lanes = new Map<string, number>(), first = new Set<string>()
+    let nextLane = 0
+    for (const node of ordered) {
+      const lane = node.parent === null ? 0 : first.has(node.parent) ? ++nextLane : lanes.get(node.parent)!
+      lanes.set(node.id, lane); if (node.parent) first.add(node.parent)
+    }
+    return { offset, total: ordered.length, items: ordered.slice(offset, offset + limit).map(node => ({
+      ...node, input: node.input ? { ...node.input, content: [{ type: 'text', text: node.input.content.flatMap(part => part && typeof part === 'object' && 'text' in part ? [String(part.text)] : []).join('\n').slice(0,500) }] } : undefined,
+      lane: lanes.get(node.id)!, parentLane: node.parent ? lanes.get(node.parent)! : null, parentOrdinal: node.parent ? tree.nodes.get(node.parent)!.ordinal : null,
+    })) }
+  }
+  async operation(sessionId: string, operation: WorldOperation) {
+    const result = await this.host.sessionController.resolveAgent(sessionId)
+    if ('error' in result) throw new Error('performance session is unavailable')
+    const lines = this.lines.get(result.agent); if (!lines) throw new Error('worldline is unavailable')
+    await lines.ready()
+    return lines.operate(operation)
+  }
+  async node(sessionId: string, nodeId: string) {
+    const result = await this.host.sessionController.resolveAgent(sessionId)
+    if ('error' in result) throw new Error('performance session is unavailable')
+    const lines = this.lines.get(result.agent), fixed = performanceState(result.agent.session).fixed
+    if (!lines || !fixed) throw new Error('worldline is unavailable')
+    const tree = lines.state(), node = tree.nodes.get(nodeId)
+    if (!node) throw new Error('worldline node does not exist')
+    const events = recordsFor(result.agent.session.snapshotEvents(), pathRanges(tree.nodes, nodeId))
+    const siblings = [...tree.nodes.values()].filter(item => item.parent === node.parent).map(({ id, ordinal, outcome }) => ({ id, ordinal, outcome }))
+    return { node, siblings, events, runtime: projectActions(events, fixed), version: tree.version }
+  }
+  observe(session: Agent['session'], event: import('../../story-workspaces/src/host.ts').LogRecord) {
+    if (event.type !== 'turn/end') return
+    for (const [agent, lines] of this.lines) if (agent.session === session && lines.state().pending)
+      queueMicrotask(() => { void lines.settle().catch(() => {}) }) // The worldline retains the error and blocks subsequent operations.
+
   }
   start(input: z.infer<typeof startSchema>) {
     if (this.closed) return Promise.reject(new Error('performance service is closed'))
@@ -101,30 +154,39 @@ export class Performances {
       this.prepare(agent, input.scriptId)
       agent.session.append('session/configuration', { key: CONFIG_KEY, value: fixed, presentation: { initialized: true, label: '演绎', text: [fixed.artifact.context.systemPrompt, ...fixed.artifact.context.messages.map(message => message.content)].join('\n') } })
       this.bindActions(agent, fixed)
+      await this.lines.get(agent)!.initialize()
       return { sessionId: agent.id, fixed }
     })
   }
-  private same(input: z.infer<typeof startSchema>, fixed: FrozenPerformance) {
+  private async same(input: z.infer<typeof startSchema>, fixed: FrozenPerformance) {
     if (fixed.scriptId !== input.scriptId || fixed.revisionId !== input.revisionId || fixed.attachmentKey !== input.key) throw new Error('performance version and artifact are fixed')
+    const result = await this.host.sessionController.resolveAgent(input.sessionId)
+    if ('error' in result) throw new Error('performance session is unavailable')
+    this.attach(result.agent)
+    const lines = this.lines.get(result.agent)!
+    await lines.ready()
+    if (lines.state().legacy) throw new Error('performance has no worldline initialization; create a new performance')
+    if (!await this.host.sessions.flush(result.agent.session)) throw new Error('performance initialization persistence is unconfirmed')
     return { sessionId: input.sessionId, fixed }
   }
-  admit(agent: Agent, message: InputMessage) {
+  async admit(agent: Agent, message: InputMessage) {
     const state = performanceState(agent.session)
     if (state.mode === PRESET && !state.fixed) throw new Error('initialize the performance before sending')
-    return message
+    return state.mode === PRESET ? this.lines.get(agent)!.admit(message) : message
   }
   attach(agent: Agent) {
     if (performanceState(agent.session).mode !== PRESET) { this.runtimes.get(agent)?.(); return }
     if (this.runtimes.has(agent)) { const fixed = performanceState(agent.session).fixed; if (fixed) this.bindActions(agent, fixed); return }
     const disposers: Dispose[] = []
     let disposed = false
-    const dispose = () => { if (disposed) return; disposed = true; for (const remove of disposers.reverse()) remove(); this.runtimes.delete(agent); this.actions.get(agent)?.dispose(); this.actions.delete(agent) }
+    const dispose = () => { if (disposed) return; disposed = true; for (const remove of disposers.reverse()) remove(); this.runtimes.delete(agent); this.actions.get(agent)?.dispose(); this.actions.delete(agent); this.lines.get(agent)?.dispose(); this.lines.delete(agent) }
     const required = () => { const fixed = performanceState(agent.session).fixed; if (!fixed) throw new Error('performance initialization is missing'); return fixed }
     try {
       disposers.push(...configureLiteralPrompt(agent, 'papermoon_performance_prompt', () => required().artifact.context.systemPrompt))
       disposers.push(agent.ctx.tools.presentAs('native'))
       disposers.push(agent.ctx.on('agent/pre-step', async (_payload, next) => {
-        const fixed = required(); await this.actions.get(agent)?.recover(); const decision = await next()
+        const fixed = required(); const decision = await next()
+        if (decision.kind === 'enter') this.lines.get(agent)!.validateInput(decision.messages)
         return decision.kind === 'reject' ? decision : { ...decision, initialMessages: [...(decision.initialMessages ?? []), ...openingMessages(fixed)] }
       }))
       this.runtimes.set(agent, dispose)
@@ -139,8 +201,14 @@ export class Performances {
     const disposers: Dispose[] = []
     const dispose = () => { actions.dispose(); for (const remove of disposers.splice(0).reverse()) remove(); if (this.actions.get(agent) === actions) this.actions.delete(agent) }
     try {
-      for (const tool of actions.tools()) disposers.push(agent.ctx.tools.register(tool))
+      for (const tool of actions.tools()) disposers.push(agent.ctx.tools.register({ ...tool, execute: (args, execution) => {
+        if (!this.lines.get(agent)?.state().pending) throw new Error('performance function requires an active worldline execution')
+        return tool.execute(args, execution)
+      } }))
       this.actions.set(agent, actions)
+      const lines = new Worldlines(agent, fixed, () => this.host.sessions.flush(agent.session), actions)
+      this.lines.set(agent, lines)
+      if (lines.state().pending && agent.status === 'idle') queueMicrotask(() => { void lines.settle().catch(() => {}) })
       agent.ctx.effect(() => dispose, 'papermoon.performance-actions')
       const previous = this.runtimes.get(agent)!
       this.runtimes.set(agent, () => { dispose(); previous() })

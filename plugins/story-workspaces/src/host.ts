@@ -18,7 +18,9 @@ export interface Agent {
     tools: ToolHost['tools'] & { presentAs(mode: 'native'): Dispose }
   }
   session: SessionLog & { append(type: string, data: unknown, intent?: { surfaceOp: 'append' | { op: 'replace'; startSeq: number; endSeq: number }; sourceEventSeqs?: number[] }): unknown }
-  inbox: { nextTurn: readonly unknown[]; nextStep: readonly unknown[] }
+  inbox: { clear(): void; nextTurn: readonly unknown[]; nextStep: readonly unknown[] }
+  followup(message: InputMessage): void
+  whenIdle(): Promise<void>
   runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>
 }
 export type Decision = { kind: 'enter'; messages: InputMessage[]; initialMessages?: InitialMessage[] } | { kind: 'reject'; [key: string]: unknown }
@@ -27,12 +29,13 @@ export interface Host {
   get(key: string): unknown
   provide(key: string, value: unknown): Dispose
   effect(body: () => Iterable<Dispose, void>, label?: string): unknown
+  on(name: 'session/event', listener: (session: Agent['session'], event: LogRecord) => void): Dispose
   on(name: 'agent/created', listener: (payload: { agent: Agent }) => void): Dispose
   on(name: 'agent-preset/selected', listener: (sessionId: string, preset: string) => void): Dispose
   on(name: 'agent-preset/changed', listener: (agent: Agent, preset: string) => Promise<void>): Dispose
   on(name: 'agent-preset/selecting', listener: (agent: Agent, preset: string) => Promise<void>): Dispose
   on(name: 'session/created-for-client', listener: (agent: Agent, workspace?: Workspace) => Promise<void>): Dispose
-  on(name: 'session/prompt-admission', listener: (agent: Agent, message: InputMessage, next: () => Promise<InputMessage>) => Promise<InputMessage>): Dispose
+  on(name: 'session/prompt-admission', listener: (agent: Agent, message: InputMessage, next: () => Promise<InputMessage | null>) => Promise<InputMessage | null>): Dispose
   agents: { get(id: string): Agent | undefined; list(): Agent[] }
   agentPresets: { select(agent: Agent, preset: string): Promise<string> }
   sessionController: {

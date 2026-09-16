@@ -9,7 +9,8 @@
     "0006-retained-tool-outcomes.patch",
     "0007-typed-tool-dictionaries.patch",
     "0008-preset-reply-visibility.patch",
-    "0009-tool-argument-json-errors.patch"
+    "0009-tool-argument-json-errors.patch",
+    "0010-execution-history-selection.patch"
   ],
   "checks": [
     {
@@ -34,7 +35,12 @@
         "packages/core/tools/tests",
         "packages/client/ui-chat/tests",
         "packages/core/agent-loop/tests/coverage-edges.spec.ts",
-        "packages/core/agent-loop/tests/tool-calls.spec.ts"
+        "packages/core/agent-loop/tests/tool-calls.spec.ts",
+        "packages/core/agent-loop/tests/runtime-context.spec.ts",
+        "packages/client/ui-conversation/tests/conversation-registry.client.spec.ts",
+        "packages/session/session-projection/tests",
+        "packages/session/session-projection-cache/tests",
+        "packages/subagent/subagent/tests/list-children.spec.ts"
       ]
     },
     {
@@ -53,7 +59,7 @@
       "script": "test:snapshot",
       "args": [
         "-t",
-        "authored-context|ptc-turn|persistent-tools|system-prompt-in-history|union-tool-schema|retained-tool-outcome|typed-tool-dictionary|cordis-inspect-jsdoc|tool-argument-json-errors"
+        "authored-context|ptc-turn|persistent-tools|system-prompt-in-history|union-tool-schema|retained-tool-outcome|typed-tool-dictionary|cordis-inspect-jsdoc|tool-argument-json-errors|history-selection"
       ]
     }
   ]

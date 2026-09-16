@@ -49,3 +49,5 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 [编译服务](../plugins/story-compiler/README.zh.md#提交与冻结修订版本)负责在修订事务前自动编译。存储保存通用不可变附件，核心只传递附件。独立修订读取器与文本运行时初始化[演绎会话](../plugins/performances/README.zh.md)，不执行编译或访问预览缓存。会话保存完整产物副本，源剧本删除后仍可继续。[共用剧本工作区](../plugins/story-workspaces/README.zh.md)通过稳定提供者组织编剧与主持人会话。
 
 函数声明、冻结源码与调用由[编译器包](../plugins/story-compiler/README.zh.md)维护。[演绎插件](../plugins/performances/README.zh.md)串行执行调用，将完整动作持久保存到 Session 日志。函数状态不会隐式进入存储 KV 或模型上下文。
+
+世界线节点及当前路径状态由[演绎插件](../plugins/performances/README.zh.md#世界线)维护。DSH 提供通用的历史选择记录和请求重建。两者均从原始 Session 日志派生，上下文组装不定义历史树。

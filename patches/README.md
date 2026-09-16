@@ -39,3 +39,5 @@ The inclusive-union patch extends tool schema validation and both language type 
 The typed-dictionary patch validates schema-valued additionalProperties and projects dictionary types. The reply-visibility patch provides effect-owned Client registrations for presets that keep intermediate Assistant text visible. PaperMoon registers the moderator preset; the DSH default remains unchanged.
 
 The tool-argument diagnostic patch preserves JSON parser failures in ordinary tool error results, including available locations. Malformed arguments do not execute tools; valid JSON continues through parameter validation.
+
+The execution-history patch adds retained-range selection, request reconstruction, admission deduplication and client selection/action extensions. PaperMoon owns the worldline tree and restores script state from its selected path. The patch also covers both SDKs and preserves frozen Session format generations.

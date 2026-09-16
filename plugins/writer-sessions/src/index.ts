@@ -47,7 +47,7 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
       } else if (workspace && writerState(agent.session).mode === PRESET)
         throw new WriterSessionError('wrong-mode', 'writer mode requires a script workspace')
     })
-    yield ctx.on('session/prompt-admission', async (agent, _message, next) => service.admit(agent, await next()))
+    yield ctx.on('session/prompt-admission', async (agent, _message, next) => { const message = await next(); return message === null ? null : service.admit(agent, message) })
     for (const agent of ctx.agents.list()) service.attach(agent)
     for (const method of ['scripts', 'writers', 'workspace', 'state', 'configure'] as const) {
       yield ctx.connection.fetch.register({

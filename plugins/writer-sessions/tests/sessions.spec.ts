@@ -40,7 +40,7 @@ function setup() {
         variable(name, value) { variables.set(name, value); return () => { variables.delete(name) } },
       },
     }
-    const result: Agent = { id, status: 'idle', ctx, inbox: { nextTurn: [], nextStep: [] },
+    const result: Agent = { followup() {}, async whenIdle() {}, id, status: 'idle', ctx, inbox: { nextTurn: [], nextStep: [], clear() {} },
       session: { header: { agentPreset: PRESET }, snapshotEvents: () => events, append(type, data) { events.push({ type, data: structuredClone(data) }) } },
       async runMaintenance(task) { if (busy) throw new Error('busy'); busy = true; try { return await task(new AbortController().signal) } finally { busy = false } },
     }

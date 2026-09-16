@@ -27,3 +27,5 @@ Artifact and performance initialization formats require version 2; old versions 
 Main tests cover compilation, simulation, invocation, persistence failure, receipt recovery and Fork. Real DSH and browser checks cover native declarations, original results, complete requests and readonly inspection. These checks establish engineering readiness; authored scripts and interaction quality still need experience feedback.
 
 Same-file aliases include consecutive JSDoc blocks. Explicit string-key dictionaries compile to schema-valued additionalProperties; unrestricted object remains unsupported. The DSH adapter validates the same dictionary schema. The performance composition retains intermediate reply text in Compact display, so calling a function does not hide preceding narration. Reasoning and tool rows keep their disclosure controls.
+
+[Worldlines](2026-09-16-worldlines.md) select the action ancestry and require receipt recovery before sealing a node. Sealed nodes cannot receive later repairs; missing evidence blocks continuation.

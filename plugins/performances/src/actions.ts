@@ -6,6 +6,7 @@ import type { FunctionDeclaration } from '@papermoon/story-compiler/types'
 import type { Agent, LogRecord } from '../../story-workspaces/src/host.ts'
 import type { FrozenPerformance } from './model.ts'
 import { ACTION_KEY } from './constants.ts'
+import { activeRecords } from './worldlines.ts'
 const DELIVERY_FAILURE_KEY = 'papermoon.performance.delivery-failure'
 export interface Action {
   version: 1
@@ -27,8 +28,8 @@ function callArguments(event: LogRecord): unknown {
   try { return JSON.parse(raw) } catch { throw new PerformanceActionError('corrupt-call', 'tool call arguments contain invalid JSON') }
 }
 /** Restore committed state without rerunning factories or functions. */
-export function projectActions(events: readonly LogRecord[], fixed: FrozenPerformance) {
-  let state = fixed.artifact.state.initial, head = fixed.checksum
+export function projectActions(events: readonly LogRecord[], fixed: FrozenPerformance, start?: { state: JsonObject; head: string }) {
+  let state = start?.state ?? fixed.artifact.state.initial, head = start?.head ?? fixed.checksum
   const actions: { seq: number; action: Action }[] = [], calls = new Set<number>()
   for (const event of events) {
     if (event.type !== 'session/configuration' || record(event).key !== ACTION_KEY) continue
@@ -68,7 +69,7 @@ export class PerformanceActions {
   invoke(name: string, raw: unknown, callId: string, signal: AbortSignal): Promise<JsonValue> {
     const work = this.tail.then(async () => {
       this.check(); signal.throwIfAborted()
-      const events = this.agent.session.snapshotEvents()
+      const events = activeRecords(this.agent.session.snapshotEvents(), this.fixed)
       const call = [...events].reverse().find(event => event.type === 'tool/call' && record(event).callId === callId)
       if (call?.seq === undefined || record(call).name !== name || canonical(callArguments(call)) !== canonical(raw)) throw new PerformanceActionError('invalid-call', 'function execution requires its matching logged tool call')
       const before = projectActions(events, this.fixed), prior = before.actions.find(entry => entry.action.call.seq === call.seq)
@@ -77,7 +78,7 @@ export class PerformanceActions {
       const result = await this.runtime.invoke(this.fixed.artifact, before.state, name, raw as JsonObject, combined)
       if (!result.ok) throw new PerformanceActionError(result.diagnostics[0]!.code, result.diagnostics.map(d => (d.location?.path ? d.location.path + (d.location.line ? ':' + d.location.line : '') + ': ' : '') + d.message).join('\n'))
       this.check(); combined.throwIfAborted()
-      if (projectActions(this.agent.session.snapshotEvents(), this.fixed).head !== before.head) throw new PerformanceActionError('state-conflict', 'performance state changed before action commit')
+      if (projectActions(activeRecords(this.agent.session.snapshotEvents(), this.fixed), this.fixed).head !== before.head) throw new PerformanceActionError('state-conflict', 'performance state changed before action commit')
       const payload = { version: 1 as const, artifactId: this.fixed.artifact.id, previous: before.head,
         call: { sessionId: this.agent.id, seq: call.seq, id: callId, name, args: raw as JsonObject }, state: result.state, value: result.value }
       const action: Action = { ...payload, checksum: digest(payload) }
@@ -90,17 +91,21 @@ export class PerformanceActions {
     return work
   }
   /** Replace only interrupted/aborted receipts whose exact committed values survived. */
-  async recover(): Promise<void> {
+  async recover(fromSeq = 0, requireReceipts = false): Promise<void> {
     this.check()
     await this.tail
     this.check()
-    const events = this.agent.session.snapshotEvents(), projection = projectActions(events, this.fixed)
+    const events = activeRecords(this.agent.session.snapshotEvents(), this.fixed), projection = projectActions(events, this.fixed)
     let changed = false
     for (const { action, seq } of projection.actions) {
+      if (seq < fromSeq) continue
       const nextCall = events.find(event => event.type === 'tool/call' && record(event).callId === action.call.id && (event.seq ?? -1) > action.call.seq)
       const receipts = events.filter(event => (nextCall?.seq === undefined || (event.seq ?? -1) < nextCall.seq) && event.type === 'tool/result' && (record(event).message as { source?: { callId?: string } })?.source?.callId === action.call.id && (event.seq ?? -1) > action.call.seq)
       const receipt = receipts.at(-1)
-      if (!receipt) continue // A live tool body owns its result; crash recovery first adds the host's interrupted receipt.
+      if (!receipt) {
+        if (requireReceipts) throw new PerformanceActionError('missing-receipt', 'committed action has no durable tool result')
+        continue // During execution the live tool body still owns its result.
+      }
       const data = record(receipt), error = data.error as { code?: string } | undefined
       const deliveryFailed = events.some(event => event.type === 'session/configuration' && record(event).key === DELIVERY_FAILURE_KEY &&
         (record(event).value as { version?: number; action?: string })?.version === 1 && (record(event).value as { action?: string }).action === action.checksum &&
