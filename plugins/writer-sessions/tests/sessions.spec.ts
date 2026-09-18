@@ -41,7 +41,7 @@ function setup() {
       },
     }
     const result: Agent = { followup() {}, async whenIdle() {}, id, status: 'idle', ctx, inbox: { nextTurn: [], nextStep: [], clear() {} },
-      session: { header: { agentPreset: PRESET }, snapshotEvents: () => events, append(type, data) { events.push({ type, data: structuredClone(data) }) } },
+      session: { header: { agentPreset: PRESET }, snapshotEvents: () => events, deriveRequestMessages: () => [], append(type, data) { events.push({ type, data: structuredClone(data) }) } },
       async runMaintenance(task) { if (busy) throw new Error('busy'); busy = true; try { return await task(new AbortController().signal) } finally { busy = false } },
     }
     agents.set(id, result); service.attach(result)

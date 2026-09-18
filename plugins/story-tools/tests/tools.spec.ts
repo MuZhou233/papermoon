@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { StoryStorage } from '@papermoon/story-storage'
 import { StoryRepository } from '@papermoon/story-core/repository'
 import { createStoryTools } from '../src/index.ts'
-import { toolCatalog, type ToolName } from '../src/catalog.ts'
+import { schemas, toolCatalog, type ToolName } from '../src/catalog.ts'
 const cleanups: (() => void | Promise<void>)[] = []
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
@@ -234,6 +234,14 @@ test('catalog includes only available operations and help is callable', async ()
   expect(await call('story_help', { topic: 'program' })).toMatchObject({
     topic: 'program',
     text: expect.stringContaining('exactly one'),
+  })
+})
+
+test.each(schemas.story_help.shape.topic.unwrap().options)('help topic %s returns nonempty text', async (topic) => {
+  const { call } = fixture()
+  expect(await call('story_help', { topic })).toEqual({
+    topic,
+    text: expect.stringMatching(/\S/),
   })
 })
 

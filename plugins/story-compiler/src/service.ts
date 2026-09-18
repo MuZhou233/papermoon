@@ -18,7 +18,7 @@ export type SubmissionResult = { committed: false; compilation: import('./revisi
   { committed: true; revision: StoryCommitResult['revision']; entry: StoryCommitResult['entry']; draft: StoryCommitResult['draft']; compilation: import('./revisions.ts').RevisionCompilation }
 
 export type CompilationReceipt = { source: ResolvedRef; diagnostics: Diagnostic[] } & (
-  | { ok: true; artifactId: string; context: OpeningContext; options: Artifact['options']; state: StateDeclaration; functions: readonly FunctionDeclaration[] }
+  | { ok: true; artifactId: string; context: OpeningContext; options: Artifact['options']; state: StateDeclaration; functions: readonly FunctionDeclaration[]; composition: Artifact['composition'] }
   | { ok: false }
 )
 export class CompilationService {
@@ -49,7 +49,7 @@ export class CompilationService {
       if (!result.ok) return { ok: false, source: snapshot.ref, diagnostics: result.diagnostics }
       const saved = await this.store.save(result.artifact, controller.signal)
       controller.signal.throwIfAborted()
-      return { ok: true, source: snapshot.ref, artifactId: saved.id, options: saved.options, context: initialize(saved), state: saved.state, functions: saved.functions, diagnostics: result.diagnostics }
+      return { ok: true, source: snapshot.ref, artifactId: saved.id, options: saved.options, context: initialize(saved), state: saved.state, functions: saved.functions, composition:saved.composition, diagnostics: result.diagnostics }
     })()
     this.jobs.add(work)
     void work.finally(() => { this.jobs.delete(work); this.controllers.delete(controller); signal?.removeEventListener('abort', abort) }).catch(() => {}) // The caller receives the original rejection; cleanup creates no second failure.
@@ -137,7 +137,7 @@ export class CompilationService {
     try { input = prepare(snapshot.content, this.options(options)) }
     catch (error) { throw new ArtifactError('invalid-input', error instanceof Error ? error.message : 'invalid compiler options') }
     const artifact = await this.store.read(input.key)
-    return artifact ? { ok: true, source: snapshot.ref, artifactId: artifact.id, context: initialize(artifact), options: artifact.options, state: artifact.state, functions: artifact.functions, diagnostics: [] } : null
+    return artifact ? { ok: true, source: snapshot.ref, artifactId: artifact.id, context: initialize(artifact), options: artifact.options, state: artifact.state, functions: artifact.functions, composition:artifact.composition, diagnostics: [] } : null
   }
   async read(id: string): Promise<Artifact> {
     if (this.closed) throw new ArtifactError('closed', 'compilation service is closed')

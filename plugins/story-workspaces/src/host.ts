@@ -9,6 +9,7 @@ export interface Agent {
   id: string
   status: string
   ctx: ToolHost & {
+    on(name: 'agent/request-messages', listener: (payload: { agent: Agent; turn: number; step: number; signal: AbortSignal }, next: () => Promise<number | undefined>) => Promise<number | undefined>): Dispose
     on(name: 'agent/pre-step', listener: (payload: { agent: Agent; signal: AbortSignal }, next: () => Promise<Decision>) => Promise<Decision>): Dispose
     systemPrompt: {
       context(context: { name: string; order: number; text: string }): Dispose
@@ -17,7 +18,7 @@ export interface Agent {
     }
     tools: ToolHost['tools'] & { presentAs(mode: 'native'): Dispose }
   }
-  session: SessionLog & { append(type: string, data: unknown, intent?: { surfaceOp: 'append' | { op: 'replace'; startSeq: number; endSeq: number }; sourceEventSeqs?: number[] }): unknown }
+  session: SessionLog & { deriveRequestMessages(seq?: number): RequestMessage[]; append(type: string, data: unknown, intent?: { surfaceOp: 'append' | { op: 'replace'; startSeq: number; endSeq: number }; sourceEventSeqs?: number[] }): unknown }
   inbox: { clear(): void; nextTurn: readonly unknown[]; nextStep: readonly unknown[] }
   followup(message: InputMessage): void
   whenIdle(): Promise<void>
@@ -35,10 +36,12 @@ export interface Host {
   on(name: 'agent-preset/changed', listener: (agent: Agent, preset: string) => Promise<void>): Dispose
   on(name: 'agent-preset/selecting', listener: (agent: Agent, preset: string) => Promise<void>): Dispose
   on(name: 'session/created-for-client', listener: (agent: Agent, workspace?: Workspace) => Promise<void>): Dispose
+  on(name: 'session/prompt-accepted', listener: (agent: Agent, message: InputMessage) => Promise<void>): Dispose
   on(name: 'session/prompt-admission', listener: (agent: Agent, message: InputMessage, next: () => Promise<InputMessage | null>) => Promise<InputMessage | null>): Dispose
   agents: { get(id: string): Agent | undefined; list(): Agent[] }
   agentPresets: { select(agent: Agent, preset: string): Promise<string> }
   sessionController: {
+    submitUserInput(request: { sessionId: string; requestId: string; mode: 'queue'; content: readonly unknown[]; historyVersion: number; clientTimeZone?: string; admission: Readonly<Record<string, unknown>> }): Promise<unknown>
     resolveAgent(id: string): Promise<{ agent: Agent } | { error: unknown }>
     inspect(id: string): Promise<{ events: readonly LogRecord[]; meta: SessionLog['header'] }>
   }
@@ -49,3 +52,7 @@ export interface Host {
   }
   connection: { fetch: { register(route: { path: string; methods: readonly 'POST'[]; requestBody: 'buffered'; fetch(request: Request): Promise<Response> }): Dispose } }
 }
+
+/** Minimal immutable model message consumed by the request selection adapter. */
+export interface RequestMessage { readonly id: string; readonly role: 'system' | 'user' | 'assistant'; readonly content: readonly unknown[]; readonly source: Readonly<Record<string, unknown>> }
+export type RequestPart = { eventSeq: number } | { message: RequestMessage; name?: string }

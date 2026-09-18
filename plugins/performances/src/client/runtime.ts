@@ -5,7 +5,8 @@ import type { T } from './locales.ts'
 export interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
 interface EventWindow { historySelection?: { version: number }; change: { kind: string; entries?: readonly { event: { type: string; data: unknown } }[] } }
 export interface ClientHost {
-  chatPresentation: { preserveReplies(preset: string): () => void; preserveUserInputs(producer: string): () => void }
+  trajectoryInspection: {register(sessionId:string, source:Observable<import('./inspection.ts').InspectionData|null>):()=>void}
+  chatPresentation: { preserveReplies(preset: string): () => void }
   connection: { rpc: { call(channel: string, method: string, payload: unknown, signal?: AbortSignal): Promise<{ ok: true; value: unknown } | { ok: false; error: { message: string; code: string } }> } }
   sessions: { list: Observable<{ current?: string; byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }>; refresh(): Promise<void>; open(id: string): void; binding(id: string): { ctx: unknown; session: Observable<{ running: boolean }>; eventSource: Observable<EventWindow> } | undefined }
   uiAgentPreset: { store: Observable<{ current: string; busy: boolean }>; load(): Promise<void> }
@@ -46,7 +47,7 @@ export class Runtime {
       if (binding) this.stopStatus = binding.session.subscribe(() => this.publish(this.state))
       if (source) this.stopEvents = source.subscribe(() => {
         const change = source.getSnapshot().change
-        if (change.kind === 'replace' || change.entries?.some(({event}) => event.type === 'history/selected' || event.type === 'turn/end' || (event.type === 'session/configuration' && (event.data as {key?: string}).key === ACTION_KEY))) this.scheduleRefresh()
+        if (change.kind === 'replace' || change.entries?.some(({event}) => event.type === 'request/messages' || event.type === 'history/selected' || event.type === 'turn/end' || event.type === 'assistant/message' || event.type === 'tool/result' || (event.type === 'session/configuration' && (event.data as {key?: string}).key === ACTION_KEY))) this.scheduleRefresh()
       })
     }
     const identity = JSON.stringify([list.current, list.current && list.byId[list.current]?.blank, mode])
@@ -90,6 +91,7 @@ export class Runtime {
     await this.call<Awaited<ReturnType<Performances['operation']>>>('operation', {
       sessionId, kind, nodeId, expectedVersion: edit?.expectedVersion ?? view.worldline.version, operationId: crypto.randomUUID(),
       ...(kind === 'edit' ? { text: edit!.text } : {}),
+      ...(['edit', 'reroll'].includes(kind) ? { clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),
     })
     await this.refresh()
   }

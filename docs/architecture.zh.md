@@ -51,3 +51,7 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 函数声明、冻结源码与调用由[编译器包](../plugins/story-compiler/README.zh.md)维护。[演绎插件](../plugins/performances/README.zh.md)串行执行调用，将完整动作持久保存到 Session 日志。函数状态不会隐式进入存储 KV 或模型上下文。
 
 世界线节点及当前路径状态由[演绎插件](../plugins/performances/README.zh.md#世界线)维护。DSH 提供通用的历史选择记录和请求重建。两者均从原始 Session 日志派生，上下文组装不定义历史树。
+
+请求拼装由[演绎插件](../plugins/performances/README.zh.md#实际上下文)组织，冻结脚本由编译器的执行入口运行。DSH 提供持久的请求消息选择和重建能力，与对话历史分开。[决策记录](../.agents/notes/implemented/architecture/2026-09-17-context-composition.zh.md)说明每轮输入只拼装一次的规则。
+
+演绎检查复用完整 DSH 轨迹，左侧提供紧凑世界线导航，右侧可切换原始或改写上下文。楼层表示故事深度，DSH 轮次保留执行身份。[检查规则](../plugins/performances/README.zh.md#实际上下文)与运行历史选择分别维护。

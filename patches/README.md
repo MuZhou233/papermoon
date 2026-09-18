@@ -41,3 +41,9 @@ The typed-dictionary patch validates schema-valued additionalProperties and proj
 The tool-argument diagnostic patch preserves JSON parser failures in ordinary tool error results, including available locations. Malformed arguments do not execute tools; valid JSON continues through parameter validation.
 
 The execution-history patch adds retained-range selection, request reconstruction, admission deduplication and client selection/action extensions. PaperMoon owns the worldline tree and restores script state from its selected path. The patch also covers both SDKs and preserves frozen Session format generations.
+
+The request-assembly patch records per-request message references and authored text independently of transcript selection. The Loop, replay and invariant use the same resolver. PaperMoon owns script composition and its inspection page.
+
+The trajectory-inspection patch adds Session-local readonly sources, ordered context records and navigation slots. PaperMoon supplies node selection and dual-mode data; the shared DSH ledger retains search, details, tool associations and request inspection. It does not change Session formats.
+
+Reroll and edited resubmission use shared user-input admission in the execution-history patch. The chat action slots remain generic; message source determines bubble and trajectory classification.

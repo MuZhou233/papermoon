@@ -2,7 +2,7 @@
 import vm from 'node:vm'
 import { posix } from 'node:path'
 import { parse } from 'acorn'
-import type { Diagnostic, WorkerInput, EvaluatedDeclaration, JsonObject, JsonValue } from './types.ts'
+import type { Diagnostic, WorkerInput, EvaluatedDeclaration, JsonObject, JsonValue, CompositionInput, CompositionPlan } from './types.ts'
 
 export function evaluate(input: WorkerInput) {
 const { files, texts, options } = input
@@ -57,7 +57,7 @@ try {
     const parse = JSON.parse, stringify = JSON.stringify, keys = Object.keys;
     const descriptors = Object.getOwnPropertyDescriptors, ownKeys = Reflect.ownKeys;
     const prototype = Object.getPrototypeOf, plain = Object.prototype, isArray = Array.isArray;
-    const ErrorType = Error, freeze = Object.freeze, has = Object.hasOwn;
+    const ErrorType = Error, freeze = Object.freeze, has = Object.hasOwn, values = Object.values, functionPrototype = Function.prototype;
     const functionText = Function.prototype.toString, apply = Reflect.apply, get = Reflect.get;
     const ProxyType = Proxy, WeakMapType = WeakMap, WeakSetType = WeakSet, finite = Number.isFinite;
     const catalog = parse(${JSON.stringify(JSON.stringify(texts))});
@@ -79,7 +79,7 @@ try {
       return props[key].value;
     };
     const normalize = (value) => {
-      const props = data(value, ['systemPrompt', 'systemPromptName', 'messages', 'state', 'functions'], 'module.exports');
+      const props = data(value, ['systemPrompt', 'systemPromptName', 'messages', 'state', 'functions', 'composeContext'], 'module.exports');
       const systemPrompt = string(props, 'systemPrompt', 'systemPrompt');
       const systemPromptName = string(props, 'systemPromptName', 'systemPromptName', true);
       const array = props.messages?.value;
@@ -113,7 +113,7 @@ try {
       }
       active.delete(value);
     };
-    let writing = false, current, callable = [];
+    let writing = false, current, composer, callable = [];
     const proxies = new WeakMapType();
     const mutable = () => { if (!writing) invalid('functions', 'function factories cannot modify state'); };
     const view = value => {
@@ -165,7 +165,11 @@ try {
         sources.push({ name: descriptor.value, factory: apply(functionText, factory, []), implementation: apply(functionText, fn, []) });
         callable.push(fn);
       }
-      return stringify({ context, state, functions: sources });
+      composer = has(props, 'composeContext') ? props.composeContext.value : undefined;
+      if (composer !== undefined && typeof composer !== 'function') invalid('composeContext', 'expected a synchronous function');
+      const composition = composer === undefined ? null : apply(functionText, composer, []);
+      if (composition !== null && (composition.includes('[native code]') || prototype(composer) !== functionPrototype)) invalid('composeContext', 'expected a synchronous source function');
+      return stringify({ context, state, functions: sources, composition });
     };
     const invoke = (index, names, args) => {
       const ordered = names.map(name => has(args, name) ? args[name] : undefined);
@@ -174,6 +178,16 @@ try {
       try { value = apply(callable[index], undefined, ordered); } finally { writing = false; }
       json(current, 'state'); json(value, 'return');
       return stringify({ state: current, value });
+    };
+    const readonly = value => {
+      if (value && typeof value === 'object') { for (const child of values(value)) readonly(child); freeze(value); }
+      return value;
+    };
+    const compose = input => {
+      if (!composer) invalid('composeContext', 'composition function is missing');
+      const result = apply(composer, undefined, [readonly(input)]);
+      json(result, 'composeContext');
+      return stringify(result);
     };
     const api = freeze({
       defineStory: value => value,
@@ -195,8 +209,8 @@ try {
     for (const key of ['process', 'Buffer', 'fetch', 'Date', 'Intl', 'performance', 'crypto', 'Promise', 'setTimeout', 'setInterval', 'setImmediate', 'queueMicrotask', 'console', 'WebAssembly'])
       Object.defineProperty(globalThis, key, { value: undefined, writable: false, configurable: false });
     Object.defineProperty(Math, 'random', { value: () => { throw new ErrorType('randomness is unavailable'); }, writable: false, configurable: false });
-    return { api, prepare, invoke, requireFactory };
-  })()`) as { api: unknown; prepare: unknown; invoke: unknown; requireFactory: unknown }
+    return { api, prepare, invoke, compose, requireFactory };
+  })()`) as { api: unknown; prepare: unknown; invoke: unknown; compose: unknown; requireFactory: unknown }
   const modules = new Map<string, { exports: unknown }>(), visiting: string[] = []
   let loading = true
   function load(path: string): unknown {
@@ -230,11 +244,21 @@ try {
   const result = load(options.entry)
   loading = false
   context.__prepare = bootstrap.prepare; context.__result = result
-  context.__override = input.invocation ? execute('JSON.parse(' + JSON.stringify(JSON.stringify(input.invocation.state)) + ')') : undefined
+  const state = input.invocation?.state ?? input.composition?.input.state
+  context.__override = state === undefined ? undefined : execute('JSON.parse(' + JSON.stringify(JSON.stringify(state)) + ')')
   const serialized = execute('__prepare(__result, __override)') as string
   if (Buffer.byteLength(serialized) > options.limits.outputBytes) fail('output-limit', 'declaration', 'initial context exceeds outputBytes')
   const declaration = JSON.parse(serialized) as EvaluatedDeclaration
   return { declaration, program: { files: Object.fromEntries([...modules.keys()].map(path => [path, files[path]!])), texts },
+    compose(input: CompositionInput): CompositionPlan {
+      context.__compose = bootstrap.compose
+      context.__composition = execute('JSON.parse(' + JSON.stringify(JSON.stringify(input)) + ')')
+      let output: string
+      try { output = execute('__compose(__composition)') as string }
+      catch (error) { throw { diagnostic: diagnose(error) } }
+      if (Buffer.byteLength(output) > options.limits.outputBytes) fail('output-limit', 'execution', 'context plan exceeds outputBytes')
+      return JSON.parse(output) as CompositionPlan
+    },
     invoke(index: number, names: readonly string[], args: JsonObject): { state: JsonObject; value: JsonValue } {
       context.__invoke = bootstrap.invoke
       context.__arguments = execute('JSON.parse(' + JSON.stringify(JSON.stringify({ names, args })) + ')')

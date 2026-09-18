@@ -84,7 +84,7 @@ export function activeRecords(events: readonly LogRecord[], fixed: FrozenPerform
   if (state.pending && events.length > state.pending.start) ranges.push({ start: state.pending.start, end: events.length - 1 })
   return recordsFor(events, ranges)
 }
-export type WorldOperation = { operationId: string; expectedVersion: number; nodeId: string } & (
+export type WorldOperation = { operationId: string; expectedVersion: number; nodeId: string; clientTimeZone?: string } & (
   { kind: 'select' | 'candidate' | 'reroll' } | { kind: 'edit'; text: string }
 )
 /** Serializes durable selection operations with Agent admission and completion. */
@@ -94,7 +94,8 @@ export class Worldlines {
   private disposed = false
   private readonly operations = new Map<string, { identity: string; task: Promise<{ selected: string }> }>()
   constructor(private readonly agent: Agent, private readonly fixed: FrozenPerformance,
-    private readonly flush: () => Promise<boolean>, private readonly actions: PerformanceActions) {}
+    private readonly flush: () => Promise<boolean>, private readonly actions: PerformanceActions,
+    private readonly submit: (content: readonly unknown[], operation: WorldOperation) => Promise<unknown>) {}
   state() { return worldlineState(this.agent.session.snapshotEvents(), this.fixed) }
   private check() { if (this.disposed) throw new WorldlineError('worldline-closed', 'worldline is closed'); if (this.blocked) throw this.blocked }
   private async durable() {
@@ -121,18 +122,29 @@ export class Worldlines {
   private expected(version: unknown) {
     if (version !== this.state().version) throw new WorldlineError('worldline-conflict', 'worldline selection changed; refresh before retrying')
   }
-  async admit(message: InputMessage): Promise<InputMessage | null> {
+  async admit(message: InputMessage, persist = true): Promise<InputMessage | null> {
     this.check()
     const state = this.state()
     if (state.legacy) throw new WorldlineError('worldline-legacy', 'this performance is read-only; start a new performance to use worldlines')
+    const operation = message.source.admission?.[WORLDLINE] as WorldOperation | undefined
     const operationId = typeof message.source.rpcId === 'string' ? message.source.rpcId : message.id
-    const prior = state.operations.get(operationId), identity = canonical(message.content)
+    const prior = state.operations.get(operationId), identity = canonical(operation ?? message.content)
     if (prior) {
       if (prior.identity !== identity) throw new WorldlineError('worldline-conflict', 'operation ID was used with different input')
       return null
     }
     this.idle(); this.expected(message.source.admission?.historyVersion)
-    const run: Run = { id: randomUUID(), parent: state.selected, operationId, input: structuredClone(message) }
+    let parent = state.selected
+    const origin: { rerollOf?: string; editedFrom?: string } = {}
+    if (operation) {
+      const target = state.nodes.get(operation.nodeId)
+      if (!target?.parent || !target.input || !['reroll', 'edit'].includes(operation.kind)) throw new WorldlineError('worldline-root', 'input requires a completed non-root node')
+      parent = target.parent
+      if (operation.kind === 'reroll') origin.rerollOf = target.id
+      else origin.editedFrom = target.id
+    }
+    if (!persist) return message
+    const run: Run = { id: randomUUID(), parent, operationId, input: structuredClone(message), ...origin }
     await this.append({ kind: 'begin', run, selected: run.parent, operationId, identity }, pathRanges(state.nodes, run.parent))
     return message
   }
@@ -158,37 +170,35 @@ export class Worldlines {
       if (prior.identity !== identity) throw new WorldlineError('worldline-conflict', 'operation ID was used with different parameters')
       return { selected: prior.selected }
     }
+    if (request.kind === 'reroll' || request.kind === 'edit') {
+      const target = before.nodes.get(request.nodeId)
+      if (!target?.parent || !target.input) throw new WorldlineError('worldline-root', 'the initial node cannot be rerolled or edited')
+      let content = structuredClone(target.input.content)
+      if (request.kind === 'edit') {
+        let inserted = false
+        content = content.flatMap(part => {
+          if (part && typeof part === 'object' && 'type' in part && part.type === 'text') {
+            if (inserted) return []
+            inserted = true
+            return [{ type: 'text', text: request.text }]
+          }
+          return [part]
+        })
+        if (!inserted) content = [{ type: 'text', text: request.text }, ...content]
+      }
+      await this.submit(content, request)
+      return { selected: this.state().selected }
+    }
     return this.agent.runMaintenance(async signal => {
       signal.throwIfAborted(); this.idle(); this.expected(request.expectedVersion)
       const state = this.state(), target = state.nodes.get(request.nodeId)
       if (!target) throw new WorldlineError('worldline-not-found', 'worldline node does not exist')
-      if ((request.kind === 'reroll' || request.kind === 'edit') && (!target.parent || !target.input)) throw new WorldlineError('worldline-root', 'the initial node cannot be rerolled or edited')
-      let selected = request.kind === 'candidate' ? state.remembered.get(target.id) ?? target.id : target.id
-      if (request.kind === 'edit' || request.kind === 'reroll') selected = target.parent!
-      const ranges = pathRanges(state.nodes, selected)
-      if (request.kind === 'reroll' || request.kind === 'edit') {
-        const input: InputMessage = { ...structuredClone(target.input!), id: randomUUID(), source: { kind: 'plugin', plugin: WORLDLINE, originalInputId: target.input!.id, operation: request.kind } }
-        if (request.kind === 'edit') {
-          let inserted = false
-          const content: unknown[] = []
-          for (const part of input.content) {
-            if (part && typeof part === 'object' && 'type' in part && part.type === 'text') {
-              if (!inserted) { content.push({ type: 'text', text: request.text }); inserted = true }
-            } else content.push(part)
-          }
-          if (!inserted) content.unshift({ type: 'text', text: request.text })
-          if (!request.text.trim() && content.every(part => part && typeof part === 'object' && 'type' in part && part.type === 'text'))
-            throw new WorldlineError('worldline-empty-input', 'edited input requires text or an attachment')
-          input.content = content
-        }
-        const run: Run = { id: randomUUID(), parent: selected, input, operationId: request.operationId,
-          ...(request.kind === 'reroll' ? { rerollOf: target.id } : { editedFrom: target.id }) }
-        await this.append({ kind: 'begin', run, selected, operationId: request.operationId, identity }, ranges)
-        this.agent.followup(input)
-      } else await this.append({ kind: 'select', selected, operationId: request.operationId, identity }, ranges)
+      const selected = request.kind === 'candidate' ? state.remembered.get(target.id) ?? target.id : target.id
+      await this.append({ kind: 'select', selected, operationId: request.operationId, identity }, pathRanges(state.nodes, selected))
       return { selected }
     })
   }
+
   /** Seal only after the Agent has released all execution and tool work. */
   settle(): Promise<void> {
     if (this.settling) return this.settling
@@ -206,7 +216,7 @@ export class Worldlines {
           : event.type === 'context/message' && (event.data as { message: InputMessage }).message.id === run.input.id))
       if (!accepted) this.agent.session.append('context/message', {
         groupId: WORLDLINE + ':' + run.id, index: 0,
-        message: { ...run.input, source: { kind: 'plugin', plugin: WORLDLINE, originalInputId: run.input.id } },
+        message: run.input,
       }, { surfaceOp: 'append' })
       await this.actions.recover(run.start, true)
       await this.durable()

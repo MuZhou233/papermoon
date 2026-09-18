@@ -1,0 +1,1545 @@
+diff --git a/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.i18n.yaml
+new file mode 100644
+index 0000000000..b7ccf42bbb
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.i18n.yaml
+@@ -0,0 +1,6 @@
++# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
++# side as of the last confirmed-consistent state. Both languages carry equal authority;
++# after editing either side, bring the other along and re-record with:
++#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md
++2026-09-18-trajectory-inspection.md: 0d7663ad8e8fae6bf1cd69a7ece95518a58bb75f
++2026-09-18-trajectory-inspection.zh.md: cc68c8e29ab8b38f4f984154c1b1ed2ed35e66bc
+diff --git a/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md
+new file mode 100644
+index 0000000000..0d7663ad8e
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md
+@@ -0,0 +1,21 @@
++# Agent Note: Readonly trajectory inspection
++
++Status: implemented
++
++English | [中文](2026-09-18-trajectory-inspection.zh.md)
++
++## Problem
++
++A plugin can need to inspect history outside the active path or display a saved request in a different order. Changing Session history for inspection affects execution; copying the trajectory renderer loses shared detail and attachment behavior.
++
++## Decision
++
++Trajectory owns an effect-scoped readonly source registry and navigation slots. Conversation assembles explicit event windows using its existing definitions. Ordered context records retain original message identities and source links independently of presentation indexes. Execution records retain turn, step and request grouping. Context references have no new timing or usage. A provider can identify durable user inputs for presentation, preserving their original producer metadata. This keeps replayed user actions distinct from injected instructions without rewriting source events.
++
++## Alternatives considered
++
++Mutating the active Conversation binding couples inspection to Chat and execution. Fabricating event sequence numbers or timestamps hides source identity. A separate text-only renderer duplicates presentation policy and drops tool and request inspection.
++
++## Consequences
++
++Registration disposal restores the ordinary source. Plugins supply selection semantics, translated labels and immutable request reads; the generic ledger supplies its existing search, fold, detail and copy behavior. No Session event or SDK format changes. Tests cover reordered references, ordinary views, built bundles and effect cleanup. The [package reference](../../../../packages/client/ui-trajectory/README.md) owns the public extension contract.
+diff --git a/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.zh.md b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.zh.md
+new file mode 100644
+index 0000000000..cc68c8e29a
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.zh.md
+@@ -0,0 +1,21 @@
++# Agent Note：只读轨迹检查
++
++Status: implemented
++
++[English](2026-09-18-trajectory-inspection.md) | 中文
++
++## 问题
++
++插件可能需要检查当前路径以外的历史，或按不同顺序展示已保存请求。为了检查而改变 Session 历史会影响执行，复制轨迹渲染器则会丢失共享的详情与附件行为。
++
++## 决定
++
++轨迹维护随 effect 释放的只读数据源注册表和导航插槽。Conversation 通过既有定义组装明确的事件窗口。有序上下文记录保留原始消息身份和来源入口，展示序号独立维护。执行记录保留轮次、步骤和请求分组。上下文引用不产生新的耗时或用量。提供方可指明持久记录中的用户输入，展示时仍保留原始生产者资料。这样能区分复用的用户操作与注入提示词，不必改写来源事件。
++
++## 考虑过的替代方案
++
++修改当前 Conversation 绑定，会让检查影响对话和执行。虚构日志序号或时间，会掩盖来源身份。独立的文本渲染器重复维护展示规则，也会丢失工具与请求检查。
++
++## 后果
++
++释放注册后恢复普通数据源。插件提供选择规则、本地化标签和不可变请求读取，通用轨迹保留搜索、折叠、详情和复制能力。不改变 Session 事件或 SDK 格式。测试覆盖引用重排、普通视图、构建产物和 effect 清理。[包文档](../../../../packages/client/ui-trajectory/README.zh.md)维护公开扩展约定。
+diff --git a/packages/client/ui-conversation/README.i18n.yaml b/packages/client/ui-conversation/README.i18n.yaml
+index e579bf04ed..27d2322902 100644
+--- a/packages/client/ui-conversation/README.i18n.yaml
++++ b/packages/client/ui-conversation/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-conversation/README.md
+-README.md: e32b891146cdd8583870ee405d3d81fb158ef8bb
+-README.zh.md: 5d5d16a4d697d0c6ba1aceccc9562f175decdd34
++README.md: 615316bdfadf81b952d484236b6c4c677d7ee553
++README.zh.md: 4f6daead368531f3437ba06d6d2bc3a971a27d5c
+diff --git a/packages/client/ui-conversation/README.md b/packages/client/ui-conversation/README.md
+index e32b891146..615316bdfa 100644
+--- a/packages/client/ui-conversation/README.md
++++ b/packages/client/ui-conversation/README.md
+@@ -110,6 +110,8 @@ The selector must be a pure function of the owner currency. Its non-null return
+ 
+ The Hero exposes a target-selector replacement with the directory selector as fallback, plus an adjacent options slot. Composer blocks are owner-scoped so one plugin cannot clear another plugin’s reason. Clearing a workspace target keeps an existing draft visible and read-only while the composer opens the target picker.
+ 
++UiConversation.inspect(target, entries) creates a readonly projection from an explicit event window using the registered target definitions. It does not mutate a Session binding, select history or dispatch model work.
++
+ ## Model Experience
+ 
+ None, as this package renders browser state and sends user-admitted inputs through Session Controller APIs without constructing model requests.
+@@ -136,3 +138,5 @@ None.
+ </details>
+ 
+ **Runtime invariant:** No companion is published. Conversation Definitions, target builders, and Views are already validated by their owning registries and the Slot ledger.
++
++Conversation assembly filters raw event windows through the durable historySelection projection before building Chat and Trajectory. Raw event windows remain available to audit consumers. A selection version change rebuilds the visible path; event coordinates remain raw. Composer blocks can restrict submission while leaving draft editing and cancellation available.
+diff --git a/packages/client/ui-conversation/README.zh.md b/packages/client/ui-conversation/README.zh.md
+index 5d5d16a4d6..4f6daead36 100644
+--- a/packages/client/ui-conversation/README.zh.md
++++ b/packages/client/ui-conversation/README.zh.md
+@@ -110,6 +110,8 @@ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `match
+ 
+ Hero 提供目标选择器替换位置，以文件夹选择器为默认显示，并提供相邻选项位置。输入阻止理由按贡献者区分，插件不能清除其他插件的理由。清除工作区选择后，已有输入保持可见并只读，点击输入框仍可打开目标选择器。
+ 
++UiConversation.inspect(target, entries) 使用已注册的目标定义，从明确的事件窗口生成只读投影，不修改 Session 绑定、不选择历史，也不触发模型执行。
++
+ ## 模型体验
+ 
+ 无，因为本包渲染浏览器状态，并通过 Session Controller API 发送用户确认提交的输入，而不构造模型请求。
+@@ -136,3 +138,5 @@ Hero 提供目标选择器替换位置，以文件夹选择器为默认显示，
+ </details>
+ 
+ **运行时不变式：** 不发布伴生入口。Conversation Definition、target builder 与 View 已由其所属注册表和 Slot ledger 校验。
++
++会话组装先按持久 historySelection 投影筛选原始事件窗口，再构建对话和轨迹。审计消费者仍可读取原始窗口。选择版本变化时重建可见路径，事件坐标仍指向原始日志。输入框阻止项可以只限制发送，同时保留草稿编辑和取消操作。
+diff --git a/packages/client/ui-conversation/src/client/conversation/assembly.ts b/packages/client/ui-conversation/src/client/conversation/assembly.ts
+index a6d453c65b..147d623ee2 100644
+--- a/packages/client/ui-conversation/src/client/conversation/assembly.ts
++++ b/packages/client/ui-conversation/src/client/conversation/assembly.ts
+@@ -2,8 +2,9 @@
+ import { Service, type Context } from '@deepseek-ai/cordis'
+ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+ import type {
+-  ISessions, SessionBinding, SessionEventSource, SessionEventWindow,
++  ISessions, SessionBinding, SessionEventSource, SessionEventWindow, SessionEventLikeEntry,
+ } from '@deepseek-ai/dsh-api-session-controller/client'
++import { historyContains } from '@deepseek-ai/dsh-session/surface'
+ import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
+ import {
+   createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
+@@ -48,6 +49,7 @@ class BoundConversation implements ConversationBinding {
+   private readonly viewStore: ConversationViewSnapshotStore
+   private readonly targetSources = new Map<string, ObservableSnapshot<unknown>>()
+   private revision = -1
++  private historyVersion = 0
+   private frame: number | undefined
+   private disposeFeed: () => void = () => {}
+ 
+@@ -95,23 +97,27 @@ class BoundConversation implements ConversationBinding {
+ 
+   private replace(window: SessionEventWindow): void {
+     this.revision = window.revision
+-    this.publish(this.assembler.replaceWindow(window.entries, window.hasMore))
++    this.historyVersion = window.historySelection?.version ?? 0
++    const selection = window.historySelection
++    const entries = selection ? window.entries.filter(entry => entry.event.type !== 'history/selected' &&
++      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : window.entries
++    this.publish(this.assembler.replaceWindow(entries, window.hasMore))
+   }
+ 
+   private accept(window: SessionEventWindow): void {
+     if (window.revision === this.revision) return
+-    if (window.revision !== this.revision + 1 || window.change.kind === 'replace') {
++    if ((window.historySelection?.version ?? 0) !== this.historyVersion || window.revision !== this.revision + 1 || window.change.kind === 'replace') {
+       this.replace(window)
+       return
+     }
+     this.revision = window.revision
+     switch (window.change.kind) {
+       case 'prepend':
+-        this.publish(this.assembler.prepend(window.change.entries, window.hasMore))
++        this.publish(this.assembler.prepend(this.selectedEntries(window, window.change.entries), window.hasMore))
+         return
+       case 'append': {
+         let publication: ConversationPublication = 'none'
+-        for (const event of window.change.entries) {
++        for (const event of this.selectedEntries(window, window.change.entries)) {
+           const next = this.assembler.append(event)
+           if (next === 'immediate' || publication === 'none') publication = next
+         }
+@@ -127,6 +133,12 @@ class BoundConversation implements ConversationBinding {
+     }
+   }
+ 
++  private selectedEntries(window: SessionEventWindow, entries: SessionEventWindow['entries']): SessionEventWindow['entries'] {
++    const selection = window.historySelection
++    return selection ? entries.filter(entry => entry.event.type !== 'history/selected' &&
++      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : entries
++  }
++
+   private publish(publication: ConversationPublication): void {
+     if (publication === 'none') return
+     if (publication === 'animation-frame' && typeof requestAnimationFrame === 'function') {
+@@ -212,6 +224,23 @@ export class UiConversation extends Service {
+     }, 'ui-conversation assembly')
+   }
+ 
++  /**
++   * Assemble a readonly event window without changing a Session binding.
++   * @param target - Registered target whose normal definitions render the window.
++   * @param entries - Original event identities and optional live frames.
++   * @returns isolated target snapshot, or undefined for an unregistered target.
++   */
++  inspect<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
++    target: Target,
++    entries: readonly SessionEventLikeEntry[],
++  ): ConversationViewSnapshotMap[Target] | undefined {
++    const assembler = new ConversationNodeAssembler(this.events, this.views)
++    assembler.replaceWindow(entries, false)
++    assembler.activateTarget(target)
++    assembler.flush()
++    return assembler.snapshot(target) as ConversationViewSnapshotMap[Target] | undefined
++  }
++
+   /**
+    * Resolve the Conversation binding for one Controller binding or Session id.
+    * @param source - Session binding or identity.
+diff --git a/packages/client/ui-trajectory/README.i18n.yaml b/packages/client/ui-trajectory/README.i18n.yaml
+index 4518bfeba4..032beb444c 100644
+--- a/packages/client/ui-trajectory/README.i18n.yaml
++++ b/packages/client/ui-trajectory/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-trajectory/README.md
+-README.md: 409630c6eea6a38b693723194b09071a6a34d8dc
+-README.zh.md: a5a4fe3625bf3d29490339422b895f33451e0f5b
++README.md: 7b446ba56a6c72ea4813a036813e6c964218dc6d
++README.zh.md: 675f5bec4623d47a74baefb73b9de499d3e2cf45
+diff --git a/packages/client/ui-trajectory/README.md b/packages/client/ui-trajectory/README.md
+index 409630c6ee..7b446ba56a 100644
+--- a/packages/client/ui-trajectory/README.md
++++ b/packages/client/ui-trajectory/README.md
+@@ -40,6 +40,10 @@ A fixed Overview above the ledger projects real record start/duration timing fro
+ <a id="understand-the-implementation"></a>
+ ## Understand the implementation
+ 
++Plugins register one observable readonly source per Session through trajectoryInspection. Disposing the registration restores the ordinary source. The conversation.trajectory.navigation and conversation.trajectory.toolbar slots add inspection controls without changing Chat or selecting runtime history. UiConversation.inspect assembles an independent event window through the same registered definitions.
++
++An inspection source supplies original events, optional ordered context messages, turn labels and a precise-request reader. Context records retain message role, source identity, tools, reasoning and attachments; they receive no execution time or token usage. Their display order is independent of event sequences. Real execution records retain DSH turn and step grouping. An explicit source link invokes the provider’s inspection callback. User inputs and plugin context retain their persisted source classification.
++
+ <details>
+ <summary>Implementation internals — click to expand</summary>
+ 
+@@ -53,7 +57,7 @@ Long ledgers initially derive React data from 50 target Nodes ending at the moun
+ 
+ ### Layout
+ 
+-Trajectory asks the conversation shell to float the composer over the full-height ledger, while its responsive vertical scrollers reserve the composer's live height so final rows remain reachable. Scrollable Summary regions keep their scrollbar thumbs transparent until hovered or focused, without changing the reserved scroll geometry. The package provides no service and declares no Context merge.
++Trajectory asks the conversation shell to float the composer over the full-height ledger, while its responsive vertical scrollers reserve the composer's live height so final rows remain reachable. Scrollable Summary regions keep their scrollbar thumbs transparent until hovered or focused, without changing the reserved scroll geometry.
+ 
+ </details>
+ 
+@@ -99,4 +103,4 @@ None.
+ 
+ </details>
+ 
+-**Runtime invariant:** No companion is published. It is a pure-consumer plugin: it emits no Cordis events and owns no mutable cross-plugin state; its view-slot registration is a plain effect whose disposal the slot ledger's own specs and this package's behavior specs observe directly.
++**Runtime invariant:** No companion is published. The registry has one effect-owned map, and readonly projections derive from that map and the supplied events. It has no independently maintained execution or persistence state to reconcile. Registration, disposal and projection behavior are covered by the package tests.
+diff --git a/packages/client/ui-trajectory/README.zh.md b/packages/client/ui-trajectory/README.zh.md
+index a5a4fe3625..675f5bec46 100644
+--- a/packages/client/ui-trajectory/README.zh.md
++++ b/packages/client/ui-trajectory/README.zh.md
+@@ -40,6 +40,10 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
+ <a id="understand-the-implementation"></a>
+ ## 理解实现
+ 
++插件通过 trajectoryInspection 为每个 Session 注册一个只读可观察数据源。释放注册后恢复普通数据源。conversation.trajectory.navigation 和 conversation.trajectory.toolbar 插槽提供检查控件，不修改对话，也不切换运行历史。UiConversation.inspect 使用相同的定义，将独立事件窗口组装为检查结果。
++
++检查数据源提供原始事件、可选的有序上下文消息、轮次附加标签和精确请求读取器。上下文记录保留消息角色、来源身份、工具、思考及附件，不产生执行时间或 token 用量。展示顺序独立于日志序号。真实执行记录仍按 DSH 轮次和步骤分组。来源入口调用提供方的检查回调。用户输入与插件上下文按持久记录中的来源区分。
++
+ <details>
+ <summary>实现细节——点击展开</summary>
+ 
+@@ -53,7 +57,7 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
+ 
+ ### 布局
+ 
+-Trajectory 要求会话壳把 composer 作为浮层置于全高记录表上方；其响应式纵向滚动容器会预留 composer 的实时高度，确保仍可滚动到最后几行。可滚动的 Summary 区域在悬停或聚焦前保持滚动条滑块透明，同时不改变预留的滚动几何空间。本包不提供服务，也不声明上下文合并。
++Trajectory 要求会话壳把 composer 作为浮层置于全高记录表上方；其响应式纵向滚动容器会预留 composer 的实时高度，确保仍可滚动到最后几行。可滚动的 Summary 区域在悬停或聚焦前保持滚动条滑块透明，同时不改变预留的滚动几何空间。
+ 
+ </details>
+ 
+@@ -99,4 +103,4 @@ Trajectory 要求会话壳把 composer 作为浮层置于全高记录表上方
+ 
+ </details>
+ 
+-**运行时不变式：** 不发布伴生入口。这是纯消费插件，不发出 Cordis 事件，也不持有跨插件可变状态；其 view-slot 注册是普通 effect，slot ledger 自身的规格测试与本包的行为规格测试会直接观察其释放。
++**运行时不变式：** 不发布伴生入口。注册表只有一份由 effect 管理的映射，只读投影从该映射与传入事件派生。它不另存执行状态或持久状态，无需跨副本核对。注册、释放和投影行为由本包测试覆盖。
+diff --git a/packages/client/ui-trajectory/package.json b/packages/client/ui-trajectory/package.json
+index 6eb6fc741f..90fb402d59 100644
+--- a/packages/client/ui-trajectory/package.json
++++ b/packages/client/ui-trajectory/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "@deepseek-ai/dsh-client-ui-trajectory",
+-  "description": "Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service)",
++  "description": "Trajectory event ledger with an interactive timing overview and readonly inspection sources",
+   "version": "0.1.5-rc.2",
+   "publishConfig": {
+     "access": "public"
+diff --git a/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx b/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx
+index d2a952704f..bab7449d91 100644
+--- a/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx
++++ b/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx
+@@ -121,6 +121,7 @@ const KIND_ICON: Record<TrajectoryCellKind, ReactNode> = {
+ }
+ 
+ interface TableRecord {
++  sectionLabel?: string | undefined
+   turn: number | null
+   section: number
+   group: string
+@@ -376,6 +377,12 @@ function AssistantTimingPanel({
+ 
+ /** Props for the trajectory ledger. */
+ export interface TrajectoryTableProps {
++  /** Optional additional labels for real execution turns. */
++  turnLabels?: Readonly<Record<number, string>> | undefined
++  /** Inspect a context record's source without changing execution history. */
++  openSource?: ((target: string) => void) | undefined
++  /** Load the precise persisted request behind one execution step. */
++  readRequest?: ((turn: number, step: number) => Promise<unknown>) | undefined
+   /** Trajectory locale seat. */
+   t: TrajectoryTranslate
+   /** Slot-backed durable image renderer shared with the Chat gallery. */
+@@ -483,6 +490,7 @@ function flattenRecords(turns: readonly TrajectoryTurnModel[]): TableRecord[] {
+         if (turnStart) firstInSection = false
+         return {
+           turn: turn.turn,
++          sectionLabel: turn.label,
+           section,
+           group: group.title,
+           groupStart: index === 0,
+@@ -1801,6 +1809,7 @@ function OverviewSection({
+  * @returns The ledger and an optional local record inspector.
+  */
+ export function TrajectoryTable({
++  turnLabels, openSource, readRequest,
+   t,
+   renderImages,
+   requestNumbers: sessionRequestNumbers,
+@@ -2107,6 +2116,18 @@ export function TrajectoryTable({
+       : trajectoryRecordId(record.cell)
+   }, [allRecords, recordFocus])
+ 
++  const [exactRequest, setExactRequest] = useState<unknown>()
++  const [exactError, setExactError] = useState('')
++  useEffect(() => {
++    setExactRequest(undefined); setExactError('')
++    if (!readRequest || !selectedRequestInfo || selectedRequestInfo.turn === null || selectedRequestInfo.purpose === 'compaction') return
++    let active = true
++    void readRequest(selectedRequestInfo.turn, selectedRequestInfo.step).then(
++      (value) => { if (active) setExactRequest(value) },
++      (error: unknown) => { if (active) setExactError(String(error)) },
++    )
++    return () => { active=false }
++  }, [readRequest, selectedRequestInfo])
+   const selectRequest = (
+     request: SelectedRequest,
+     tab: 'overview' | 'timing' = 'overview',
+@@ -2535,14 +2556,14 @@ export function TrajectoryTable({
+                             className={sectionActive
+                               ? `${css.turnLabel} ${css.turnLabelActive}`
+                               : css.turnLabel}
+-                            aria-label={sectionLabel(record.turn, t)}
++                            aria-label={[record.sectionLabel ?? sectionLabel(record.turn, t), record.turn === null ? undefined : turnLabels?.[record.turn]].filter(Boolean).join(' · ')}
+                           >
+                             {record.turn === null
+-                              ? sectionLabel(record.turn, t)
++                              ? record.sectionLabel ?? sectionLabel(record.turn, t)
+                               : (
+                                 <>
+                                   <span className={css.turnLabelFull} aria-hidden="true">
+-                                    {sectionLabel(record.turn, t)}
++                                    {[sectionLabel(record.turn, t), turnLabels?.[record.turn]].filter(Boolean).join(' · ')}
+                                   </span>
+                                   <span className={css.turnLabelCompact} aria-hidden="true">
+                                     #{record.turn}
+@@ -2774,8 +2795,8 @@ export function TrajectoryTable({
+                       </span>
+                       <span className={css.detailsLocation}>
+                         {selected.cell.kind === 'compacted'
+-                          ? sectionLabel(selected.turn, t)
+-                          : `${sectionLabel(selected.turn, t)} · ${selected.group}`}
++                          ? (selected.sectionLabel ?? sectionLabel(selected.turn, t))
++                          : `${(selected.sectionLabel ?? sectionLabel(selected.turn, t))} · ${selected.group}`}
+                       </span>
+                     </>
+                   )}
+@@ -2933,6 +2954,7 @@ export function TrajectoryTable({
+                 </div>
+               </>
+             )}
++            {selectedRequestInfo !== undefined && readRequest && <details><summary>{t('details.actualInput')}</summary>{exactError ? <p role="alert">{exactError}</p> : exactRequest === undefined ? <p>{t('details.loadingInput')}</p> : <JsonTree label={t('details.actualInput')} data={{ request:exactRequest }} labels={jsonTreeLabels(t)} />}</details>}
+             {selectedRequestInfo !== undefined && activeTab === 'options' && (
+               <RequestOptions options={selectedRequestOptions} t={t} />
+             )}
+@@ -3014,6 +3036,7 @@ export function TrajectoryTable({
+                 )}
+               </>
+             )}
++            {selected?.cell.inspectionSource && openSource && <button type="button" className={css.overviewHierarchyNavLink} onClick={() => { const source = selected.cell.inspectionSource; if (source !== undefined) openSource(source) }}>{selected.cell.inspectionLabel ?? t('details.source')} <IconChevronRightOutline14 size={11} /></button>}
+             {!promptSelected
+               && selected !== undefined
+               && selected.cell.kind !== 'compacted'
+diff --git a/packages/client/ui-trajectory/src/client/TrajectoryView.tsx b/packages/client/ui-trajectory/src/client/TrajectoryView.tsx
+index 4f8bc63d9c..98657fc623 100644
+--- a/packages/client/ui-trajectory/src/client/TrajectoryView.tsx
++++ b/packages/client/ui-trajectory/src/client/TrajectoryView.tsx
+@@ -26,6 +26,7 @@ import {
+ import { trajectoryRecordId } from './trajectory-record.ts'
+ import { TrajectorySearchIndex } from './trajectory-search-index.ts'
+ import type { TrajectorySnapshot } from './trajectory-contract.ts'
++import { contextLayout, prependContext } from './context-layout.ts'
+ import css from './views.module.css'
+ 
+ const EMPTY_TURN_IDS: ReadonlySet<number> = new Set()
+@@ -130,7 +131,7 @@ export function TrajectoryView({
+   useSession, useTrajectory, useDuration, loadOlder, loadImage, setActualDuration,
+   viewRequest, completeViewRequest, renderSlot, t,
+ }: ConvViewProps
+-  & PropsRenderSlots<'conversation.trajectory.images'>
++  & PropsRenderSlots<'conversation.trajectory.images' | 'conversation.trajectory.navigation' | 'conversation.trajectory.toolbar'>
+   & InjectFace<TrajectoryViewInjected>
+   & PropsLocale<'trajectory'>) {
+   const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(EMPTY_TURN_IDS)
+@@ -156,6 +157,13 @@ export function TrajectoryView({
+     readonly index: number
+   } | null>(null)
+   const completeInspection = useTrajectory(snapshot => snapshot)
++  const external = completeInspection.inspection
++  useEffect(() => {
++    setTimelineSelection(null)
++    setSelectedTimelineIndex(null)
++    setTimelineRecordSelection(null)
++    setTimelineRecordFocus(null)
++  }, [external?.key])
+   const latestNodeSeq = completeInspection.eventNodes.at(-1)?.seq
+   const [historyTailSeq, setHistoryTailSeq] = useState(latestNodeSeq)
+   const [historyNodeLimit, setHistoryNodeLimit] = useState(HISTORY_PAGE_NODES)
+@@ -173,7 +181,7 @@ export function TrajectoryView({
+     }
+   }, [historyTailIndex, historyTailSeq, latestNodeSeq])
+   const inspection = useMemo<TrajectorySnapshot>(() => {
+-    if (historyStartIndex === 0) return completeInspection
++    if (completeInspection.inspection || historyStartIndex === 0) return completeInspection
+     const eventNodes = completeInspection.eventNodes.slice(historyStartIndex)
+     const firstSeq = eventNodes[0]?.seq ?? 0
+     return {
+@@ -183,10 +191,13 @@ export function TrajectoryView({
+         request.startSeq >= firstSeq || (request.resultSeq ?? -1) >= firstSeq),
+     }
+   }, [completeInspection, historyStartIndex])
+-  const historyLoading = useSession(snapshot => snapshot.openState === 'loading')
+-  const olderHistoryLoading = useSession(snapshot => snapshot.loadingOlder)
+-  const sessionHasOlderHistory = useSession(snapshot => snapshot.hasMore)
+-  const hasResidentOlderHistory = historyStartIndex > 0
++  const normalHistoryLoading = useSession(snapshot => snapshot.openState === 'loading')
++  const normalOlderLoading = useSession(snapshot => snapshot.loadingOlder)
++  const normalHasMore = useSession(snapshot => snapshot.hasMore)
++  const historyLoading = external?.loading ?? normalHistoryLoading
++  const olderHistoryLoading = external ? false : normalOlderLoading
++  const sessionHasOlderHistory = external ? !!external.hasMore : normalHasMore
++  const hasResidentOlderHistory = !external && historyStartIndex > 0
+   const hasOlderHistory = hasResidentOlderHistory
+     || sessionHasOlderHistory
+   const nodes = inspection.eventNodes
+@@ -318,15 +329,22 @@ export function TrajectoryView({
+         ? null
+         : { turn: partialTurn, step: partialStep, blocks: [] },
+       runningCalls,
+-      requests,
+-      systemPrompts: inspection.systemPrompts,
++      requests: external?.context ? requests.map((request) => { if(request.purpose!=='assistant')return request; const { promptChange: _change,...rest }=request; return rest }) : requests,
++      systemPrompts: external?.context ? [] : inspection.systemPrompts,
+       callSchemas,
+     }, t)
+-    return { turns, lastIndex: lastCellIndex(turns) }
++    const combined = external?.context ? prependContext(contextLayout(external.context, external.contextLabel ?? t('kind.context')), turns) : turns
++    return { turns: combined, lastIndex: lastCellIndex(combined) }
+   }, [
+     nodes, eventLocations, partialTurn, partialStep,
+-    runningCalls, requests, inspection.systemPrompts, callSchemas, t,
++    runningCalls, requests, inspection.systemPrompts, callSchemas, t, external,
+   ])
++  const inspectionFocusIndex = external?.focusRecordId === undefined ? undefined
++    : finalized.turns.flatMap(turn => turn.groups.flatMap(group => group.cells))
++      .find(record => record.recordId === external.focusRecordId)?.index
++  useEffect(() => {
++    if (inspectionFocusIndex !== undefined) setTimelineRecordFocus({ index: inspectionFocusIndex })
++  }, [external?.key, external?.focusRecordId, inspectionFocusIndex])
+   const timelinePartialSignature = partialStructureSignature(partial)
+   const timelinePartial = useMemo<TrajectorySnapshot['partial']>(() => partial === null
+     ? null
+@@ -340,6 +358,7 @@ export function TrajectoryView({
+     () => appendTrajectoryPartialLayout(finalized.turns, timelinePartial, finalized.lastIndex, t),
+     [finalized, timelinePartial, t],
+   )
++  const overviewTurns = useMemo(() => external?.context?.length ? timelineTurns.slice(1) : timelineTurns, [external, timelineTurns])
+   const timelineMode: TrajectoryTimelineMode = actualDuration
+     ? actualTime ? 'actual' : 'duration'
+     : actualTime ? 'time' : 'sequence'
+@@ -400,8 +419,8 @@ export function TrajectoryView({
+   const timelineFocusIndexes = useMemo(
+     () => timelineRange === null
+       ? null
+-      : trajectoryTimelineFocusIndexes(timelineTurns, timelineRange, timelineMode),
+-    [timelineMode, timelineRange, timelineTurns],
++      : trajectoryTimelineFocusIndexes(overviewTurns, timelineRange, timelineMode),
++    [timelineMode, timelineRange, overviewTurns],
+   )
+   const handleRecordSelect = useCallback((index: number) => {
+     if (
+@@ -499,71 +518,80 @@ export function TrajectoryView({
+   }
+ 
+   const loadEarlierHistory = useCallback(async () => {
+-    if (!hasResidentOlderHistory && !await loadOlder()) return false
++    if (!hasResidentOlderHistory && !await (external?.loadMore ?? loadOlder)()) return false
+     setHistoryNodeLimit(limit => limit + HISTORY_PAGE_NODES)
+     return true
+-  }, [hasResidentOlderHistory, loadOlder])
++  }, [hasResidentOlderHistory, loadOlder, external])
+ 
+   return (
+-    <div className={css.root} data-conversation-composer-overlay="">
+-      <TrajectoryToolbar
+-        actualDuration={actualDuration}
+-        onActualDurationChange={(nextActualDuration) => {
+-          setActualDuration(nextActualDuration)
+-          setTimelineSelection(null)
+-        }}
+-        actualTime={actualTime}
+-        onActualTimeChange={(nextActualTime) => {
+-          setActualTime(nextActualTime)
+-          setTimelineSelection(null)
+-        }}
+-        allTurnsCollapsed={allTurnsCollapsed}
+-        onToggleAllTurns={toggleAllTurns}
+-        allAssistantsCollapsed={allAssistantsCollapsed}
+-        onToggleAllAssistants={toggleAllAssistants}
+-        searchQuery={searchQuery}
+-        onSearchQueryChange={setSearchQuery}
+-        t={t}
+-      />
+-      <TrajectoryTimeline
+-        t={t}
+-        turns={timelineTurns}
+-        mode={timelineMode}
+-        range={timelineRange}
+-        hasEarlierRecords={hasOlderHistory}
+-        onLoadEarlier={loadEarlierHistory}
+-        selectedIndex={selectedTimelineIndex}
+-        searchMatchIndexes={searchMatchIndexes}
+-        onRangeChange={handleTimelineRangeChange}
+-        onRecordSelect={handleTimelineRecordSelect}
+-        onRecordFocus={handleTimelineRecordFocus}
+-      />
+-      <div className={css.ledger}>
+-        <TrajectoryTable
++    <div className={css.workspace} data-conversation-composer-overlay="">
++      {renderSlot('conversation.trajectory.navigation', { viewRequest, completeViewRequest })}
++      <div className={css.root}>
++        {renderSlot('conversation.trajectory.toolbar', {})}
++        {external?.error && <p role="alert">{external.error}</p>}
++        <TrajectoryToolbar
++          actualDuration={actualDuration}
++          onActualDurationChange={(nextActualDuration) => {
++            setActualDuration(nextActualDuration)
++            setTimelineSelection(null)
++          }}
++          actualTime={actualTime}
++          onActualTimeChange={(nextActualTime) => {
++            setActualTime(nextActualTime)
++            setTimelineSelection(null)
++          }}
++          allTurnsCollapsed={allTurnsCollapsed}
++          onToggleAllTurns={toggleAllTurns}
++          allAssistantsCollapsed={allAssistantsCollapsed}
++          onToggleAllAssistants={toggleAllAssistants}
++          searchQuery={searchQuery}
++          onSearchQueryChange={setSearchQuery}
++          t={t}
++        />
++        <TrajectoryTimeline
+           t={t}
+-          renderImages={renderImages}
+-          requestNumbers={requestNumbers}
+-          turns={timelineTurns}
+-          streamingCells={streamingCells}
+-          timelineFocusIndexes={timelineFocusIndexes}
++          turns={overviewTurns}
++          mode={timelineMode}
++          range={timelineRange}
++          hasEarlierRecords={hasOlderHistory}
++          onLoadEarlier={loadEarlierHistory}
++          selectedIndex={selectedTimelineIndex}
+           searchMatchIndexes={searchMatchIndexes}
+-          onSelectedIndexChange={setSelectedTimelineIndex}
+-          onRecordSelect={handleRecordSelect}
+-          recordSelection={timelineRecordSelection}
+-          recordFocus={timelineRecordFocus}
+-          historyLoading={historyLoading}
+-          olderHistoryLoading={olderHistoryLoading}
+-          historyStartSeq={historyBaseSeq}
+-          hasOlderRecords={hasOlderHistory}
+-          onLoadOlder={loadEarlierHistory}
+-          onClearSelection={() => { setTimelineSelection(null) }}
+-          collapsedTurns={collapsedTurns}
+-          onToggleTurn={toggleTurn}
+-          collapsedAssistants={collapsedAssistants}
+-          onToggleAssistant={toggleAssistant}
+-          inspectCallId={inspectCallId}
+-          onInspectApplied={completeViewRequest}
++          onRangeChange={handleTimelineRangeChange}
++          onRecordSelect={handleTimelineRecordSelect}
++          onRecordFocus={handleTimelineRecordFocus}
+         />
++        <div className={css.ledger}>
++          <TrajectoryTable
++            key={external?.key}
++            turnLabels={external?.turnLabels}
++            openSource={external?.openSource}
++            readRequest={external?.readRequest}
++            t={t}
++            renderImages={renderImages}
++            requestNumbers={requestNumbers}
++            turns={timelineTurns}
++            streamingCells={streamingCells}
++            timelineFocusIndexes={timelineFocusIndexes}
++            searchMatchIndexes={searchMatchIndexes}
++            onSelectedIndexChange={setSelectedTimelineIndex}
++            onRecordSelect={handleRecordSelect}
++            recordSelection={timelineRecordSelection}
++            recordFocus={timelineRecordFocus}
++            historyLoading={historyLoading}
++            olderHistoryLoading={olderHistoryLoading}
++            historyStartSeq={historyBaseSeq}
++            hasOlderRecords={hasOlderHistory}
++            onLoadOlder={loadEarlierHistory}
++            onClearSelection={() => { setTimelineSelection(null) }}
++            collapsedTurns={collapsedTurns}
++            onToggleTurn={toggleTurn}
++            collapsedAssistants={collapsedAssistants}
++            onToggleAssistant={toggleAssistant}
++            inspectCallId={inspectCallId}
++            onInspectApplied={completeViewRequest}
++          />
++        </div>
+       </div>
+     </div>
+   )
+diff --git a/packages/client/ui-trajectory/src/client/context-layout.ts b/packages/client/ui-trajectory/src/client/context-layout.ts
+new file mode 100644
+index 0000000000..ee37f7836b
+--- /dev/null
++++ b/packages/client/ui-trajectory/src/client/context-layout.ts
+@@ -0,0 +1,65 @@
++/** Ordered request context rendered through the ordinary trajectory record inspector. */
++import type { ContentBlock } from '@deepseek-ai/dsh-llm'
++import type { TrajectoryContextMessage } from './inspection.ts'
++import type { TrajectoryCellProps, TrajectorySourceBlock } from './trajectory-record.ts'
++import type { TrajectoryTurnModel } from './layout.ts'
++
++function source(block: ContentBlock): TrajectorySourceBlock {
++  if (block.type === 'text' || block.type === 'reasoning') return { type:block.type, content:block.text }
++  if (block.type === 'image') return { type:block.type, content:JSON.stringify(block), attachment:block.attachment }
++  if (block.type === 'tool-call') return { type:block.type, content:block.arguments, callId:block.id, toolName:block.name }
++  return { type:block.type, content:JSON.stringify(block) }
++}
++/**
++ * Expand saved messages in supplied order, without event sorting or timing inference.
++ * @param messages - Exact model messages and their optional source coordinates.
++ * @param label - Localized context section label.
++ * @returns timeless records using the full trajectory detail renderer.
++ */
++export function contextLayout(messages: readonly TrajectoryContextMessage[], label: string): TrajectoryTurnModel[] {
++  const cells: TrajectoryCellProps[] = []
++  for (const item of messages) {
++    const blocks=item.message.content
++    const text=blocks.filter(block=>block.type==='text').map(block=>block.text).join('')
++    const thinking=blocks.filter(block=>block.type==='reasoning').map(block=>block.text).join('')
++    const common = {
++      recordId: item.id, timeSeconds: null, messageSource: item.message.source,
++      ...(item.sourceSeq === undefined ? {} : { sourceSeq: item.sourceSeq }),
++      ...(item.sourceTarget === undefined ? {} : { inspectionSource: item.sourceTarget }),
++      ...(item.label === undefined ? {} : { inspectionLabel: item.label }),
++      sourceBlocks: blocks.map(source),
++    }
++    const receipts=blocks.filter(block=>block.type==='tool-result')
++    let matched=0
++    for(const receipt of receipts) {
++      const call=cells.findLast(cell=>cell.callId===receipt.toolCallId)
++      if (call) {
++        call.outputDetail=receipt.content.filter(block=>block.type==='text').map(block=>block.text).join('')
++        call.outputBlocks=receipt.content.map(source);call.result=call.outputDetail
++        if(receipt.isError!==undefined)call.isError=receipt.isError
++        matched++
++      }
++    }
++    if(matched===blocks.length && matched>0) continue
++    cells.push({ ...common,index:cells.length+1,kind:item.message.role==='system'?'system':item.message.role==='assistant'?'message':'user',
++      text:item.label??'',previewMarkdown:text,
++      ...(item.message.role==='system'?{ systemPromptDetail:text }:item.message.role==='assistant'?{ outputDetail:text,thinkingDetail:thinking }:{ inputDetail:text }) })
++    for(const block of blocks) if(block.type==='tool-call') cells.push({ ...common,index:cells.length+1,recordId:item.id+':'+block.id,kind:'tool',text:block.name,callId:block.id,inputDetail:block.arguments })
++  }
++  return cells.length ? [{ turn:null,label,groups:[{ title:label,cells }] }] : []
++}
++/**
++ * Prepend ordered context without changing execution grouping or source identities.
++ * @param context - Context-only groups without timing or usage.
++ * @param execution - Real execution groups.
++ * @returns combined ledger with unique presentation indexes.
++ */
++export function prependContext(context: readonly TrajectoryTurnModel[], execution: readonly TrajectoryTurnModel[]): TrajectoryTurnModel[] {
++  let index=0
++  return [...context, ...execution].map(turn => ({
++    ...turn,
++    groups: turn.groups.map(group => ({
++      ...group, cells: group.cells.map(cell => ({ ...cell, index: ++index })),
++    })),
++  }))
++}
+diff --git a/packages/client/ui-trajectory/src/client/index.ts b/packages/client/ui-trajectory/src/client/index.ts
+index 118f3b2c28..29ebbf71cd 100644
+--- a/packages/client/ui-trajectory/src/client/index.ts
++++ b/packages/client/ui-trajectory/src/client/index.ts
+@@ -1,6 +1,5 @@
+ /**
+- * Browser trajectory plugin contributing one entry to the conversation view
+- * slot without defining a service.
++ * Browser trajectory view and Session-local readonly inspection sources.
+  */
+ import type { Context } from '@deepseek-ai/cordis'
+ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+@@ -14,6 +13,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
+ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
++import { TrajectoryInspectionService } from './inspection.ts'
++export type { ITrajectoryInspection, TrajectoryInspection, TrajectoryContextMessage } from './inspection.ts'
+ import { createTrajectoryDurationStore } from './duration-store.ts'
+ import { en, NS, zh } from './locales.ts'
+ import { registerTrajectoryAssistantDefinition } from './trajectory-assistant-definition.ts'
+@@ -45,15 +46,16 @@ export const inject = ['slots', 'sessions', 'uiSession', 'uiConversation', 'loca
+  * @param ctx - client root context.
+  */
+ export function apply(ctx: Context): void {
++  const inspection = new TrajectoryInspectionService(ctx)
+   const trajectorySources = new WeakMap<SessionBinding, ObservableSnapshot<TrajectorySnapshot>>()
+   const trajectorySource = (binding: SessionBinding): ObservableSnapshot<TrajectorySnapshot> => {
+     let source = trajectorySources.get(binding)
+     if (source === undefined) {
+       const target = ctx.uiConversation.binding(binding).target('trajectory')
+-      source = {
++      source = inspection.bind(binding, {
+         getSnapshot: () => target.getSnapshot() ?? EMPTY_TRAJECTORY_SNAPSHOT,
+         subscribe: listener => target.subscribe(listener),
+-      }
++      })
+       trajectorySources.set(binding, source)
+     }
+     return source
+@@ -82,6 +84,8 @@ export function apply(ctx: Context): void {
+     label: () => t('view.trajectory'),
+     children: {
+       'conversation.trajectory.images': { kind: 'single', scope: 'session' },
++      'conversation.trajectory.navigation': { kind: 'single', scope: 'session' },
++      'conversation.trajectory.toolbar': { kind: 'single', scope: 'session' },
+     },
+     inject: (sessionId: SessionId): TrajectoryViewInjected => {
+       const session = ctx.sessions.binding(sessionId)?.session
+diff --git a/packages/client/ui-trajectory/src/client/inspection.ts b/packages/client/ui-trajectory/src/client/inspection.ts
+new file mode 100644
+index 0000000000..c3b20c4731
+--- /dev/null
++++ b/packages/client/ui-trajectory/src/client/inspection.ts
+@@ -0,0 +1,111 @@
++/** Effect-owned read-only trajectory sources, independent of the active Session history. */
++import { Service, type Context } from '@deepseek-ai/cordis'
++import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
++import type { SessionBinding, SessionEventLikeEntry } from '@deepseek-ai/dsh-api-session-controller/client'
++import type { SessionId } from '@deepseek-ai/dsh-session/types'
++import type { Message } from '@deepseek-ai/dsh-llm'
++import type { TrajectorySnapshot } from './trajectory-contract.ts'
++import { EMPTY_TRAJECTORY_SNAPSHOT } from './trajectory-snapshot-builder.ts'
++
++/** One explicitly ordered message; provenance does not change its model role. */
++export interface TrajectoryContextMessage {
++  readonly id: string
++  readonly message: Message
++  readonly label?: string
++  readonly sourceSeq?: number
++  readonly sourceTarget?: string
++}
++/** A plugin-owned inspection window. Events retain original sequence and time. */
++export interface TrajectoryInspection {
++  readonly key: string
++  readonly events: readonly SessionEventLikeEntry[]
++  readonly context?: readonly TrajectoryContextMessage[]
++  /** Optional display-record identity to reveal when the inspection changes. */
++  readonly focusRecordId?: string
++  readonly contextLabel?: string
++  readonly turnLabels?: Readonly<Record<number, string>>
++  readonly loading?: boolean
++  readonly error?: string
++  readonly hasMore?: boolean
++  readonly loadMore?: () => Promise<boolean>
++  /** Last durable sequence included by the provider; later live entries belong to this execution. */
++  readonly liveAfter?: number
++  readonly openSource?: (target: string) => void
++  readonly readRequest?: (turn: number, step: number) => Promise<unknown>
++}
++/** Public registrations for Session-local inspection. */
++export interface ITrajectoryInspection {
++  /**
++   * Replace only the readonly trajectory source for one Session.
++   * @param sessionId - Session whose trajectory is being inspected.
++   * @param source - Stable observable inspection window, or null for the normal source.
++   * @returns idempotent, effect-owned registration disposer.
++   */
++  register(sessionId: SessionId, source: ObservableSnapshot<TrajectoryInspection | null>): () => void
++}
++declare module '@deepseek-ai/cordis' {
++  interface Context {
++    /** Readonly trajectory source registrations; does not select Session history. */
++    trajectoryInspection: ITrajectoryInspection
++  }
++}
++/** One provider per Session; unloading restores the normal conversation projection. */
++export class TrajectoryInspectionService extends Service implements ITrajectoryInspection {
++  private readonly sources = new Map<SessionId, ObservableSnapshot<TrajectoryInspection | null>>()
++  private readonly changes = createSnapshotStore(0)
++  /**
++   * Install the browser inspection service.
++   * @param ctx - Trajectory owner context with Conversation definitions.
++   */
++  constructor(ctx: Context) { super(ctx, 'trajectoryInspection') }
++  register(sessionId: SessionId, source: ObservableSnapshot<TrajectoryInspection | null>): () => void {
++    const dispose = this.ctx.effect(() => {
++      if (this.sources.has(sessionId)) throw new Error('trajectory inspection source is already registered')
++      this.sources.set(sessionId, source)
++      const notify = () => { this.changes.set(this.changes.getSnapshot() + 1) }
++      const off = source.subscribe(notify)
++      notify()
++      return () => { off(); this.sources.delete(sessionId); notify() }
++    }, 'trajectoryInspection.register')
++    return () => { void dispose() }
++  }
++  /**
++   * Resolve an isolated projection while keeping ordinary history as the default.
++   * @param binding - Session binding supplying live execution events.
++   * @param fallback - Normal trajectory projection.
++   * @returns observable inspection projection without modifying either source.
++   */
++  bind(binding: SessionBinding, fallback: ObservableSnapshot<TrajectorySnapshot>): ObservableSnapshot<TrajectorySnapshot> {
++    let last: TrajectoryInspection | null | undefined
++    let lastLive: unknown
++    let lastDefinitions: unknown
++    let lastViews: unknown
++    let snapshot = EMPTY_TRAJECTORY_SNAPSHOT
++    return {
++      getSnapshot: () => {
++        const input = this.sources.get(binding.session.sessionId)?.getSnapshot()
++        if (!input) return fallback.getSnapshot()
++        const live = input.liveAfter === undefined ? undefined : binding.eventSource.getSnapshot()
++        if (last === input && lastLive === live
++          && lastDefinitions === this.ctx.uiConversation.events.entries()
++          && lastViews === this.ctx.uiConversation.views.entries()) return snapshot
++        last = input; lastLive = live
++        lastDefinitions = this.ctx.uiConversation.events.entries(); lastViews = this.ctx.uiConversation.views.entries()
++        const after = input.liveAfter
++        const tail = after === undefined ? [] : live?.entries.filter(entry => entry.event.seq > after) ?? []
++        const end = tail.findIndex(entry => entry.event.type === 'turn/end')
++        const entries = [...input.events, ...tail.slice(0, end < 0 ? undefined : end + 1)]
++        const projected = this.ctx.uiConversation.inspect('trajectory', entries) ?? EMPTY_TRAJECTORY_SNAPSHOT
++        snapshot = { ...projected, inspection: input }
++        return snapshot
++      },
++      subscribe: (listener) => {
++        const off = [
++          this.changes.subscribe(listener), fallback.subscribe(listener), binding.eventSource.subscribe(listener),
++          this.ctx.uiConversation.events.subscribe(listener), this.ctx.uiConversation.views.subscribe(listener),
++        ]
++        return () => { for (const remove of off) remove() }
++      },
++    }
++  }
++}
+diff --git a/packages/client/ui-trajectory/src/client/layout.ts b/packages/client/ui-trajectory/src/client/layout.ts
+index 644e32025d..d35729f3f7 100644
+--- a/packages/client/ui-trajectory/src/client/layout.ts
++++ b/packages/client/ui-trajectory/src/client/layout.ts
+@@ -31,6 +31,8 @@ export interface TrajectoryGroupModel {
+ 
+ /** One sticky turn, or a standalone compaction section between turns. */
+ export interface TrajectoryTurnModel {
++  /** Optional label for an ordered context section without an execution number. */
++  label?: string
+   turn: number | null
+   groups: readonly TrajectoryGroupModel[]
+ }
+diff --git a/packages/client/ui-trajectory/src/client/locales.ts b/packages/client/ui-trajectory/src/client/locales.ts
+index 6bdc621413..61f0b472f9 100644
+--- a/packages/client/ui-trajectory/src/client/locales.ts
++++ b/packages/client/ui-trajectory/src/client/locales.ts
+@@ -6,6 +6,8 @@ export const NS = 'trajectory'
+ /** Simplified Chinese dictionary (the key-set source of truth). */
+ export const zh = {
+   'view.trajectory': '轨迹',
++  'details.actualInput': '实际请求输入',
++  'details.loadingInput': '正在读取请求…',
+   'toolbar.aria': '轨迹工具栏',
+   'toolbar.duration': '时长',
+   'toolbar.useActualDuration': '使用实际时长',
+@@ -199,6 +201,8 @@ export type TrajectoryTranslate =
+ /** English dictionary, checked complete against the Chinese source of truth. */
+ export const en: Record<TrajectoryKey, string> = {
+   'view.trajectory': 'Trajectory',
++  'details.actualInput': 'Actual request input',
++  'details.loadingInput': 'Loading request…',
+   'toolbar.aria': 'Trajectory toolbar',
+   'toolbar.duration': 'Duration',
+   'toolbar.useActualDuration': 'Use actual duration',
+diff --git a/packages/client/ui-trajectory/src/client/trajectory-contract.ts b/packages/client/ui-trajectory/src/client/trajectory-contract.ts
+index 5507fd18ea..2b8e9e1830 100644
+--- a/packages/client/ui-trajectory/src/client/trajectory-contract.ts
++++ b/packages/client/ui-trajectory/src/client/trajectory-contract.ts
+@@ -60,8 +60,12 @@ export interface TrajectoryConversationViewNode extends ConversationViewNode {
+   readonly data: TrajectoryContribution
+ }
+ 
++import type { TrajectoryInspection } from './inspection.ts'
++
+ /** Stage-oriented Trajectory data assembled from registered business Contexts. */
+ export interface TrajectorySnapshot {
++  /** Optional readonly inspection controls; absent for normal Session history. */
++  readonly inspection?: TrajectoryInspection
+   /** Complete loaded prompt text whose request header is outside the window. */
+   readonly systemPrompts?: readonly SystemPromptNode[]
+   readonly eventNodes: readonly ConversationNode[]
+@@ -89,6 +93,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+   }
+ 
+   interface SlotMap {
++    /** Optional navigation beside the ledger; viewing does not select runtime history. */
++    'conversation.trajectory.navigation': { kind: 'single'; scope: 'session'; owner: { viewRequest: { view: string; focus: string } | null; completeViewRequest: () => void } }
++    /** Optional controls above the readonly ledger. */
++    'conversation.trajectory.toolbar': { kind: 'single'; scope: 'session' }
+     /**
+      * Renderer for one group of durable record images in the Trajectory
+      * ledger. The owner supplies image references, an authorized loader, and
+diff --git a/packages/client/ui-trajectory/src/client/trajectory-record.ts b/packages/client/ui-trajectory/src/client/trajectory-record.ts
+index 2bcb268f22..b29230c399 100644
+--- a/packages/client/ui-trajectory/src/client/trajectory-record.ts
++++ b/packages/client/ui-trajectory/src/client/trajectory-record.ts
+@@ -47,6 +47,10 @@ export interface TrajectoryCellProps extends HTMLAttributes<HTMLDivElement> {
+   previewMarkdown?: string
+   /** Whether this user record opens a new model turn. */
+   opensTurn?: boolean
++  /** Optional inspection navigation target, separate from event identity. */
++  inspectionSource?: string
++  /** Localized source or authored-message label. */
++  inspectionLabel?: string
+   /** Source session-event seq for cross-record navigation. */
+   sourceSeq?: number
+   /** Producer role and name from a user-role message or context injection. */
+diff --git a/packages/client/ui-trajectory/src/client/views.module.css b/packages/client/ui-trajectory/src/client/views.module.css
+index 687f4a4657..02198d0de9 100644
+--- a/packages/client/ui-trajectory/src/client/views.module.css
++++ b/packages/client/ui-trajectory/src/client/views.module.css
+@@ -26,3 +26,6 @@
+   /* ConversationRoot publishes the floating composer's live height. */
+   --dsh-trajectory-bottom-clearance: calc(var(--dsh-composer-height, 152px) + 16px);
+ }
++
++.workspace { display: flex; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; }
++.workspace > .root { flex: 1; min-width: 0; }
+diff --git a/packages/client/ui-trajectory/tests/__snapshots__/inspection.client.spec.ts.snap b/packages/client/ui-trajectory/tests/__snapshots__/inspection.client.spec.ts.snap
+new file mode 100644
+index 0000000000..5793f38078
+--- /dev/null
++++ b/packages/client/ui-trajectory/tests/__snapshots__/inspection.client.spec.ts.snap
+@@ -0,0 +1,130 @@
++// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
++
++exports[`preserves explicit order and source identities without counting cited execution again 1`] = `
++[
++  {
++    "groups": [
++      {
++        "cells": [
++          {
++            "index": 1,
++            "inputDetail": "Later",
++            "inspectionLabel": "Floor 2",
++            "inspectionSource": "node-b",
++            "kind": "user",
++            "messageSource": {
++              "kind": "user",
++            },
++            "previewMarkdown": "Later",
++            "recordId": "later",
++            "sourceBlocks": [
++              {
++                "content": "Later",
++                "type": "text",
++              },
++            ],
++            "sourceSeq": 90,
++            "text": "Floor 2",
++            "timeSeconds": null,
++          },
++          {
++            "index": 2,
++            "inspectionLabel": "Floor 1",
++            "inspectionSource": "node-a",
++            "kind": "message",
++            "messageSource": {
++              "kind": "model",
++              "model": "test",
++              "provider": "test",
++            },
++            "outputDetail": "Earlier",
++            "previewMarkdown": "Earlier",
++            "recordId": "earlier",
++            "sourceBlocks": [
++              {
++                "content": "Recorded thought",
++                "type": "reasoning",
++              },
++              {
++                "content": "Earlier",
++                "type": "text",
++              },
++              {
++                "callId": "call",
++                "content": "{}",
++                "toolName": "look",
++                "type": "tool-call",
++              },
++            ],
++            "sourceSeq": 10,
++            "text": "Floor 1",
++            "thinkingDetail": "Recorded thought",
++            "timeSeconds": null,
++          },
++          {
++            "callId": "call",
++            "index": 3,
++            "inputDetail": "{}",
++            "inspectionLabel": "Floor 1",
++            "inspectionSource": "node-a",
++            "kind": "tool",
++            "messageSource": {
++              "kind": "model",
++              "model": "test",
++              "provider": "test",
++            },
++            "outputBlocks": [
++              {
++                "content": "Value",
++                "type": "text",
++              },
++            ],
++            "outputDetail": "Value",
++            "recordId": "earlier:call",
++            "result": "Value",
++            "sourceBlocks": [
++              {
++                "content": "Recorded thought",
++                "type": "reasoning",
++              },
++              {
++                "content": "Earlier",
++                "type": "text",
++              },
++              {
++                "callId": "call",
++                "content": "{}",
++                "toolName": "look",
++                "type": "tool-call",
++              },
++            ],
++            "sourceSeq": 10,
++            "text": "look",
++            "timeSeconds": null,
++          },
++        ],
++        "title": "Context",
++      },
++    ],
++    "label": "Context",
++    "turn": null,
++  },
++  {
++    "groups": [
++      {
++        "cells": [
++          {
++            "index": 4,
++            "kind": "message",
++            "sourceSeq": 100,
++            "text": "Actual",
++            "timeSeconds": 2,
++          },
++        ],
++        "title": "Step 1",
++      },
++    ],
++    "turn": 3,
++  },
++]
++`;
+diff --git a/packages/client/ui-trajectory/tests/client-bundle.client.spec.ts b/packages/client/ui-trajectory/tests/client-bundle.client.spec.ts
+index e1ca41bfb2..0cfd7e0777 100644
+--- a/packages/client/ui-trajectory/tests/client-bundle.client.spec.ts
++++ b/packages/client/ui-trajectory/tests/client-bundle.client.spec.ts
+@@ -46,6 +46,7 @@ describe('tsdown client artifact', () => {
+     new Function(code!)()
+     expect(handoff).toBeDefined()
+     const modules = new Map<string, unknown>([
++      ['@deepseek-ai/cordis', await import('@deepseek-ai/cordis')],
+       ['react', await import('react')],
+       ['react/jsx-runtime', await import('react/jsx-runtime')],
+       ['react-dom', await import('react-dom')],
+diff --git a/packages/client/ui-trajectory/tests/inspection.client.spec.ts b/packages/client/ui-trajectory/tests/inspection.client.spec.ts
+new file mode 100644
+index 0000000000..ff59f5c106
+--- /dev/null
++++ b/packages/client/ui-trajectory/tests/inspection.client.spec.ts
+@@ -0,0 +1,108 @@
++// @vitest-environment jsdom
++import { Context } from '@deepseek-ai/cordis'
++import { expect, it, vi } from 'vitest'
++import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
++import { createUserMessage, createAssistantMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
++import { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
++import { UiConversation, ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
++import { MutableSessionEventSource, type SessionBinding, type ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
++import { EMPTY_TRAJECTORY_SNAPSHOT, registerTrajectoryConversationView } from '../src/client/trajectory-snapshot-builder.ts'
++import { registerTrajectoryMessageDefinitions } from '../src/client/trajectory-message-definitions.ts'
++import { contextLayout, prependContext } from '../src/client/context-layout.ts'
++import { TrajectoryInspectionService, type TrajectoryInspection } from '../src/client/inspection.ts'
++
++it('preserves explicit order and source identities without counting cited execution again', () => {
++  const messages = [
++    { id:'later', sourceSeq:90, sourceTarget:'node-b', label:'Floor 2', message:createUserMessage({ content:[{ type:'text',text:'Later' }],source:{ kind:'user' } }) },
++    { id:'earlier', sourceSeq:10, sourceTarget:'node-a', label:'Floor 1', message:createAssistantMessage({ content:[{ type:'reasoning',text:'Recorded thought' },{ type:'text',text:'Earlier' },{ type:'tool-call',id:ToolCallId('call'),name:'look',arguments:'{}' }],source:{ provider:'test',model:'test' } }) },
++    { id:'result', message:createUserMessage({ content:[{ type:'tool-result',toolCallId:ToolCallId('call'),content:[{ type:'text',text:'Value' }] }],source:{ kind:'user' } }) },
++  ]
++  const layout=contextLayout(messages,'Context'), cells=layout.flatMap(turn=>turn.groups.flatMap(group=>group.cells))
++  expect(cells.map(cell=>cell.recordId)).toEqual(['later','earlier','earlier:call'])
++  expect(cells.map(cell=>cell.sourceSeq)).toEqual([90,10,10])
++  expect(cells[1]?.thinkingDetail).toBe('Recorded thought')
++  expect(cells[2]?.outputDetail).toBe('Value')
++  expect(cells.every(cell=>cell.timeSeconds===null&&cell.startedAt===undefined&&cell.output===undefined)).toBe(true)
++  const joined=prependContext(layout,[{ turn:3,groups:[{ title:'Step 1',cells:[{ index:1,kind:'message',text:'Actual',timeSeconds:2,sourceSeq:100 }] }] }])
++  expect(joined.flatMap(turn=>turn.groups.flatMap(group=>group.cells.map(cell=>cell.index)))).toEqual([1,2,3,4])
++  expect(joined).toMatchSnapshot()
++})
++
++it('releases an inspection provider with its plugin and rejects duplicate ownership', async () => {
++  const ctx=new Context(), owner=ctx.plugin({ apply(inner:Context){new TrajectoryInspectionService(inner)} })
++  await owner
++  const source=createSnapshotStore<TrajectoryInspection|null>(null)
++  const plugin=ctx.plugin({ inject:['trajectoryInspection'],apply(inner:Context){inner.trajectoryInspection.register(SessionId('one'),source)} })
++  await plugin
++  expect(()=>ctx.trajectoryInspection.register(SessionId('one'),source)).toThrow('already registered')
++  await plugin.dispose()
++  const off=ctx.trajectoryInspection.register(SessionId('one'),source)
++  off();off()
++  await owner.dispose()
++})
++
++it('isolates inspection windows, ends live tails at the turn boundary, and restores ordinary history', async () => {
++  const ctx=new Context()
++  new UiConversation(ctx, {} as ISessions)
++  const service=new TrajectoryInspectionService(ctx), feed=new MutableSessionEventSource()
++  const binding={ session:{ sessionId:SessionId('inspect') },eventSource:feed } as unknown as SessionBinding
++  const ordinary=createSnapshotStore({ ...EMPTY_TRAJECTORY_SNAPSHOT, registerTrajectoryConversationView })
++  const selected=createSnapshotStore<TrajectoryInspection|null>({ key:'one',events:[],liveAfter:0 })
++  const result=service.bind(binding,ordinary), notify=vi.fn(), off=result.subscribe(notify)
++  expect(result.getSnapshot()).toBe(ordinary.getSnapshot())
++  const dispose=service.register(SessionId('inspect'),selected)
++  const replace=vi.spyOn(ConversationNodeAssembler.prototype,'replaceWindow')
++  feed.append({ type:'event',event:{ seq:SessionSeq(1),time:1,type:'turn/start',data:{ turn:2 } } })
++  feed.append({ type:'event',event:{ seq:SessionSeq(2),time:2,type:'turn/end',data:{ turn:2,reason:{ kind:'completed' } } } })
++  feed.append({ type:'event',event:{ seq:SessionSeq(3),time:3,type:'turn/start',data:{ turn:3 } } })
++  expect(result.getSnapshot().inspection?.key).toBe('one')
++  expect(replace.mock.calls.at(-1)?.[0].map(entry=>entry.event.seq)).toEqual([1,2])
++  const snapshot=result.getSnapshot()
++  expect(result.getSnapshot()).toBe(snapshot)
++  expect(feed.getSnapshot().entries).toHaveLength(3)
++  selected.set({ key:'older',events:feed.getSnapshot().entries.slice(0,1) })
++  expect(result.getSnapshot().inspection?.key).toBe('older')
++  expect(replace.mock.calls.at(-1)?.[0]).toHaveLength(1)
++  dispose()
++  expect(result.getSnapshot()).toBe(ordinary.getSnapshot())
++  expect(notify).toHaveBeenCalled()
++  replace.mockRestore();off();await ctx.fiber.dispose()
++})
++
++it('retains every result in a multi-tool receipt without inventing an extra user record', () => {
++  const call=(id:string)=>({ type:'tool-call' as const,id:ToolCallId(id),name:id,arguments:'{}' })
++  const receipt=(id:string)=>({ type:'tool-result' as const,toolCallId:ToolCallId(id),content:[{ type:'text' as const,text:id+' result' }] })
++  const result=contextLayout([
++    { id:'calls',message:createAssistantMessage({ content:[call('a'),call('b')],source:{ provider:'test',model:'test' } }) },
++    { id:'results',message:createUserMessage({ content:[receipt('a'),receipt('b')],source:{ kind:'user' } }) },
++  ],'Context').flatMap(turn=>turn.groups.flatMap(group=>group.cells))
++  expect(result.map(cell=>cell.kind)).toEqual(['message','tool','tool'])
++  expect(result.slice(1).map(cell=>cell.outputDetail)).toEqual(['a result','b result'])
++})
++
++it('uses persisted user identity while retaining plugin context', async () => {
++  const ctx = new Context()
++  new UiConversation(ctx, {} as ISessions)
++  registerTrajectoryConversationView(ctx)
++  registerTrajectoryMessageDefinitions(ctx)
++  const service = new TrajectoryInspectionService(ctx), feed = new MutableSessionEventSource()
++  const binding = { session: { sessionId: SessionId('replay') }, eventSource: feed } as unknown as SessionBinding
++  const user = createUserMessage({ content: [{ type: 'text', text: 'First input' }], source: { kind: 'user' } })
++  const replay = createUserMessage({ content: [{ type: 'text', text: 'Replayed input' }], source: { kind: 'user' } })
++  const context = createUserMessage({ content: [{ type: 'text', text: 'Injected instructions' }], source: { kind: 'plugin', plugin: 'replay' } })
++  for (const [index, message] of [user, replay, context].entries()) {
++    feed.append({ type: 'event', event: { seq: SessionSeq(index + 1), time: index, type: 'user/message', surfaceOp: 'append', data: message } })
++  }
++  const input = { key: 'replay', events: feed.getSnapshot().entries }
++  const selected = createSnapshotStore<TrajectoryInspection | null>(input)
++  const off = service.register(SessionId('replay'), selected)
++  try {
++    const result = service.bind(binding, createSnapshotStore(EMPTY_TRAJECTORY_SNAPSHOT))
++    expect(result.getSnapshot().eventNodes.map(node => node.kind)).toEqual(['user', 'user', 'context'])
++    expect(result.getSnapshot().eventNodes[1]).toMatchObject({ source: replay.source, content: replay.content })
++    expect(feed.getSnapshot().entries[1]?.event.data).toBe(replay)
++  } finally {
++    off()
++    await ctx.fiber.dispose()
++  }
++})
+diff --git a/packages/client/ui-trajectory/tests/views.client.spec.tsx b/packages/client/ui-trajectory/tests/views.client.spec.tsx
+index 79a0e14b0e..ef5e1c846b 100644
+--- a/packages/client/ui-trajectory/tests/views.client.spec.tsx
++++ b/packages/client/ui-trajectory/tests/views.client.spec.tsx
+@@ -7,6 +7,7 @@
+  * event ledger with its timing overview, and fiber disposal removes the tab.
+  * Timeline projection and inclusive focus edge cases ride along.
+  */
++import { createAssistantMessage } from '@deepseek-ai/dsh-llm'
+ import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+@@ -379,6 +380,7 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
+           setActualDuration: trajectory.setActualDuration,
+           useDuration: bindSnapshotSelector(trajectory.hooks.duration),
+           t: tZh,
++          renderSlot: () => null,
+         }
+       })()
+       : injected
+@@ -1520,3 +1522,25 @@ describe('node half', () => {
+     expect(() => { nodeApply() }).not.toThrow()
+   })
+ })
++
++it('shows ordered context in the ledger while timing only the inspected execution', async () => {
++  const nodes: LegacyConversationSlice['nodes'] = [{
++    kind: 'assistant', seq: 12, time: 2000, turn: 3, step: 1,
++    blocks: [{ kind: 'text', text: 'Executed response' }],
++    timing: { stepStartTime: 1800, firstTokenTime: 1900, completedTime: 2000 },
++  }]
++  const snapshot = historySnapshot(nodes, { inspection: {
++    key: 'selected', events: [], contextLabel: 'Saved context',
++    context: [{ id: 'reference', label: 'History reference', message: createAssistantMessage({
++      content: [{ type: 'text', text: 'Cited response' }], source: { provider: 'test', model: 'test' },
++    }) }],
++  } })
++  const view = render(<TrajectoryView
++    {...standaloneProps(nodes)} {...standaloneHistory(snapshot)} {...standaloneDuration()}
++  />)
++  await waitFor(() => { expect(screen.getByText(/Cited response/)).toBeDefined() })
++  expect(screen.getByText(/Executed response/)).toBeDefined()
++  const spans = view.container.querySelectorAll('[data-timeline-record-index]')
++  expect(spans).toHaveLength(1)
++  expect(spans[0]?.getAttribute('data-timeline-record-index')).toBe('2')
++})
+diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+index fa4a20d78e..1ea7c423e1 100644
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -174,7 +174,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.assistant-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.assistant-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:221',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:240',
+   },
+   {
+     key: 'conversation.chat.commandview',
+@@ -221,7 +221,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     occupants: [],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.commandview\', () => ctx.slots.register(\n      { name: \'conversation.chat.commandview\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:209',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:224',
+   },
+   {
+     key: 'conversation.chat.node',
+@@ -238,7 +238,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       },
+     ],
+     ownerProps: [
+-      '/** Stable owner currency delivered to a keyed Chat renderer. */\nexport interface ChatNodeOwnerProps {\n  cwd?: string | undefined\n  /** Open the current source file of a skill referenced by a sent message. */\n  openSkill: (name: string) => void\n  openFile: (path: string, options?: OpenFileOptions) => void\n  inspectCall: (callId: ToolCallId) => void\n  forkAt: (seq: number) => void\n  /**\n   * Session-authorized image loader, down-threaded from the Chat view so a\n   * chat-node renderer can render the attachment presentation slot directly\n   * with only the durable references plus this loader, instead of receiving a\n   * rendering closure.\n   */\n  loadImage: MessageImageLoader\n  renderMessageImages: RenderMessageImages\n  fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined\n  /** Turn-process state when this Node belongs to a projected Turn. */\n  turnProcess?: TurnProcessOwnerProps | undefined\n}',
++      '/** Stable owner currency delivered to a keyed Chat renderer. */\nexport interface ChatNodeOwnerProps {\n  cwd?: string | undefined\n  /** Open the current source file of a skill referenced by a sent message. */\n  openSkill: (name: string) => void\n  openFile: (path: string, options?: OpenFileOptions) => void\n  /** Open another registered conversation view at its own focus identity. */\n  openView?: ((view: string, focus: string) => void) | undefined\n  inspectCall: (callId: ToolCallId) => void\n  forkAt: (seq: number) => void\n  /**\n   * Session-authorized image loader, down-threaded from the Chat view so a\n   * chat-node renderer can render the attachment presentation slot directly\n   * with only the durable references plus this loader, instead of receiving a\n   * rendering closure.\n   */\n  loadImage: MessageImageLoader\n  renderMessageImages: RenderMessageImages\n  /**\n   * Render actions owned by the Chat view beside one durable user bubble.\n   * @param seq - raw message sequence.\n   * @returns registered action elements.\n   */\n  renderUserActions: (seq: number) => ReactNode\n  fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined\n  /** Turn-process state when this /* …truncated — full shape in source */',
+     ],
+     ownerPropsReferences: [
+       'MarkdownFileMentions',
+@@ -289,7 +289,52 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'shadows-shipped-ui',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.node\', () => ctx.slots.register(\n      { name: \'conversation.chat.node\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:190',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:205',
++  },
++  {
++    key: 'conversation.chat.turn-actions',
++    kind: 'chain',
++    scope: 'session',
++    summary: 'Optional in-session history actions replacing the default fork controls.',
++    doc: 'Optional in-session history actions replacing the default fork controls.',
++    registerOptions: [
++      {
++        name: 'select',
++        requirement: 'required',
++        type: '(owner) => unknown | null',
++        doc: 'Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\'s `matched` prop. All-null falls through to the owner\'s fallback.',
++      },
++    ],
++    ownerProps: [
++      '/** Owner currency of the completed-Turn extension chain. */\nexport interface TurnTailOwnerProps {\n  turn: TurnLocation\n  seq: number\n  openFile: (path: string) => void\n}',
++    ],
++    ownerPropsReferences: [
++      'TurnLocation',
++    ],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionPendingInteraction: UseSessionPendingInteraction',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'useChat: UseChat',
++      'useConversation: UseConversation',
++      'useInput: SnapshotSelectorHook<InputState>',
++      'inputActions: InputActions',
++      'useSession: SessionSnapshotSelector',
++      'sessionId: SessionId',
++      'useProjection: UseProjection',
++      'useTrajectory: UseTrajectory',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'conversation.chat.node\' (client-ui-chat), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turn-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.turn-actions\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:232',
+   },
+   {
+     key: 'conversation.chat.turnTail',
+@@ -336,7 +381,62 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turnTail\', () => ctx.slots.register(\n      { name: \'conversation.chat.turnTail\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:215',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:230',
++  },
++  {
++    key: 'conversation.chat.user-actions',
++    kind: 'list',
++    scope: 'session',
++    summary: 'Ordered actions beside a durable user-message bubble; an empty list adds nothing.',
++    doc: 'Ordered actions beside a durable user-message bubble; an empty list adds nothing.',
++    registerOptions: [
++      {
++        name: 'id',
++        requirement: 'required',
++        type: 'string',
++        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
++      },
++      {
++        name: 'order',
++        requirement: 'optional',
++        type: 'number',
++        doc: 'Position among the entries, ascending (default 0).',
++      },
++      {
++        name: 'label',
++        requirement: 'optional',
++        type: 'string | (() => string)',
++        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
++      },
++    ],
++    ownerProps: [
++      '/** Original log position of a durable user-message bubble. */\nexport interface UserActionOwnerProps {\n  /** Raw Session sequence, unchanged by history selection. */\n  readonly seq: number\n}',
++    ],
++    ownerPropsReferences: [],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionPendingInteraction: UseSessionPendingInteraction',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'useChat: UseChat',
++      'useConversation: UseConversation',
++      'useInput: SnapshotSelectorHook<InputState>',
++      'inputActions: InputActions',
++      'useSession: SessionSnapshotSelector',
++      'sessionId: SessionId',
++      'useProjection: UseProjection',
++      'useTrajectory: UseTrajectory',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'conversation.view\' (client-ui-chat), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.user-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.user-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:234',
+   },
+   {
+     key: 'conversation.composer',
+@@ -397,9 +497,10 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     doc: 'Resident composer body, including the no-Session inert state.',
+     registerOptions: [],
+     ownerProps: [
+-      '/** Owner share of the resident composer bar. */\nexport interface ComposerBarOwnerProps {\n  /** Hero uses centered placement; composer uses the active bottom placement. */\n  variant: \'hero\' | \'composer\'\n  /** A feature-owned reason that makes message input inert while leaving model selection live. */\n  blocked?: { readonly reason: string }\n  /** Lock all message actions while preserving the resident composer surface. */\n  disabled?: boolean\n  /** Whether the shared Workspace picker is expanded. */\n  workspacePickerOpen?: boolean\n  /** Open the Workspace picker from the inert composer surface. */\n  onRequestWorkspace?: () => void\n  placeholder?: string\n  /** Optional content rendered above the composer surface. */\n  accessory?: ReactNode\n}',
++      '/** Owner share of the resident composer bar. */\nexport interface ComposerBarOwnerProps {\n  /** Hero uses centered placement; composer uses the active bottom placement. */\n  variant: \'hero\' | \'composer\'\n  /** A feature-owned reason that makes message input inert while leaving model selection live. */\n  blocked?: ComposerBlock\n  /** Lock all message actions while preserving the resident composer surface. */\n  disabled?: boolean\n  /** Whether the shared Workspace picker is expanded. */\n  workspacePickerOpen?: boolean\n  /** Open the Workspace picker from the inert composer surface. */\n  onRequestWorkspace?: () => void\n  placeholder?: string\n  /** Optional content rendered above the composer surface. */\n  accessory?: ReactNode\n}',
+     ],
+     ownerPropsReferences: [
++      'ComposerBlock',
+       'Workspace',
+     ],
+     standardProps: [
+@@ -1055,7 +1156,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'shadows-shipped-ui',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.message.images\', () => ctx.slots.register(\n      { name: \'conversation.message.images\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-chat/src/client/contract/slots.ts:203',
++    source: 'packages/client/ui-chat/src/client/contract/slots.ts:218',
+   },
+   {
+     key: 'conversation.session',
+@@ -1365,7 +1466,75 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'shadows-shipped-ui',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.trajectory.images\', () => ctx.slots.register(\n      { name: \'conversation.trajectory.images\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:98',
++    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:106',
++  },
++  {
++    key: 'conversation.trajectory.navigation',
++    kind: 'single',
++    scope: 'session',
++    summary: 'Optional navigation beside the ledger; viewing does not select runtime history.',
++    doc: 'Optional navigation beside the ledger; viewing does not select runtime history.',
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionPendingInteraction: UseSessionPendingInteraction',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'useChat: UseChat',
++      'useConversation: UseConversation',
++      'useInput: SnapshotSelectorHook<InputState>',
++      'inputActions: InputActions',
++      'useSession: SessionSnapshotSelector',
++      'sessionId: SessionId',
++      'useProjection: UseProjection',
++      'useTrajectory: UseTrajectory',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'conversation.view\' (client-ui-trajectory), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.trajectory.navigation\', () => ctx.slots.register(\n      { name: \'conversation.trajectory.navigation\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:97',
++  },
++  {
++    key: 'conversation.trajectory.toolbar',
++    kind: 'single',
++    scope: 'session',
++    summary: 'Optional controls above the readonly ledger.',
++    doc: 'Optional controls above the readonly ledger.',
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionPendingInteraction: UseSessionPendingInteraction',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'useChat: UseChat',
++      'useConversation: UseConversation',
++      'useInput: SnapshotSelectorHook<InputState>',
++      'inputActions: InputActions',
++      'useSession: SessionSnapshotSelector',
++      'sessionId: SessionId',
++      'useProjection: UseProjection',
++      'useTrajectory: UseTrajectory',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'conversation.view\' (client-ui-trajectory), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.trajectory.toolbar\', () => ctx.slots.register(\n      { name: \'conversation.trajectory.toolbar\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:99',
+   },
+   {
+     key: 'conversation.view',
+diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
+index fbe8589394..d5bcb48bfe 100644
+--- a/scripts/gen-cordis-catalog.ts
++++ b/scripts/gen-cordis-catalog.ts
+@@ -159,6 +159,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+   uiRenderer: 'client-side interface-typed browser service — packages/client/ui-renderer/README.md owns the API',
+   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
+   chatPresentation: 'client-side Chat display registrations — packages/client/ui-chat/README.md owns the API',
++  trajectoryInspection: 'client-side readonly trajectory sources — packages/client/ui-trajectory/README.md owns the API',
+   uiConversation: 'client-side Conversation registries and assembler — packages/client/ui-conversation/README.md owns the API',
+   uiAgentPreset: 'client-side mode selection adapter — packages/client/ui-agent-preset/README.md owns the API',
+   uiWorkspace: 'client-side Workspace navigation adapter — packages/client/ui-workspace/README.md owns the API',
+@@ -345,6 +346,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
+   SessionPage: 'session.md',
+   SessionPageRequest: 'session.md',
+   SessionPromptRequest: 'session.md',
++  HostUserInput: 'session.md',
+   SessionPromptValue: 'session.md',
+   SessionRenameRequest: 'session.md',
+   SessionRenameValue: 'session.md',

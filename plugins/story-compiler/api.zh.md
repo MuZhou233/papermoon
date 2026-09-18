@@ -92,3 +92,34 @@ module.exports = defineStory({
 每次调用都从冻结模块重新构造闭包并核对身份。局部变量重置，需要持久保存的值写入 state。t(key) 在初始化和调用时均读取冻结语言。只要求实际读取的文案存在；运行时缺译会使该次调用失败，不提交状态。不增加语言回退或插值。
 
 story_simulate 接受 [{name:"increment",args:{amount:3}}] 形式的 calls，以及可选入口和语言。它编译当前草稿快照，返回逐次调用结果、错误和状态变化，不保存这些变化。story_help 的 functions 主题说明工厂、JSDoc 和模拟用法。两者都不增加自动检查要求。
+
+## 上下文拼装
+
+可选的 composeContext({opening,history,input,state}) 返回 {systemPrompt,systemPromptName?,messages}。每次接纳玩家输入、重 roll 或编辑后生成时同步执行一次。opening 包含冻结的系统正文，以及预置消息的身份、角色和名称。history 是按顺序排列的祖先节点目录，包含 id、outcome 和 blocks；消息块只提供 id 和 role，不提供正文。input 包含本轮 id 和原始内容块数组，保留附件引用。state 是父节点的只读状态。
+
+```js
+const { defineStory, t } = require('@papermoon/story');
+module.exports = defineStory({
+  systemPrompt: t('opening.system'),
+  messages: [],
+  composeContext({ opening, history, input }) {
+    return {
+      systemPrompt: opening.systemPrompt,
+      messages: [
+        ...opening.messages.map(message => ({ ref: message.id })),
+        ...history.slice(-8).flatMap(node => node.blocks.map(block => ({ ref: block.id }))),
+        { ref: input.id },
+        { role: 'assistant', name: 'Style', content: t('context.style') },
+      ],
+    };
+  },
+});
+```
+
+示例需要所选语言的 opening.system 和 context.style 文案。八个节点是剧本自行指定的窗口大小，不是平台默认值。省略 composeContext 时，使用冻结系统提示词、全部预置消息、当前世界线的全部消息块及本轮输入。
+
+messages 的每项可以是 {ref:id}，也可以是普通的 {role,name?,content} 消息。系统正文位于最前。自定义 user 和 assistant 消息可以放在引用之前、之间或之后，也可以放在本轮输入之后。尾部 assistant 是普通消息，不启用供应商原生前缀续写。名称只标识检查条目，不进入正文。
+
+引用保留原文、角色、附件和供应商回传资料。一条模型回复及其全部工具调用和结果组成不可拆分的消息块。引用不能重复或跨出祖先路径；本轮输入必须且只能引用一次。正文加工、伪造工具记录和多余字段都会被拒绝。引用缺失、返回值无效、取消或超限时停止请求，不替换为完整历史。
+
+执行入口提供 StoryRuntime.compose，可对已有产物和显式输入作确定性模拟。它返回拼装计划或诊断，不读取数据库，不调用模型。Worker 只收到目录资料，不接收历史正文；宿主展开选中的引用。拼装函数不能修改状态，也不能跨次保留变量。工具续接复用已保存的基础上下文，只追加实际回复和结果，不重新拼装或重复尾部提示词。

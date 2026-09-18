@@ -58,9 +58,17 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   const revision = await compiler.submit({ scriptId: script.id, expectedSequence: 1, description: 'Functions' })
   assert.equal(revision.committed, true); await compiler.close()
   const host = { agents: root.agents, sessions: root.sessions, sessionController: {
+    submitUserInput: async request => {
+      const agent = root.agents.get(SessionId(request.sessionId))
+      return agent.runMaintenance(async () => {
+        const message = await service.admit(agent, llm.createUserMessage({ content: request.content, source: { kind: 'user', rpcId: request.requestId, admission: { ...request.admission, historyVersion: request.historyVersion } } }))
+        if (message) agent.followup(message)
+      })
+    },
     list: async () => ({ items: root.agents.list().map(agent => ({ sessionId: agent.id })) }),
     resolveAgent: async id => ({ agent: root.agents.get(SessionId(id)) }),
     create: async ({sessionId}) => {
+      const existing = root.agents.get(SessionId(sessionId)); if (existing) return {sessionId}
       const agent = await root.agentLoop.create(SessionId(sessionId), { provider: 'deterministic', model: 'test' }, { cwd: directory })
       agent.session.append('agent-preset/selected', { agentPreset: PRESET }); service.prepare(agent, script.id); return { sessionId }
     },
@@ -100,6 +108,9 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   assert.equal(rerolled.nodes[2].parent, rootNode.id)
   assert.equal(requests.length, 6, JSON.stringify(first.session.snapshotEvents().slice(-15), null, 2))
   assert.equal(requests[3].messages.flatMap(m => m.content).filter(b => b.type === 'tool-result').length, 0)
+  assert.deepEqual(requests[3].messages.map(({role,content})=>({role,content})), requests[0].messages.map(({role,content})=>({role,content})))
+  assert.equal(rerolled.nodes[2].input.source.kind, 'user')
+  assert.notEqual(rerolled.nodes[2].input.id, firstNode.input.id)
   assert.deepEqual((await service.view('one')).runtime.state, { count: 3, secretCounter: 4 })
   await service.operation('one', { operationId: 'edit-one', expectedVersion: rerolled.version, kind: 'edit', nodeId: firstNode.id, text: 'Revised input' })
   await first.whenIdle()
@@ -158,6 +169,61 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
     for (const event of events) restored.decodeRow(sessionFormatCatalog.encodeCurrentEvent(event))
     assert.deepEqual(restored.finish().events, events)
   }
+  const contextual = core.createScript({projectId:project.id,name:'Context window',defaultLanguage:'en'})
+  const composedSource = source.replace('functions:[create]', `functions:[create],composeContext({opening,history,input,state}) {
+    if (history.some(n=>n.blocks.some(b=>'content' in b))) throw new Error('history body leaked');
+    return {systemPrompt:opening.systemPrompt,messages:[
+      ...history.slice(-1).flatMap(n=>n.blocks.map(b=>({ref:b.id}))),
+      {ref:input.id},{role:'assistant',name:'Tail',content:'state='+state.count+';nodes='+history.length}
+    ]};
+  }`)
+  core.editDraft({scriptId:contextual.id,expectedSequence:0,operations:[{kind:'create-file',path:'story.js',source:composedSource}]})
+  const contextualCompiler=new CompilationService(core,new ArtifactStore(join(directory,'context-compiled')))
+  const contextualRevision=await contextualCompiler.submit({scriptId:contextual.id,expectedSequence:1,description:'Composition'})
+  await contextualCompiler.close(); assert.equal(contextualRevision.committed,true)
+  // Create directly because this harness's create callback intentionally owns the original script.
+  const contextualAgent=await root.agentLoop.create(SessionId('contextual'),{provider:'deterministic',model:'test'},{cwd:directory})
+  contextualAgent.session.append('agent-preset/selected',{agentPreset:PRESET}); service.prepare(contextualAgent,contextual.id)
+  await service.start({sessionId:'contextual',scriptId:contextual.id,revisionId:contextualRevision.revision.id,key:'opening/0'})
+  const contextStart=requests.length
+  await send(contextualAgent);await contextualAgent.whenIdle()
+  const contextFirst=requests.slice(contextStart)
+  assert.equal(contextFirst.length,3)
+  assert.equal(contextFirst[0].messages.at(-1).content[0].text,'state=0;nodes=0')
+  for (const request of contextFirst) assert.equal(request.messages.filter(m=>m.content.some(b=>b.text==='state=0;nodes=0')).length,1)
+  assert.deepEqual(contextFirst[1].messages.slice(0,contextFirst[0].messages.length),contextFirst[0].messages)
+  await send(contextualAgent);await contextualAgent.whenIdle()
+  const thirdStart=requests.length
+  await send(contextualAgent);await contextualAgent.whenIdle()
+  const latest=requests[thirdStart]
+  assert.equal(latest.messages.filter(m=>m.source.kind==='user').length,2)
+  assert.equal(latest.messages.at(-1).content[0].text,'state=3;nodes=2')
+  assert.ok(!JSON.stringify(latest.messages).includes('state=0;nodes=0'))
+  const inspectedNode=(await service.view('contextual')).worldline.selected
+  const contextPage=await service.inspection('contextual',inspectedNode,'rewritten',undefined,2)
+  assert.equal(contextPage.events.length,2);assert.ok(contextPage.next!==undefined)
+  const olderPage=await service.inspection('contextual',inspectedNode,'rewritten',contextPage.next,10)
+  assert.equal(olderPage.identity,contextPage.identity)
+  assert.equal(contextPage.position.floor,3)
+  assert.equal(contextPage.context.at(-1).message.content[0].text,'state=3;nodes=2')
+  const contextRecords=contextualAgent.session.snapshotEvents().filter(e=>e.type==='request/messages')
+  assert.equal(contextRecords.length,7)
+  for(const [index,event] of contextRecords.entries()) {
+    const inspected=await service.request('contextual',event.seq)
+    assert.deepEqual(inspected.messages,requests[contextStart+index].messages)
+    assert.equal(inspected.status,'recorded')
+  }
+  const savedRequest=await service.request('contextual',contextRecords[0].seq)
+  const ctree=(await service.view('contextual')).worldline
+  const rerollStart=requests.length
+  await service.operation('contextual',{operationId:'context-reroll',expectedVersion:ctree.version,kind:'reroll',nodeId:ctree.nodes.at(-1).id})
+  await contextualAgent.whenIdle()
+  assert.equal(requests[rerollStart].messages.at(-1).content[0].text,'state=3;nodes=2')
+  assert.deepEqual((await service.request('contextual',contextRecords[0].seq)).messages,savedRequest.messages)
+  const cseed=contextualAgent.session.snapshotEvents()
+  const crestore=await root.agentLoop.createAgent(root,{sessionId:SessionId('context-restored'),seed:cseed,meta:{cwd:directory,parentSession:contextualAgent.id,isSeeded:true},inheritedEventCount:cseed.length,agentOptions:{provider:'deterministic',model:'test'}})
+  service.attach(crestore.agent)
+  assert.deepEqual((await service.request('context-restored',contextRecords[0].seq)).messages,savedRequest.messages)
   core.deleteProject(project.id)
   await send(second); await second.whenIdle()
   assert.deepEqual((await service.view('two')).runtime.state, { count: 3, secretCounter: 4 })

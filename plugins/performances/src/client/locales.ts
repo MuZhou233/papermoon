@@ -1,4 +1,13 @@
 export const en = {
+  floor: 'Floor {floor}', turn: 'Turn', viewing:'Viewing', beforeExecution:'Interrupted before execution', runningTurn:'Inspect running turn',
+  originalContext:'Original context', rewrittenContext:'Rewritten context', contextMode:'Context display', expandWorldlines:'Open worldlines',collapseWorldlines:'Collapse worldlines',
+  history: 'History reference',
+  input: 'Current input',
+  authored: 'Script prompt',
+  continuation: 'Turn continuation',
+  plugin: 'Plugin contribution',
+  turnActions: 'Reply actions', previousResult: 'Previous result', nextResult: 'Next result', resultNumber: 'Result {number}',
+
   node: 'Node', turnContent: 'Input and reply', browseHint: 'Browsing leaves the current worldline unchanged.',
   completed: 'Completed', interrupted: 'Interrupted', aborted: 'Cancelled', failed: 'Failed', truncated: 'Output limit', blocked: 'Blocked', nodeState: 'State at this node', switchHere: 'Switch to here', worldlines: 'Worldlines', rootNode: 'Initial context', currentNode: 'Current', onPath: 'Current path', inspectNode: 'Inspect node', locateCurrent: 'Locate current',
   branchHere: 'Continue from here', reroll: 'Reroll', editInput: 'Edit message', editInputHint: 'Submitting creates a new branch before this message. The original message and reply stay in history; attachments are retained.', submitEdit: 'Submit and regenerate', inputText: 'Message text', candidates: 'Historical results',
@@ -12,6 +21,15 @@ export const en = {
   copy: 'Copy', initialization: 'Performance initialization', number: 'Number', role: 'Role', content: 'Content',
 }
 export const zh: Record<keyof typeof en, string> = {
+  floor:'第 {floor} 楼',turn:'轮次',viewing:'正在查看',beforeExecution:'执行前中断',runningTurn:'查看正在生成的轮次',
+  originalContext:'原始上下文',rewrittenContext:'改写上下文',contextMode:'上下文显示',expandWorldlines:'打开世界线',collapseWorldlines:'收起世界线',
+  history: '历史引用',
+  input: '本轮输入',
+  authored: '剧本提示词',
+  continuation: '本轮续接',
+  plugin: '插件内容',
+  turnActions: '回复操作', previousResult: '上一个结果', nextResult: '下一个结果', resultNumber: '结果 {number}',
+
   node: '节点', turnContent: '输入与回复', browseHint: '浏览不改变当前世界线。',
   completed: '已完成', interrupted: '已中断', aborted: '已取消', failed: '失败', truncated: '输出达到上限', blocked: '已阻止', nodeState: '节点状态', switchHere: '切换到这里', worldlines: '世界线', rootNode: '起始上下文', currentNode: '当前位置', onPath: '当前路径', inspectNode: '查看节点', locateCurrent: '定位当前位置',
   branchHere: '从这里继续', reroll: '重 roll', editInput: '编辑消息', editInputHint: '提交后从这条消息之前生成新分支。原消息和回复保留在历史中，附件保持不变。', submitEdit: '提交并重新生成', inputText: '消息正文', candidates: '历史结果',

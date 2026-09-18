@@ -11,7 +11,7 @@ import { StoryStorage } from '../../story-storage/lib/index.js'
 import { StoryRepository } from '../../story-core/lib/repository.js'
 import { createStoryTools, StoryObservations } from '../lib/index.js'
 import { registerStoryTools } from '../lib/plugin.js'
-import { toolCatalog } from '../lib/catalog.js'
+import { schemas, toolCatalog } from '../lib/catalog.js'
 import { CompilationService } from '../../story-compiler/lib/service.js'
 import { ArtifactStore } from '../../story-compiler/lib/store.js'
 import * as writers from '../../writers/lib/index.js'
@@ -183,6 +183,9 @@ try {
     selection: { kind: 'all' },
   })
   await success('story_help', {})
+  for (const topic of schemas.story_help.shape.topic.unwrap().options) {
+    await success('story_help', { topic })
+  }
   await success('story_program_edit', {
     operations: [{ kind: 'create-file', path: 'story.js', source: 'module.exports={systemPrompt:"Opening",messages:[]}' }],
   })

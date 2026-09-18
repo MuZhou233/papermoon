@@ -72,7 +72,7 @@ describe('CommonJS initialization', () => {
     const root = await compile(story('module.exports={scene:{},run(){}};'))
     expect(root).toMatchObject({ ok: false, diagnostics: [{
       code: 'invalid-declaration', location: { field: 'scene' },
-      message: 'unknown declaration field "scene"; allowed fields: ["systemPrompt","systemPromptName","messages","state","functions"]',
+      message: 'unknown declaration field "scene"; allowed fields: ["systemPrompt","systemPromptName","messages","state","functions","composeContext"]',
     }] })
     const nested = await compile(story('module.exports={systemPrompt:"",messages:[{role:"assistant",content:"",speaker:"A"}]};'))
     expect(nested).toMatchObject({ ok: false, diagnostics: [{

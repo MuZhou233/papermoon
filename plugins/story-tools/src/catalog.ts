@@ -153,11 +153,17 @@ export const schemas = {
     selection,
   }),
   story_help: object({
-    topic: z.enum(['overview', 'program', 'texts', 'history', 'compilation', 'functions']).optional().describe('Select a help topic. Defaults to overview.'),
+    topic: z.enum(['overview', 'program', 'texts', 'history', 'compilation', 'functions', 'context']).optional().describe('Select a help topic. Defaults to overview.'),
   }),
 }
 export type ToolName = keyof typeof schemas
 export const help = {
+  context: [
+    "composeContext({opening,history,input,state}) returns {systemPrompt,messages}. It runs once per admitted player input, including rerolls and edited input. Tool continuations append actual execution messages without rerunning it. System text stays at the head; messages may be original references {ref:id} or custom {role: user|assistant, name?, content}. An assistant prompt is an ordinary message, not a provider completion prefix.",
+    "opening includes systemPrompt and opening message ids, roles and names. history is the selected worldline's ordered node directory with id, outcome and blocks; blocks expose ids and roles, not bodies. input contains the current id and original content blocks. state is the readonly state restored from the parent node. No historical message bodies, I/O, clocks or random source are available.",
+    "Reference the current input exactly once. Each opening or historical block can be referenced at most once, only from this ancestry. A model response and all its tool calls/results are one indivisible block. Names and ids do not enter message text. Custom messages cannot contain forged tools. Invalid plans stop the request; they do not fall back to full history.",
+    "Example member of the exported declaration: composeContext({opening,history,input}) { return {systemPrompt:opening.systemPrompt,messages:[...opening.messages.map(m=>({ref:m.id})),...history.slice(-8).flatMap(n=>n.blocks.map(b=>({ref:b.id}))),{ref:input.id},{role:'assistant',content:'Continue the scene.'}]}; }. The window size is script logic. Without this member, context contains the opening, all current-worldline history and the current input.",
+  ].join('\n\n'),
   functions: [
     "Declare state:{initial,schema} and functions:[factory]. Each factory receives {state} and returns an ordinary named function. Factories cannot modify state. Only the returned function becomes a tool; its name is unchanged.",
     "Add one JSDoc description, an explicit @param type for each named parameter and an explicit @returns JSON type. Optional parameters and JavaScript defaults are supported. Basic JSON types, arrays, declared object fields, literal unions and same-file nonrecursive @typedef declarations are supported, including consecutive typedef blocks with @property tags. String-key dictionaries use Record<string, T>, Object<string, T> or {[key:string]: T}, with an explicit JSON value type. Bare object, rest/destructured parameters, other generics, recursive types and external imports are not supported.",
@@ -170,7 +176,7 @@ export const help = {
     "The bound script contains a mutable draft and immutable revisions. Its draft stores program files and a multilingual text catalog.",
     "Program tools list, read, search and edit virtual files. Text tools manage languages, entries and translations. story_status reports draft status. story_commit compiles and saves a complete revision, story_history lists revisions, story_diff compares content, and story_restore restores selected content. story_compile checks and saves a compiled artifact; story_simulate executes declared functions on temporary state.",
     "Programs use CommonJS. The default entry story.js exports a declaration through module.exports, with systemPrompt and an ordered messages array. require(\"@papermoon/story\") provides defineStory and t(key), which reads text in the selected language.",
-    "Select a story_help topic for details: program covers files and a compilable entry; texts covers languages and translations; history covers revisions, comparisons and restoration; compilation covers the declaration and module API; functions covers closures, JSDoc and simulation.",
+    "Select a story_help topic for details: program covers files and a compilable entry; texts covers languages and translations; history covers revisions, comparisons and restoration; compilation covers the declaration and module API; functions covers closures, JSDoc and simulation; context covers per-input context assembly.",
   ].join('\n\n'),
   program: [
     "story_program_read({path:\"story.js\"}) reads the complete file. Paths are relative virtual paths with / separators. create-file requires an unused path; replace-file replaces the complete source. replace-text requires a nonempty oldText with exactly one literal match. Edits in a batch execute in order and save together.",
@@ -192,11 +198,11 @@ export const help = {
   compilation: [
     "story_compile({ref:{kind:\"draft\",sequence:2},entry:\"story.js\",language:\"en\"}) compiles that draft snapshot and saves the result. Use the draft sequence returned by a read or edit. The entry defaults to story.js, and language defaults to the script default.",
     "Use synchronous CommonJS. require accepts @papermoon/story or explicit relative .js paths, such as require(\"./parts/context.js\"). Each referenced module is evaluated once. Circular references are rejected.",
-    "Export the declaration through module.exports. It accepts systemPrompt, systemPromptName, messages, optional state:{initial,schema} and optional functions:[factory]. The functions topic describes factory signatures, JSDoc and state changes. systemPrompt is a required string; messages is a required array. Each message contains role (user or assistant), content (string) and optional name (string). systemPromptName is an optional string. Empty strings and repeated roles are valid. Names label preview entries; model context consists of systemPrompt and message role/content.",
+    "Export the declaration through module.exports. It accepts systemPrompt, systemPromptName, messages, optional state:{initial,schema} optional functions:[factory] and optional composeContext. The functions topic describes factory signatures, JSDoc and state changes. systemPrompt is a required string; messages is a required array. Each message contains role (user or assistant), content (string) and optional name (string). systemPromptName is an optional string. Empty strings and repeated roles are valid. Names label preview entries; model context consists of systemPrompt and message role/content.",
     "Example: const {defineStory,t}=require(\"@papermoon/story\"); module.exports=defineStory({systemPrompt:t(\"opening.system\"),messages:[{name:\"Opening\",role:\"assistant\",content:t(\"opening.narration\")}]}); Store both text keys in the selected language with story_text_edit. t(key) reads that language only and returns the complete text. Missing entries or translations produce diagnostics.",
     "The result includes source identity and diagnostics. Success also returns the saved artifact ID, starting context, initial state and function declarations. Program diagnostics locate files and declaration fields; text diagnostics identify the key and language.",
   ].join('\n\n'),
-}
+} satisfies Record<NonNullable<z.infer<typeof schemas.story_help>['topic']>, string>
 const descriptions: Record<ToolName, string> = {
   story_simulate: 'Compile the current draft and call its functions in order on temporary state.',
   story_compile: "Compile a draft into a saved story artifact.",

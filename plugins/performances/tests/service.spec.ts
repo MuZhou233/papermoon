@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,10 +30,10 @@ async function fixture() {
   function create(id: string, seed: readonly LogRecord[] = []) {
     const events = structuredClone([...seed]), effects: (() => void)[] = []
     const agent: Agent = { id, status: 'idle', followup() {}, async whenIdle() {}, inbox: { nextTurn: [], nextStep: [], clear() {} },
-      ctx: { effect(body) { effects.push(body()) }, on(_name, listener) { steps.set(id, listener); return () => { steps.delete(id) } },
+      ctx: { effect(body) { effects.push(body()) }, on(_name, listener) { if (_name !== 'agent/pre-step') return () => {}; steps.set(id, listener as Parameters<typeof steps.set>[1]); return () => { steps.delete(id) } },
         tools: { register() { throw new Error('performance cannot register a tool') }, presentAs: () => () => {} },
         systemPrompt: { context: () => () => {}, section: () => () => {}, variable(name, value) { variables.set(id + '/' + name, value); return () => { variables.delete(id + '/' + name) } } } },
-      session: { header: { agentPreset: PRESET }, snapshotEvents: () => events, append(type,data) { events.push({ seq: events.length, time: Date.now(), type, data: structuredClone(data) }) } },
+      session: { header: { agentPreset: PRESET }, snapshotEvents: () => [...events], deriveRequestMessages: () => [], append(type,data) { events.push({ seq: events.length, time: Date.now(), type, data: structuredClone(data) }) } },
       async runMaintenance(task) { return task(new AbortController().signal) },
     }
     agents.set(id, agent); logs.set(id, events); created++
@@ -67,7 +67,7 @@ test('initializes once without a compiler and replays the complete frozen contex
   expect(await f.service.view('play')).toMatchObject({ sourceMissing: true })
   const message = { id: 'user', role: 'user' as const, content: [{ type: 'text', text: 'Continue' }], source: { kind: 'user', admission: { historyVersion: 1 } } }
   expect(await f.service.admit(agent, message)).toEqual(message)
-  expect(f.variables.get('play/papermoon_performance_prompt')!()).toBe('  {{literal}}')
+  expect(f.variables.get('play/papermoon_performance_prompt')!()).toBe('')
   const decision = await f.steps.get('play')!({ agent, signal: new AbortController().signal }, async () => ({ kind: 'enter', messages: [message] }))
   expect(decision).toMatchObject({ initialMessages: openingMessages(first.fixed) })
   const fork = f.create('fork', agent.session.snapshotEvents()); f.service.attach(fork)
@@ -105,7 +105,7 @@ test('pages permanent node ordinals and reads full input independently of a summ
   for (let index = 0; index < 104; index++) {
     const input = { id: 'page-' + index, role: 'user' as const, content: [{ type: 'text', text: 'x'.repeat(600) }], source: { kind: 'user', admission: { historyVersion: view.worldline!.version } } }
     await f.service.admit(agent, input)
-    agent.session.append('user/message', input)
+    agent.session.append('turn/start', { turn: agent.session.snapshotEvents().filter(event=>event.type==='turn/start').length+1 }); agent.session.append('user/message', input)
     agent.session.append('turn/end', { turn: index + 1, reason: { kind: 'completed' } })
     view = await f.service.view('play')
   }
@@ -127,7 +127,7 @@ test('inspects siblings outside the active path without changing selection or hi
     const view = await f.service.view('play')
     const input = { id, role: 'user' as const, content: [{ type: 'text', text: id }], source: { kind: 'user', admission: { historyVersion: view.worldline!.version } } }
     await f.service.admit(agent, input)
-    agent.session.append('user/message', input)
+    agent.session.append('turn/start', { turn: agent.session.snapshotEvents().filter(event=>event.type==='turn/start').length+1 }); agent.session.append('user/message', input)
     agent.session.append('turn/end', { reason: { kind: 'completed' } })
     return (await f.service.view('play')).worldline!.selected
   }
@@ -147,5 +147,61 @@ test('inspects siblings outside the active path without changing selection or hi
   expect(detail.siblings.map(node => node.ordinal)).toEqual([3, 4])
   expect((await f.service.view('play')).worldline).toEqual(before.worldline)
   expect(before.worldline!.selected).toBe(active)
+  expect(agent.session.snapshotEvents()).toHaveLength(count)
+})
+
+test('persists the context before dispatch and reuses a turn base without recomposing', async () => {
+  const { PerformanceContext, eventMessage, contextRecord } = await import('../src/composition.ts')
+  const { StoryRuntime } = await import('@papermoon/story-compiler/execution')
+  const f=await fixture(), first=await f.service.start(f.input), agent=f.agents.get('play')!
+  const runtime=new StoryRuntime();cleanup.push(()=>runtime.close())
+  const input={id:'compose-input',role:'user' as const,content:[{type:'text',text:'exact input'}],source:{kind:'user',admission:{historyVersion:1}}}
+  await f.service.admit(agent,input)
+  for(const entry of openingMessages(first.fixed))agent.session.append('context/message',entry)
+  agent.session.append('turn/start', { turn: agent.session.snapshotEvents().filter(event=>event.type==='turn/start').length+1 }); agent.session.append('user/message',input)
+  const expand=(seq?:number):import('../../story-workspaces/src/host.ts').RequestMessage[]=>{
+    if(seq===undefined)return []
+    const events=agent.session.snapshotEvents(), record=contextRecord(events[seq]!)!
+    return [...(record.base===undefined?[]:expand(record.base)),...record.messages.map(p=>'message'in p?p.message:eventMessage(events[p.eventSeq]!)!)]
+  }
+  agent.session.deriveRequestMessages=expand
+  let flushes=0
+  const context=new PerformanceContext(agent,first.fixed,runtime,async()=>{flushes++;return true})
+  const compose = runtime.compose.bind(runtime)
+  vi.spyOn(runtime,'compose').mockImplementation(async (...args) => {
+    const result = await compose(...args)
+    agent.session.append('session/configuration',{key:'concurrent-metadata',value:{}})
+    agent.session.append('context/message',{groupId:'explicit-plugin',index:0,message:{id:'plugin-input',role:'user',content:[{type:'text',text:'Explicit plugin contribution'}],source:{kind:'plugin',plugin:'fixture'}}})
+    return result
+  })
+  const seq=await context.request(1,1,new AbortController().signal)
+  expect(contextRecord(agent.session.snapshotEvents()[seq]!)?.turn).toBe(1)
+  expect(expand(seq).at(-1)?.id).toBe('plugin-input')
+  expect(flushes).toBe(1)
+  const original=expand(seq)
+  await runtime.close()
+  agent.session.append('assistant/message',{turn:1,step:1,message:{id:'reply',role:'assistant',content:[{type:'text',text:'reply'}],source:{kind:'model'}}})
+  const next=await context.request(1,2,new AbortController().signal)
+  expect(expand(next)).toEqual([...original,eventMessage(agent.session.snapshotEvents()[next-1]!)])
+  expect(contextRecord(agent.session.snapshotEvents()[next]!)!.metadata.plan).toBeUndefined()
+  expect((await f.service.request('play',seq)).messages).toEqual(original)
+  const source=agent.session.snapshotEvents().find(e=>e.type==='user/message')!
+  ;(source.data as {content:{text:string}[]}).content[0]!.text='corrupted'
+  await expect(f.service.request('play',seq)).rejects.toThrow('checksum')
+})
+test('blocks future requests when context durability is uncertain', async()=>{
+  const {PerformanceContext}=await import('../src/composition.ts')
+  const {StoryRuntime}=await import('@papermoon/story-compiler/execution')
+  const f=await fixture(),first=await f.service.start(f.input),agent=f.agents.get('play')!
+  const runtime=new StoryRuntime();cleanup.push(()=>runtime.close())
+  const input={id:'u-save',role:'user' as const,content:[],source:{kind:'user',admission:{historyVersion:1}}}
+  await f.service.admit(agent,input)
+  for(const entry of openingMessages(first.fixed))agent.session.append('context/message',entry)
+  agent.session.append('turn/start', { turn: agent.session.snapshotEvents().filter(event=>event.type==='turn/start').length+1 }); agent.session.append('user/message',input)
+  const context=new PerformanceContext(agent,first.fixed,runtime,async()=>{throw new Error('disk unavailable')})
+  await expect(context.request(1,1,new AbortController().signal)).rejects.toMatchObject({code:'context-save-failed'})
+  const count=agent.session.snapshotEvents().length
+  expect(()=>context.assertAvailable()).toThrow('unconfirmed')
+  await expect(context.request(1,1,new AbortController().signal)).rejects.toThrow('unconfirmed')
   expect(agent.session.snapshotEvents()).toHaveLength(count)
 })

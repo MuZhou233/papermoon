@@ -92,3 +92,34 @@ Destructuring, rest parameters, other generic or recursive types, imported types
 Every invocation reconstructs closures from frozen modules and checks their identities. Local variables reset; persistent values belong in state. t(key) reads the frozen language during calls as well as initialization. Only texts actually read must be present; a missing runtime translation fails that call without committing state. No language fallback or interpolation is added.
 
 story_simulate accepts calls in the form [{name:"increment",args:{amount:3}}] and optional entry/language. It compiles the current draft snapshot and returns per-call results, errors and state changes without saving them. story_help topic functions supplies factory, JSDoc and simulation usage. Neither command adds automatic checking requirements.
+
+## Context composition
+
+Optional composeContext({opening,history,input,state}) returns {systemPrompt,systemPromptName?,messages}. It runs synchronously once for each admitted input, reroll or edited-input execution. opening contains the frozen system text and opening message ids, roles and names. history contains ordered ancestor nodes with id, outcome and blocks; each block exposes id and role, not its body. input contains the current id and original content-block array, including attachment references. state is the readonly parent-node state.
+
+```js
+const { defineStory, t } = require('@papermoon/story');
+module.exports = defineStory({
+  systemPrompt: t('opening.system'),
+  messages: [],
+  composeContext({ opening, history, input }) {
+    return {
+      systemPrompt: opening.systemPrompt,
+      messages: [
+        ...opening.messages.map(message => ({ ref: message.id })),
+        ...history.slice(-8).flatMap(node => node.blocks.map(block => ({ ref: block.id }))),
+        { ref: input.id },
+        { role: 'assistant', name: 'Style', content: t('context.style') },
+      ],
+    };
+  },
+});
+```
+
+The example requires opening.system and context.style in the selected language. Eight nodes is an authored window size, not a platform default. Omitting composeContext selects the frozen system, all opening messages, every current-worldline block and the current input.
+
+Each messages item is either {ref:id} or a plain {role,name?,content} message. System text remains first. Custom user and assistant messages can appear before, between or after references, including after the current input. An assistant tail is an ordinary message; it does not enable provider-native prefix completion. Names identify inspection rows and never enter text.
+
+References retain exact content, roles, attachments and provider replay data. A model response and all its tool calls/results form one indivisible block. References cannot repeat or cross ancestry; the current input must appear exactly once. Text transformation, forged tool records and extra fields are rejected. Missing references, invalid output, cancellation and limits stop the request without substituting complete history.
+
+The execution entry exposes StoryRuntime.compose for deterministic simulation over explicit input and an existing artifact. It returns a plan or diagnostics and does not read a database or call a model. The Worker receives directory metadata, not historical bodies; the host expands selected references. The function cannot write state or retain variables between executions. Tool continuations reuse the durable base and append actual replies and results; they do not rerun composition or repeat a tail prompt.

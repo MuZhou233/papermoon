@@ -1,5 +1,5 @@
 diff --git a/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.i18n.yaml
-index c057f70..8938836 100644
+index c057f70ea4..8938836a9f 100644
 --- a/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.i18n.yaml
 +++ b/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.i18n.yaml
 @@ -2,5 +2,5 @@
@@ -11,7 +11,7 @@ index c057f70..8938836 100644
 +2026-09-13-retained-tool-outcomes.md: 584f5dfa630114b85355c650599859ed2357ccf6
 +2026-09-13-retained-tool-outcomes.zh.md: 21168866b712ae52b0a964e4e78dd2898e50de8c
 diff --git a/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.md b/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.md
-index cd1aae1..584f5df 100644
+index cd1aae1148..584f5dfa63 100644
 --- a/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.md
 +++ b/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.md
 @@ -19,3 +19,5 @@ Keeping isError true misrepresents a known successful outcome. Reexecuting the t
@@ -21,7 +21,7 @@ index cd1aae1..584f5df 100644
 +
 +[Selected execution histories](2026-09-16-history-selection.md) validate retained-outcome replacements against the chosen path while preserving raw receipt coordinates.
 diff --git a/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.zh.md b/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.zh.md
-index 466e1d5..2116886 100644
+index 466e1d580b..21168866b7 100644
 --- a/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.zh.md
 +++ b/.agents/notes/implemented/architecture/2026-09-13-retained-tool-outcomes.zh.md
 @@ -19,3 +19,5 @@ Status: implemented
@@ -30,704 +30,106 @@ index 466e1d5..2116886 100644
  旧错误保留在历史中，后续请求使用更正后的展示节点。成功改为错误及身份变化仍然无效。测试覆盖必要引用、固定身份和历史保留。不新增事件字段，不改变 Session 版本、Loop 阶段或 SDK 传输类型。
 +
 +[选中的执行历史](2026-09-16-history-selection.zh.md)按选中路径校验已保存结果的替换，同时保留原始回执坐标。
-diff --git a/.agents/notes/implemented/architecture/2026-09-16-history-selection.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-16-history-selection.i18n.yaml
+diff --git a/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.i18n.yaml
 new file mode 100644
-index 0000000..1ca2c80
+index 0000000000..8a55e154d7
 --- /dev/null
-+++ b/.agents/notes/implemented/architecture/2026-09-16-history-selection.i18n.yaml
++++ b/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.i18n.yaml
 @@ -0,0 +1,6 @@
 +# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
 +# side as of the last confirmed-consistent state. Both languages carry equal authority;
 +# after editing either side, bring the other along and re-record with:
-+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-16-history-selection.md
-+2026-09-16-history-selection.md: 07c0f9c3534d83376ed9606c0f8c0113593b8cde
-+2026-09-16-history-selection.zh.md: e8d5c0d6fb9bb158ae13554de17939d8dc582fde
-diff --git a/.agents/notes/implemented/architecture/2026-09-16-history-selection.md b/.agents/notes/implemented/architecture/2026-09-16-history-selection.md
++#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.md
++2026-09-18-host-user-input-admission.md: 5623f12b24e01b18ccaedcdf2264976a6bbaea54
++2026-09-18-host-user-input-admission.zh.md: 9ee540fad42834e2ea9e5c7e40aefa256a3c555d
+diff --git a/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.md b/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.md
 new file mode 100644
-index 0000000..07c0f9c
+index 0000000000..5623f12b24
 --- /dev/null
-+++ b/.agents/notes/implemented/architecture/2026-09-16-history-selection.md
-@@ -0,0 +1,27 @@
-+# Agent Note: Logged execution-history selection
++++ b/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.md
+@@ -0,0 +1,25 @@
++# Agent Note: Host user input admission
 +
 +Status: implemented
 +
-+English | [中文](2026-09-16-history-selection.zh.md)
++English | [中文](2026-09-18-host-user-input-admission.zh.md)
 +
 +## Problem
 +
-+Alternative executions need one chronological audit without feeding abandoned alternatives to subsequent model requests. Replacing message text cannot also select request headers, context contributions and tool evidence.
++Host integrations can repeat a human input from retained history. Direct enqueue bypasses prompt validation; marking that input as plugin context requires each transcript consumer to recover its human meaning.
 +
 +## Decision
 +
-+A required history/selected event references ordered raw-event ranges and a consecutive selection version. The [Session reader](../../../../packages/core/session/README.md#selected-execution-history) derives a selected read and folds message replacements within it. The raw log remains unchanged. The Loop uses that history for messages, prompt/header state and authored-prefix deduplication. Request reconstruction uses the raw prefix at that request, so later selections cannot change it.
++[Session Controller](../../../../packages/api/session-controller/README.md) shares admission between wire prompts and trusted Host user submissions. Host submissions carry durable attachment references and new request identities. They validate attachment availability without consuming upload receipts. The validation waterfall completes before the serial acceptance event persists consumer records and before enqueue.
 +
-+A wire projection carries selection outside paginated event windows. Conversation assembly filters records before Chat and Trajectory consume them. Lifecycle, inbox, resource use and model-selection intent remain chronological. Admission consumers may acknowledge their own already-persisted operations without another enqueue.
-+
-+Replay producers can register user-bubble presentation while retaining plugin provenance in the log. The user-action slot supplies raw message coordinates so consumers can edit an earlier input through their own history operation. These client registrations change neither roles nor model requests.
-+
-+Current validation checks original records and selected replacement relationships before producing a private same-coordinate input for the frozen released validator. Released format generations remain unchanged. Their validators retain request and tool lifecycle checks. The installed Session validates original surface placement and replacements; the adapter also checks system messages against their open steps. This extends [retained tool recovery](2026-09-13-retained-tool-outcomes.md) without rewriting historical receipts.
++User authorship remains in the message source. Consumers retain reexecution provenance separately. Chat and trajectory read that source without producer allowlists or identity overrides. A user message retained outside a turn remains user-authored without inventing execution coordinates. This replaces the input presentation policy described alongside [history selection](2026-09-16-history-selection.md).
 +
 +## Alternatives considered
 +
-+Truncating JSONL would lose audit evidence. A second Session per alternative would move grouping and cross-session state into every consumer. Filtering only model messages would leave prompt and UI histories inconsistent. Changing frozen released validators would erase the meaning of their accepted formats.
++**Presentation overrides:** Producer allowlists and inspector-provided input identities repair individual views but leave other consumers with a different classification.
++
++**Direct enqueue:** Reusing Agent.followup alone skips model, attachment and admission checks. Reusing the original request identity also conflates a fresh execution with a transport retry.
 +
 +## Consequences
 +
-+Event and turn coordinates never rewind. Selection is explicit, requires earlier references and changes no tool outcome. Consumers own node grouping, operation deduplication and restoration of application state. Shared checks cover invalid references, raw-prefix reconstruction, admission, client selection and Session/SDK replay. The required event does not change structural Session format; unaware readers reject it.
-diff --git a/.agents/notes/implemented/architecture/2026-09-16-history-selection.zh.md b/.agents/notes/implemented/architecture/2026-09-16-history-selection.zh.md
++Human-triggered repeated inputs run ordinary user-input processing. Automatic retries and plugin-authored context retain their existing identities. Durable facts are not rolled back after acceptance failures. Tests cover shared validation, late rejection, retained attachments, fresh identity, interruption and transcript ordering. Existing logs are not rewritten.
+diff --git a/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.zh.md b/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.zh.md
 new file mode 100644
-index 0000000..e8d5c0d
+index 0000000000..9ee540fad4
 --- /dev/null
-+++ b/.agents/notes/implemented/architecture/2026-09-16-history-selection.zh.md
-@@ -0,0 +1,27 @@
-+# Agent Note: 执行历史选择记录
++++ b/.agents/notes/implemented/architecture/2026-09-18-host-user-input-admission.zh.md
+@@ -0,0 +1,25 @@
++# Agent Note: Host 用户输入接纳
 +
 +Status: implemented
 +
-+[English](2026-09-16-history-selection.md) | 中文
++[English](2026-09-18-host-user-input-admission.md) | 中文
 +
 +## 问题
 +
-+不同执行结果需要保留在同一份按时间排列的审计记录中，但后续模型请求不能读入放弃的候选。替换消息正文无法同时选择请求头、上下文贡献和工具证据。
++Host 集成可以从历史中重新提交人类输入。直接入队会绕过提示词校验；将这类输入标为插件上下文，又需要各个历史消费者自行恢复其用户含义。
 +
-+## 决定
++## 决策
 +
-+必读事件 history/selected 引用有序的原始事件区间，选择版本连续递增。[Session 读取器](../../../../packages/core/session/README.zh.md#selected-execution-history)派生选中历史，并在该历史内应用消息替换。原始日志不变。Loop 用这些历史恢复消息、提示词、请求头及预置前缀去重。请求重建读取该请求发生时的原始前缀，后来的选择不能改变它。
++[Session Controller](../../../../packages/api/session-controller/README.zh.md)让远程提示词和可信 Host 用户提交共用接纳流程。Host 提交携带持久附件引用和新的请求身份，检查附件是否可读，不重复消费上传凭据。校验瀑布链全部通过后，串行接纳事件才保存消费者记录，随后入队。
 +
-+传输投影在分页事件窗口之外携带选择。会话组装先筛选记录，再供对话和轨迹使用。生命周期、收件箱、资源用量及模型选择意图仍按时间推进。接纳消费者可以确认自身已保存的操作，不再次入队。
-+
-+复用输入的生产者可以注册用户气泡展示，日志仍保留插件来源。用户消息操作插槽提供原始消息坐标，消费者据此通过自己的历史操作编辑早先输入。这些客户端注册不改变角色或模型请求。
-+
-+当前校验先检查原始记录及选中路径上的替换关系，再为冻结的已发布校验器生成坐标不变的内部输入。已发布格式世代保持不变。其校验器继续检查请求和工具的生命周期。当前 Session 校验原始展示位置与替换；适配器也检查系统消息所属的开放步骤。这扩展了[已保存工具结果的恢复](2026-09-13-retained-tool-outcomes.zh.md)，不改写历史回执。
++消息来源保留用户作者身份，重新执行的来源关系由消费者另行记录。对话与轨迹直接读取这一身份，不使用生产者白名单或身份覆盖。轮次外留档的用户消息仍属于用户，不补造执行坐标。这取代了[历史选择](2026-09-16-history-selection.zh.md)中的输入展示策略。
 +
 +## 考虑过的替代方案
 +
-+截断 JSONL 会丢失审计证据。每个候选另建 Session，会把分组及跨会话状态推给所有消费者。只筛选模型消息会让提示词与界面历史不一致。修改冻结的已发布校验器则会改变它们所接受格式的含义。
++**展示覆盖：**生产者白名单和检查页面传入的输入身份只能修复局部视图，其他消费者仍会得到不同分类。
++
++**直接入队：**只调用 Agent.followup 会跳过模型、附件和接纳检查。复用原请求身份还会混淆新执行与传输重试。
 +
 +## 后果
 +
-+事件和轮次坐标不回退。选择必须显式引用更早的记录，不改变工具结果。消费者负责节点分组、操作去重和应用状态恢复。共享检查覆盖无效引用、原始前缀重建、接纳、客户端选择及 Session／SDK 回放。必读事件不改变 Session 结构格式，不识别它的读取器明确拒绝。
-diff --git a/docs/architecture.i18n.yaml b/docs/architecture.i18n.yaml
-index 79f9642..e3bb2ad 100644
---- a/docs/architecture.i18n.yaml
-+++ b/docs/architecture.i18n.yaml
++用户主动重复输入时，照常触发用户输入处理。自动重试和插件编写的上下文保持各自身份。接纳阶段失败不会撤销已保存的事实。测试覆盖共用校验、后置拒绝、附件复用、新身份、中断与历史排序。既有日志不改写。
+diff --git a/docs/config-catalog.i18n.yaml b/docs/config-catalog.i18n.yaml
+index 7dd5d9ad6b..079ff2b2df 100644
+--- a/docs/config-catalog.i18n.yaml
++++ b/docs/config-catalog.i18n.yaml
 @@ -2,5 +2,5 @@
  # side as of the last confirmed-consistent state. Both languages carry equal authority;
  # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write docs/architecture.md
--architecture.md: 5d6c7c9a70af8cae0d08ffbb3a01b324d08150a9
--architecture.zh.md: 304f1b06c4f3782a4614898d5e706eeea460f075
-+architecture.md: 345f2654c0471f1d30bf0d6bb1d837e80c274c6d
-+architecture.zh.md: 2e3340ae98cfb4e0063d27744afdf7bfea6977b0
-diff --git a/docs/architecture.md b/docs/architecture.md
-index 5d6c7c9..345f265 100644
---- a/docs/architecture.md
-+++ b/docs/architecture.md
-@@ -114,6 +114,8 @@ The loop sends immutable requests while keeping cancellation live. It reuses mes
- 
- Details: the [sequence diagram](agent-lifecycle.md), the [tool pipeline](tool-execution-pipeline.md), and [cancellation and error recovery](subsystems/core.md#the-agent-handle).
- 
-+[History selection](../packages/core/session/README.md#selected-execution-history) restores execution records for requests. Historical requests retain their original log prefixes.
-+
- ## Session log
- 
- The session log is the source of the context the model sees. `deriveMessages()` projects model history from it. Each `assistant/message` embeds the exact compact timed stream that produced its assembled content; `assistant/attempt` retains settled failed, retried, cancelled, and stream-error attempts without adding model history. Fork, resume, transcripts, telemetry, and persistence all derive from these durable settlements, while live UI incrementality comes from `agent/assistant-stream`; a hard process loss before settlement leaves no durable attempt stream ([decision](../.agents/notes/implemented/architecture/2026-09-01-v2-embedded-assistant-streams.md)).
-@@ -160,5 +162,3 @@ New behavior attaches to a documented extension point. Changing the loop itself
- | Scope a registration to one agent | use that agent's `agent.ctx` |
- 
- The [extension cookbook](cookbook/extension-cookbook.md) maps features to capabilities and indexes the step-by-step guides for [packages](cookbook/adding-a-package.md), [tools](cookbook/adding-a-tool.md), [LLM adapters](cookbook/adding-an-llm-adapter.md), and [settings cards](cookbook/adding-a-settings-card.md). The [Conversation subsystem](subsystems/conversation.md) owns Chat-node assembly.
--
--Authored user/assistant context uses durable context/message records in the existing pre-step commit path. Session admission is a controller extension; it does not add a Loop execution phase.
-diff --git a/docs/architecture.zh.md b/docs/architecture.zh.md
-index 304f1b0..2e3340a 100644
---- a/docs/architecture.zh.md
-+++ b/docs/architecture.zh.md
-@@ -118,6 +118,8 @@ turn/end
- 
- 详情见[时序图](agent-lifecycle.zh.md)、[工具流水线](tool-execution-pipeline.zh.md)和[取消与错误恢复](subsystems/core.zh.md#the-agent-handle)。
- 
-+[历史选择](../packages/core/session/README.zh.md#selected-execution-history)恢复请求组装所需的执行记录。历史请求保留其原始日志前缀。
-+
- ## 会话日志
- 
- 会话日志是模型所见上下文的来源。`deriveMessages()` 从中投影出模型历史。每个 `assistant/message` 都嵌入产生其组装内容的精确紧凑带时间 stream；`assistant/attempt` 保留已到达 settlement 的失败、重试、取消与 stream error attempt，且不添加模型历史。fork、恢复、transcript（文本记录）、遥测与持久化都从这些持久 settlement 派生，实时 UI 增量则来自 `agent/assistant-stream`；如果进程在 settlement 前硬中断，则不会留下持久 attempt stream（见[决策](../.agents/notes/implemented/architecture/2026-09-01-v2-embedded-assistant-streams.zh.md)）。
-@@ -164,5 +166,3 @@ seam 正是替换一个提供方就能改变整个产品的原因。文件系统
- | 将注册项限定到单个 agent | 使用该 agent 的 `agent.ctx` |
- 
- [扩展实操手册](cookbook/extension-cookbook.zh.md)将功能映射到能力，并索引[包](cookbook/adding-a-package.zh.md)、[工具](cookbook/adding-a-tool.zh.md)、[LLM（大语言模型）适配器](cookbook/adding-an-llm-adapter.zh.md)和[设置卡片](cookbook/adding-a-settings-card.zh.md)的分步指南。[Conversation 子系统](subsystems/conversation.zh.md)负责 Chat node 组装。
--
--预置 user／assistant 上下文通过既有步骤提交路径保存为持久 context/message 记录。会话接纳是控制器扩展，不增加 Loop 执行阶段。
-diff --git a/docs/event-producer-consumer.i18n.yaml b/docs/event-producer-consumer.i18n.yaml
-index 1e16fe0..56daad5 100644
---- a/docs/event-producer-consumer.i18n.yaml
-+++ b/docs/event-producer-consumer.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write docs/event-producer-consumer.md
--event-producer-consumer.md: 0a3627bbc07544b1ff7a3a0d4837e5e8f0b52664
--event-producer-consumer.zh.md: ad03f20eebb259cd57ce75186d2cc339bae024c9
-+event-producer-consumer.md: ebb964aa62e8cc2cf6f053e9f205cc21960e1ae7
-+event-producer-consumer.zh.md: 0194e3ca05d3319233f818fff1d3fc375086fe77
-diff --git a/docs/event-producer-consumer.md b/docs/event-producer-consumer.md
-index 0a3627b..ebb964a 100644
---- a/docs/event-producer-consumer.md
-+++ b/docs/event-producer-consumer.md
-@@ -24,11 +24,11 @@ This matrix shows which packages dispatch each harness-owned event and which pac
- | `agent/session-start` | `emit` | [`packages/core/agent/src/runtime-types.ts:318`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emitAgentEvent`) | `agent-team`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
- | `agent/status` | `emit` | [`packages/core/agent/src/runtime-types.ts:279`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emit`) | [`agent`](../packages/core/agent), `agent-team`, [`compaction-basic`](../packages/compaction/compaction-basic), [`goal-round-driver`](../packages/goal/goal-round-driver), [`schedule`](../packages/schedule/schedule), `server`, `session-controller` |
- | `agent/turn-stopping` | `serial` | [`packages/core/agent/src/runtime-types.ts:393`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`serial`) | [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
--| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:603`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:583`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:610`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:589`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:596`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:605`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:585`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:612`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:591`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:598`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
- | `approval/request` | `waterfall` | [`packages/interaction/user-approval/src/types.ts:85`](../packages/interaction/user-approval/src/types.ts) | [`user-approval`](../packages/interaction/user-approval) (`waterfall`) | [`acp`](../packages/acp/acp), `remotes` |
- | `authorization/settled` | `emit` | [`packages/credentials/authorization/src/index.ts:57`](../packages/credentials/authorization/src/index.ts) | [`authorization`](../packages/credentials/authorization) (`events.dispatch`) | [`authorization`](../packages/credentials/authorization) |
- | `commands/change` | `emit` | [`packages/interaction/commands/src/types.ts:89`](../packages/interaction/commands/src/types.ts) | [`commands`](../packages/interaction/commands) (`events.dispatch`) | `remotes` |
-@@ -50,11 +50,11 @@ This matrix shows which packages dispatch each harness-owned event and which pac
- | `llm/adapters-updated` | `emit` | [`packages/llm/llm/src/types.ts:23`](../packages/llm/llm/src/types.ts) | [`llm`](../packages/llm/llm) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`llm`](../packages/llm/llm), `remotes` |
- | `llm/stream` | `waterfall` | [`packages/llm/llm/src/index.ts:72`](../packages/llm/llm/src/index.ts) | [`llm`](../packages/llm/llm) (`waterfall`) | [`agent-loop`](../packages/core/agent-loop), [`llm`](../packages/llm/llm), [`llm-replay`](../packages/test-support/llm-replay), [`session-checkpoint-policy`](../packages/session/session-checkpoint-policy), [`session-title`](../packages/session/session-title) |
- | `session-telemetry/record` | `waterfall` | [`packages/session/session-telemetry/src/index.ts:43`](../packages/session/session-telemetry/src/index.ts) | [`session-telemetry`](../packages/session/session-telemetry) (`waterfall`) | - |
--| `session/created` | `emit` | [`packages/core/session/src/index.ts:50`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`compaction`](../packages/compaction/compaction), [`goal`](../packages/goal/goal), [`hook-protocol`](../packages/hooks/hook-protocol), [`llm-retry`](../packages/llm/llm-retry), [`permission-presets`](../packages/interaction/permission-presets), [`plan-mode`](../packages/plan/plan-mode), [`schedule`](../packages/schedule/schedule), `server`, [`session`](../packages/core/session), `session-controller`, [`session-log-deepseek`](../packages/session/session-log-deepseek), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`time-context`](../packages/context/time-context), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
-+| `session/created` | `emit` | [`packages/core/session/src/index.ts:52`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`compaction`](../packages/compaction/compaction), [`goal`](../packages/goal/goal), [`hook-protocol`](../packages/hooks/hook-protocol), [`llm-retry`](../packages/llm/llm-retry), [`permission-presets`](../packages/interaction/permission-presets), [`plan-mode`](../packages/plan/plan-mode), [`schedule`](../packages/schedule/schedule), `server`, [`session`](../packages/core/session), `session-controller`, [`session-log-deepseek`](../packages/session/session-log-deepseek), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`time-context`](../packages/context/time-context), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
- | `session/created-for-client` | `serial` | [`packages/api/session-controller/src/commands.ts:70`](../packages/api/session-controller/src/commands.ts) | `session-controller` (`serial`) | - |
--| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:60`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title) |
--| `session/event` | `emit` | [`packages/core/session/src/index.ts:72`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-presets`](../packages/preset/agent-presets), `agent-team`, [`compaction`](../packages/compaction/compaction), [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hook-protocol`](../packages/hooks/hook-protocol), [`loader-smoke`](../packages/test-support/loader-smoke), `server`, [`session`](../packages/core/session), `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`token-meter`](../packages/llm/token-meter), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
--| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:81`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
-+| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:62`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title) |
-+| `session/event` | `emit` | [`packages/core/session/src/index.ts:74`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-presets`](../packages/preset/agent-presets), `agent-team`, [`compaction`](../packages/compaction/compaction), [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hook-protocol`](../packages/hooks/hook-protocol), [`loader-smoke`](../packages/test-support/loader-smoke), `server`, [`session`](../packages/core/session), `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`token-meter`](../packages/llm/token-meter), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
-+| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:83`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
- | `session/prompt-admission` | `waterfall` | [`packages/api/session-controller/src/commands.ts:63`](../packages/api/session-controller/src/commands.ts) | `session-controller` (`waterfall`) | - |
- | `settings/document-updated` | `emit` | [`packages/settings/settings/src/types.ts:105`](../packages/settings/settings/src/types.ts) | [`settings`](../packages/settings/settings) (`events.dispatch`) | `remotes` |
- | `settings/updated` | `emit` | [`packages/settings/settings/src/types.ts:92`](../packages/settings/settings/src/types.ts) | [`settings`](../packages/settings/settings) (`events.dispatch`) | [`settings`](../packages/settings/settings) |
-diff --git a/docs/event-producer-consumer.zh.md b/docs/event-producer-consumer.zh.md
-index ad03f20..0194e3c 100644
---- a/docs/event-producer-consumer.zh.md
-+++ b/docs/event-producer-consumer.zh.md
-@@ -26,11 +26,11 @@
- | `agent/session-start` | `emit` | [`packages/core/agent/src/runtime-types.ts:318`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emitAgentEvent`) | `agent-team`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
- | `agent/status` | `emit` | [`packages/core/agent/src/runtime-types.ts:279`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`emit`) | [`agent`](../packages/core/agent), `agent-team`, [`compaction-basic`](../packages/compaction/compaction-basic), [`goal-round-driver`](../packages/goal/goal-round-driver), [`schedule`](../packages/schedule/schedule), `server`, `session-controller` |
- | `agent/turn-stopping` | `serial` | [`packages/core/agent/src/runtime-types.ts:393`](../packages/core/agent/src/runtime-types.ts) | [`agent-loop`](../packages/core/agent-loop) (`serial`) | [`hooks-claude-code`](../packages/hooks/hooks-claude-code), [`hooks-codex`](../packages/hooks/hooks-codex) |
--| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:603`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:583`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:610`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:589`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
--| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:596`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/activity` | `emit` | [`packages/api/session-controller/src/types.ts:605`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/added` | `emit` | [`packages/api/session-controller/src/types.ts:585`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/error` | `emit` | [`packages/api/session-controller/src/types.ts:612`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/removed` | `emit` | [`packages/api/session-controller/src/types.ts:591`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
-+| `api-session/status` | `emit` | [`packages/api/session-controller/src/types.ts:598`](../packages/api/session-controller/src/types.ts) | `session-controller` (`emit`) | `remotes` |
- | `approval/request` | `waterfall` | [`packages/interaction/user-approval/src/types.ts:85`](../packages/interaction/user-approval/src/types.ts) | [`user-approval`](../packages/interaction/user-approval) (`waterfall`) | [`acp`](../packages/acp/acp), `remotes` |
- | `authorization/settled` | `emit` | [`packages/credentials/authorization/src/index.ts:57`](../packages/credentials/authorization/src/index.ts) | [`authorization`](../packages/credentials/authorization) (`events.dispatch`) | [`authorization`](../packages/credentials/authorization) |
- | `commands/change` | `emit` | [`packages/interaction/commands/src/types.ts:89`](../packages/interaction/commands/src/types.ts) | [`commands`](../packages/interaction/commands) (`events.dispatch`) | `remotes` |
-@@ -52,11 +52,11 @@
- | `llm/adapters-updated` | `emit` | [`packages/llm/llm/src/types.ts:23`](../packages/llm/llm/src/types.ts) | [`llm`](../packages/llm/llm) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`llm`](../packages/llm/llm), `remotes` |
- | `llm/stream` | `waterfall` | [`packages/llm/llm/src/index.ts:72`](../packages/llm/llm/src/index.ts) | [`llm`](../packages/llm/llm) (`waterfall`) | [`agent-loop`](../packages/core/agent-loop), [`llm`](../packages/llm/llm), [`llm-replay`](../packages/test-support/llm-replay), [`session-checkpoint-policy`](../packages/session/session-checkpoint-policy), [`session-title`](../packages/session/session-title) |
- | `session-telemetry/record` | `waterfall` | [`packages/session/session-telemetry/src/index.ts:43`](../packages/session/session-telemetry/src/index.ts) | [`session-telemetry`](../packages/session/session-telemetry) (`waterfall`) | - |
--| `session/created` | `emit` | [`packages/core/session/src/index.ts:50`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`compaction`](../packages/compaction/compaction), [`goal`](../packages/goal/goal), [`hook-protocol`](../packages/hooks/hook-protocol), [`llm-retry`](../packages/llm/llm-retry), [`permission-presets`](../packages/interaction/permission-presets), [`plan-mode`](../packages/plan/plan-mode), [`schedule`](../packages/schedule/schedule), `server`, [`session`](../packages/core/session), `session-controller`, [`session-log-deepseek`](../packages/session/session-log-deepseek), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`time-context`](../packages/context/time-context), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
-+| `session/created` | `emit` | [`packages/core/session/src/index.ts:52`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`compaction`](../packages/compaction/compaction), [`goal`](../packages/goal/goal), [`hook-protocol`](../packages/hooks/hook-protocol), [`llm-retry`](../packages/llm/llm-retry), [`permission-presets`](../packages/interaction/permission-presets), [`plan-mode`](../packages/plan/plan-mode), [`schedule`](../packages/schedule/schedule), `server`, [`session`](../packages/core/session), `session-controller`, [`session-log-deepseek`](../packages/session/session-log-deepseek), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title), [`time-context`](../packages/context/time-context), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
- | `session/created-for-client` | `serial` | [`packages/api/session-controller/src/commands.ts:70`](../packages/api/session-controller/src/commands.ts) | `session-controller` (`serial`) | - |
--| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:60`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title) |
--| `session/event` | `emit` | [`packages/core/session/src/index.ts:72`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-presets`](../packages/preset/agent-presets), `agent-team`, [`compaction`](../packages/compaction/compaction), [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hook-protocol`](../packages/hooks/hook-protocol), [`loader-smoke`](../packages/test-support/loader-smoke), `server`, [`session`](../packages/core/session), `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`token-meter`](../packages/llm/token-meter), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
--| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:81`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
-+| `session/disposed` | `emit` | [`packages/core/session/src/index.ts:62`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`agent-loop`](../packages/core/agent-loop), `agent-team`, `file-upload`, `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-title`](../packages/session/session-title) |
-+| `session/event` | `emit` | [`packages/core/session/src/index.ts:74`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`agent-instructions`](../packages/context/agent-instructions), [`agent-loop`](../packages/core/agent-loop), [`agent-presets`](../packages/preset/agent-presets), `agent-team`, [`compaction`](../packages/compaction/compaction), [`compaction-basic`](../packages/compaction/compaction-basic), [`file-reference-local`](../packages/context/file-reference-local), `file-upload`, [`goal`](../packages/goal/goal), [`goal-round-driver`](../packages/goal/goal-round-driver), [`hook-protocol`](../packages/hooks/hook-protocol), [`loader-smoke`](../packages/test-support/loader-smoke), `server`, [`session`](../packages/core/session), `session-controller`, [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-projection`](../packages/session/session-projection), [`session-projection-cache`](../packages/session/session-projection-cache), [`session-telemetry`](../packages/session/session-telemetry), [`session-telemetry-otel`](../packages/session/session-telemetry-otel), [`session-title`](../packages/session/session-title), [`token-meter`](../packages/llm/token-meter), [`tool-todo`](../packages/todo/tool-todo), [`tool-workflow`](../packages/workflow/tool-workflow), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
-+| `session/flush` | `parallel` | [`packages/core/session/src/index.ts:83`](../packages/core/session/src/index.ts) | [`session`](../packages/core/session) (`events.dispatch`) | [`session-persistence-jsonl`](../packages/session/session-persistence-jsonl), [`session-telemetry`](../packages/session/session-telemetry) |
- | `session/prompt-admission` | `waterfall` | [`packages/api/session-controller/src/commands.ts:63`](../packages/api/session-controller/src/commands.ts) | `session-controller` (`waterfall`) | - |
- | `settings/document-updated` | `emit` | [`packages/settings/settings/src/types.ts:105`](../packages/settings/settings/src/types.ts) | [`settings`](../packages/settings/settings) (`events.dispatch`) | `remotes` |
- | `settings/updated` | `emit` | [`packages/settings/settings/src/types.ts:92`](../packages/settings/settings/src/types.ts) | [`settings`](../packages/settings/settings) (`events.dispatch`) | [`settings`](../packages/settings/settings) |
-diff --git a/docs/persistence-catalog.i18n.yaml b/docs/persistence-catalog.i18n.yaml
-index e30f39d..356b160 100644
---- a/docs/persistence-catalog.i18n.yaml
-+++ b/docs/persistence-catalog.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write docs/persistence-catalog.md
--persistence-catalog.md: 86bff05b69f01065b331eec65d39c70e280b66f9
--persistence-catalog.zh.md: 2cd1359a02e4865d55f7bf2d15ceeb7b1f8f96ca
-+persistence-catalog.md: 104ff71da0a93a0a2d7f08a25064896d5225ed47
-+persistence-catalog.zh.md: ea03be194646d822a3d89fc0d59d6aff4e399b03
-diff --git a/docs/persistence-catalog.md b/docs/persistence-catalog.md
-index 86bff05..104ff71 100644
---- a/docs/persistence-catalog.md
-+++ b/docs/persistence-catalog.md
-@@ -84,7 +84,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- }[T]
- ```
- 
--Sources: [`packages/core/session/src/types.ts:425`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:456`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:487`](../packages/core/session/src/types.ts)
-+Sources: [`packages/core/session/src/types.ts:453`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:461`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:484`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:515`](../packages/core/session/src/types.ts)
- 
- ## Events
- 
-@@ -211,7 +211,7 @@ Source: [`packages/interaction/user-approval/src/index.ts:33`](../packages/inter
- 'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
- ```
- 
--Source: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:384`](../packages/core/session/src/types.ts)
- 
- <a id="assistantmessage--surface"></a>
- 
-@@ -241,7 +241,7 @@ Source: [`packages/core/session/src/types.ts:356`](../packages/core/session/src/
- 
- Types: [TokenUsage](subsystems/llm-streaming.md)
- 
--Source: [`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:370`](../packages/core/session/src/types.ts)
- 
- ### `command/*`
- 
-@@ -413,7 +413,7 @@ Source: [`packages/compaction/compaction/src/types.ts:34`](../packages/compactio
+ #   pnpm run verify-translation-pairing --write docs/config-catalog.md
+-config-catalog.md: 52605874c18be2c021e6f5fcd8bc2cd4b407f3f3
++config-catalog.md: a4d4d22f5c960b6df1193c9fd42eb390ddc5aa5f
+ config-catalog.zh.md: 17fb170cd171ee19ed87ff5d64818068b74ed1e3
+diff --git a/docs/config-catalog.md b/docs/config-catalog.md
+index 52605874c1..a4d4d22f5c 100644
+--- a/docs/config-catalog.md
++++ b/docs/config-catalog.md
+@@ -213,7 +213,7 @@ export interface Config {
  }
  ```
  
--Source: [`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:340`](../packages/core/session/src/types.ts)
+-Source: [`packages/api/session-controller/src/index.ts:71`](../packages/api/session-controller/src/index.ts)
++Source: [`packages/api/session-controller/src/index.ts:72`](../packages/api/session-controller/src/index.ts)
  
- ### `deliverables/*`
+ <a id="deepseek-aidsh-api-settings-controller"></a>
  
-@@ -483,6 +483,26 @@ Source: [`packages/feedback/command-feedback/src/types.ts:40`](../packages/feedb
- 
- Source: [`packages/goal/goal/src/domain.ts:66`](../packages/goal/goal/src/domain.ts)
- 
-+### `history/*`
-+
-+<a id="historyselected--log-only"></a>
-+
-+#### `history/selected` — log-only
-+
-+```ts persistence-catalog
-+/** Select existing execution records without rewriting the log or event coordinates. */
-+'history/selected': {
-+  /** Monotonic selection identity, starting at one. */
-+  version: number
-+  /** Inclusive, ordered ranges of preceding raw records. */
-+  ranges: readonly SessionHistoryRange[]
-+  /** Consumer-owned immutable facts committed with this selection. */
-+  metadata: unknown
-+}
-+```
-+
-+Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
-+
- ### `hook/*`
- 
- <a id="hookinvoked--log-only"></a>
-@@ -624,7 +644,7 @@ Source: [`packages/plan/plan-mode/src/index.ts:47`](../packages/plan/plan-mode/s
- 'request/context': RequestContext
- ```
- 
--Source: [`packages/core/session/src/types.ts:398`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:426`](../packages/core/session/src/types.ts)
- 
- <a id="requestheader--log-only"></a>
- 
-@@ -643,7 +663,7 @@ Source: [`packages/core/session/src/types.ts:398`](../packages/core/session/src/
- }
- ```
- 
--Source: [`packages/core/session/src/types.ts:386`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:414`](../packages/core/session/src/types.ts)
- 
- ### `sandbox/*`
- 
-@@ -709,7 +729,7 @@ Source: [`packages/schedule/schedule/src/types.ts:219`](../packages/schedule/sch
- }
- ```
- 
--Source: [`packages/core/session/src/types.ts:319`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
- 
- <a id="sessionend-seed--log-only"></a>
- 
-@@ -741,7 +761,7 @@ Source: [`packages/core/session/src/types.ts:319`](../packages/core/session/src/
- 'session/end-seed': { inherited?: true }
- ```
- 
--Source: [`packages/core/session/src/types.ts:421`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:449`](../packages/core/session/src/types.ts)
- 
- <a id="sessiontitle--log-only"></a>
- 
-@@ -803,7 +823,7 @@ Source: [`packages/session/session-log-deepseek/src/types.ts:81`](../packages/se
- 'step/end': { turn: number; step: number }
- ```
- 
--Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
- 
- <a id="stepstart--log-only"></a>
- 
-@@ -814,7 +834,7 @@ Source: [`packages/core/session/src/types.ts:289`](../packages/core/session/src/
- 'step/start': { turn: number; step: number }
- ```
- 
--Source: [`packages/core/session/src/types.ts:287`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
- 
- ### `subagent/*`
- 
-@@ -890,7 +910,7 @@ Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../p
- 'system/message': { turn: number; step: number; message: SystemMessage }
- ```
- 
--Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:338`](../packages/core/session/src/types.ts)
- 
- ### `team/*`
- 
-@@ -983,7 +1003,7 @@ Source: [`packages/todo/tool-todo/src/types.ts:31`](../packages/todo/tool-todo/s
- 
- Types: [ToolCallId](subsystems/core.md)
- 
--Source: [`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:390`](../packages/core/session/src/types.ts)
- 
- <a id="toolptc-dispatch--log-only"></a>
- 
-@@ -1059,7 +1079,7 @@ Source: [`packages/core/tools/src/types.ts:40`](../packages/core/tools/src/types
- }
- ```
- 
--Source: [`packages/core/session/src/types.ts:374`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:402`](../packages/core/session/src/types.ts)
- 
- ### `tool-workflow/*`
- 
-@@ -1139,7 +1159,7 @@ Source: [`packages/workflow/tool-workflow/src/types.ts:47`](../packages/workflow
- 
- Types: [TurnEndReason](subsystems/session.md)
- 
--Source: [`packages/core/session/src/types.ts:285`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:313`](../packages/core/session/src/types.ts)
- 
- <a id="turnstart--log-only"></a>
- 
-@@ -1155,7 +1175,7 @@ Source: [`packages/core/session/src/types.ts:285`](../packages/core/session/src/
- 'turn/start': { turn: number }
- ```
- 
--Source: [`packages/core/session/src/types.ts:276`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:304`](../packages/core/session/src/types.ts)
- 
- ### `user/*`
- 
-@@ -1174,7 +1194,7 @@ Source: [`packages/core/session/src/types.ts:276`](../packages/core/session/src/
- 'user/message': UserMessage
- ```
- 
--Source: [`packages/core/session/src/types.ts:297`](../packages/core/session/src/types.ts)
-+Source: [`packages/core/session/src/types.ts:325`](../packages/core/session/src/types.ts)
- 
- ### `web/*`
- 
-diff --git a/docs/persistence-catalog.zh.md b/docs/persistence-catalog.zh.md
-index 2cd1359..ea03be1 100644
---- a/docs/persistence-catalog.zh.md
-+++ b/docs/persistence-catalog.zh.md
-@@ -86,7 +86,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- }[T]
- ```
- 
--来源：[`packages/core/session/src/types.ts:425`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:433`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:456`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:487`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:453`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:461`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:484`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:515`](../packages/core/session/src/types.ts)
- 
- ## 事件
- 
-@@ -213,7 +213,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'assistant/attempt': { turn: number; step: number; stream: AssistantStreamRecord[] }
- ```
- 
--来源：[`packages/core/session/src/types.ts:356`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:384`](../packages/core/session/src/types.ts)
- 
- <a id="assistantmessage--surface"></a>
- 
-@@ -243,7 +243,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
- 类型：[TokenUsage](subsystems/llm-streaming.zh.md)
- 
--来源：[`packages/core/session/src/types.ts:342`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:370`](../packages/core/session/src/types.ts)
- 
- ### `command/*`
- 
-@@ -415,7 +415,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- }
- ```
- 
--来源： [`packages/core/session/src/types.ts:312`](../packages/core/session/src/types.ts)
-+来源： [`packages/core/session/src/types.ts:340`](../packages/core/session/src/types.ts)
- 
- ### `deliverables/*`
- 
-@@ -485,6 +485,26 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
- 来源：[`packages/goal/goal/src/domain.ts:66`](../packages/goal/goal/src/domain.ts)
- 
-+### `history/*`
-+
-+<a id="historyselected--log-only"></a>
-+
-+#### `history/selected` — 仅日志
-+
-+```ts persistence-catalog
-+/** Select existing execution records without rewriting the log or event coordinates. */
-+'history/selected': {
-+  /** Monotonic selection identity, starting at one. */
-+  version: number
-+  /** Inclusive, ordered ranges of preceding raw records. */
-+  ranges: readonly SessionHistoryRange[]
-+  /** Consumer-owned immutable facts committed with this selection. */
-+  metadata: unknown
-+}
-+```
-+
-+来源： [`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
-+
- ### `hook/*`
- 
- <a id="hookinvoked--log-only"></a>
-@@ -626,7 +646,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'request/context': RequestContext
- ```
- 
--来源：[`packages/core/session/src/types.ts:398`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:426`](../packages/core/session/src/types.ts)
- 
- <a id="requestheader--log-only"></a>
- 
-@@ -645,7 +665,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- }
- ```
- 
--来源：[`packages/core/session/src/types.ts:386`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:414`](../packages/core/session/src/types.ts)
- 
- ### `sandbox/*`
- 
-@@ -711,7 +731,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- }
- ```
- 
--来源： [`packages/core/session/src/types.ts:319`](../packages/core/session/src/types.ts)
-+来源： [`packages/core/session/src/types.ts:347`](../packages/core/session/src/types.ts)
- 
- <a id="sessionend-seed--log-only"></a>
- 
-@@ -743,7 +763,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'session/end-seed': { inherited?: true }
- ```
- 
--来源：[`packages/core/session/src/types.ts:421`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:449`](../packages/core/session/src/types.ts)
- 
- <a id="sessiontitle--log-only"></a>
- 
-@@ -805,7 +825,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'step/end': { turn: number; step: number }
- ```
- 
--来源：[`packages/core/session/src/types.ts:289`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:317`](../packages/core/session/src/types.ts)
- 
- <a id="stepstart--log-only"></a>
- 
-@@ -816,7 +836,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'step/start': { turn: number; step: number }
- ```
- 
--来源：[`packages/core/session/src/types.ts:287`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:315`](../packages/core/session/src/types.ts)
- 
- ### `subagent/*`
- 
-@@ -892,7 +912,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'system/message': { turn: number; step: number; message: SystemMessage }
- ```
- 
--来源：[`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:338`](../packages/core/session/src/types.ts)
- 
- ### `team/*`
- 
-@@ -985,7 +1005,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
- 类型：[ToolCallId](subsystems/core.zh.md)
- 
--来源：[`packages/core/session/src/types.ts:362`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:390`](../packages/core/session/src/types.ts)
- 
- <a id="toolptc-dispatch--log-only"></a>
- 
-@@ -1061,7 +1081,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- }
- ```
- 
--来源：[`packages/core/session/src/types.ts:374`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:402`](../packages/core/session/src/types.ts)
- 
- ### `tool-workflow/*`
- 
-@@ -1141,7 +1161,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 
- 类型：[TurnEndReason](subsystems/session.zh.md)
- 
--来源：[`packages/core/session/src/types.ts:285`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:313`](../packages/core/session/src/types.ts)
- 
- <a id="turnstart--log-only"></a>
- 
-@@ -1157,7 +1177,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'turn/start': { turn: number }
- ```
- 
--来源：[`packages/core/session/src/types.ts:276`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:304`](../packages/core/session/src/types.ts)
- 
- ### `user/*`
- 
-@@ -1176,7 +1196,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
- 'user/message': UserMessage
- ```
- 
--来源：[`packages/core/session/src/types.ts:297`](../packages/core/session/src/types.ts)
-+来源：[`packages/core/session/src/types.ts:325`](../packages/core/session/src/types.ts)
- 
- ### `web/*`
- 
-diff --git a/docs/subsystems/session.i18n.yaml b/docs/subsystems/session.i18n.yaml
-index abc4e89..27644ca 100644
---- a/docs/subsystems/session.i18n.yaml
-+++ b/docs/subsystems/session.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write docs/subsystems/session.md
--session.md: 7f25e0938d3d62496d05d889db0c4e8b7432c48f
--session.zh.md: 562a072a06844402be4e46e0b9d4c399f3e4f140
-+session.md: 76679cb6726d0fdf673f2ba44ca917b649e5b3e5
-+session.zh.md: 4f3b5124bb474fbfc7be49e8eed34b3b9d1c452b
-diff --git a/docs/subsystems/session.md b/docs/subsystems/session.md
-index 7f25e09..76679cb 100644
---- a/docs/subsystems/session.md
-+++ b/docs/subsystems/session.md
-@@ -25,6 +25,16 @@ interface UserMessage extends Message {
-  * compact raw streams so persistence stores one durable settlement per attempt.
-  */
- interface SessionEventMap {
-+  /** Select existing execution records without rewriting the log or event coordinates. */
-+  'history/selected': {
-+    /** Monotonic selection identity, starting at one. */
-+    version: number
-+    /** Inclusive, ordered ranges of preceding raw records. */
-+    ranges: readonly SessionHistoryRange[]
-+    /** Consumer-owned immutable facts committed with this selection. */
-+    metadata: unknown
-+  }
-+
-   /**
-    * Opens turn `turn` before the loop claims queued input or runs pre-step.
-    * Rejection, empty input, cancellation, or failure may close it with no
-@@ -515,6 +525,12 @@ declare class Session {
-     fromSeq: SessionLogOffset = SessionLogOffset(0),
-     toSeqExclusive: SessionLogOffset = this.seq,
-   ): readonly SessionEvent[];
-+  /**
-+   * Read a fixed selected execution history independently of model-message assembly.
-+   * @returns raw coordinates and immutable selected records at this read position.
-+   */
-+  readHistory(): Promise<{ version: number; through: SessionLogOffset; events: readonly SessionEvent[] }>;
-+
-   /**
-    * Return this Session's events after its fork-inherited prefix.
-    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
-@@ -1227,16 +1243,16 @@ Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/i
- 
- #### `session/prompt-admission` — waterfall
- 
--Validate a fully resolved real user message and attach durable admission metadata.
-+Validate a resolved real user message or acknowledge an already persisted input.
- 
- ```ts cordis-catalog
- /**
-- * Validate a fully resolved real user message and attach durable admission metadata.
-+ * Validate a resolved real user message or acknowledge an already persisted input.
-  * @mode waterfall
-  * @param agent - target Agent.
-  * @param message - validated user content, including its stable request identity.
-  */
--'session/prompt-admission'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage>): Promise<UserMessage>
-+'session/prompt-admission'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage | null>): Promise<UserMessage | null>
- ```
- 
- Types: [Agent](core.md)
-diff --git a/docs/subsystems/session.zh.md b/docs/subsystems/session.zh.md
-index 562a072..4f3b512 100644
---- a/docs/subsystems/session.zh.md
-+++ b/docs/subsystems/session.zh.md
-@@ -25,6 +25,16 @@ interface UserMessage extends Message {
-  * compact raw streams so persistence stores one durable settlement per attempt.
-  */
- interface SessionEventMap {
-+  /** Select existing execution records without rewriting the log or event coordinates. */
-+  'history/selected': {
-+    /** Monotonic selection identity, starting at one. */
-+    version: number
-+    /** Inclusive, ordered ranges of preceding raw records. */
-+    ranges: readonly SessionHistoryRange[]
-+    /** Consumer-owned immutable facts committed with this selection. */
-+    metadata: unknown
-+  }
-+
-   /**
-    * Opens turn `turn` before the loop claims queued input or runs pre-step.
-    * Rejection, empty input, cancellation, or failure may close it with no
-@@ -517,6 +527,12 @@ declare class Session {
-     fromSeq: SessionLogOffset = SessionLogOffset(0),
-     toSeqExclusive: SessionLogOffset = this.seq,
-   ): readonly SessionEvent[];
-+  /**
-+   * Read a fixed selected execution history independently of model-message assembly.
-+   * @returns raw coordinates and immutable selected records at this read position.
-+   */
-+  readHistory(): Promise<{ version: number; through: SessionLogOffset; events: readonly SessionEvent[] }>;
-+
-   /**
-    * Return this Session's events after its fork-inherited prefix.
-    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
-@@ -1231,16 +1247,16 @@ Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/i
- 
- #### `session/prompt-admission` — waterfall
- 
--Validate a fully resolved real user message and attach durable admission metadata.
-+Validate a resolved real user message or acknowledge an already persisted input.
- 
- ```ts cordis-catalog
- /**
-- * Validate a fully resolved real user message and attach durable admission metadata.
-+ * Validate a resolved real user message or acknowledge an already persisted input.
-  * @mode waterfall
-  * @param agent - target Agent.
-  * @param message - validated user content, including its stable request identity.
-  */
--'session/prompt-admission'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage>): Promise<UserMessage>
-+'session/prompt-admission'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage | null>): Promise<UserMessage | null>
- ```
- 
- Types: [Agent](core.zh.md)
 diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
-index ace8c62..954d01b 100644
+index ace8c6230e..97681939ff 100644
 --- a/packages/api/session-controller/README.i18n.yaml
 +++ b/packages/api/session-controller/README.i18n.yaml
 @@ -2,5 +2,5 @@
@@ -736,30 +138,34 @@ index ace8c62..954d01b 100644
  #   pnpm run verify-translation-pairing --write packages/api/session-controller/README.md
 -README.md: 9f992823781453d93b69d33409c9a6f34de4aaac
 -README.zh.md: 71ba170c465dc27b9c81da88901ba03971c1ef4e
-+README.md: 0d234ab4faf91dad1dbecbb7507f817e465a29de
-+README.zh.md: 6e73bdde103927ef927cb3970edf604d81eb62e2
++README.md: 510b46fe94aed7ae9c405494c84a43a250889891
++README.zh.md: 9d9af51db0e659577b2db53018fe95f3ff3af2cc
 diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
-index 9f99282..0d234ab 100644
+index 9f99282378..510b46fe94 100644
 --- a/packages/api/session-controller/README.md
 +++ b/packages/api/session-controller/README.md
-@@ -91,3 +91,5 @@ None.
+@@ -91,3 +91,7 @@ None.
  **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.
  
  Session list metadata treats presentation.initialized as visible content before the first turn and retains an optional producer purpose label. Search first returns current user, assistant and authored-context messages, then adds distinct sessions whose log-only configuration explicitly declares searchable presentation.text. Arbitrary configuration values and shadowed messages remain excluded. Each search class has the existing bounded work budget; results share the ordinary total result limit.
 +
 +Prompt admission receives an optional expected historyVersion. Consumers validate it under the existing maintenance guard. An admission listener may return null for an already durably accepted request, preventing another enqueue. Client snapshots carry historySelection independently of the loaded event window and load selected history after opening.
++
++Host integrations submit user input through submitUserInput with a fresh request identity, durable attachments and consumer admission data. This entry is not a Remote method. It shares model and attachment validation, session/prompt-admission and enqueue with ordinary prompt. After validation, session/prompt-accepted persists acceptance before enqueue; failure prevents enqueue but cannot undo facts already saved. Retries use the same request identity and do not repeat admission.
 diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
-index 71ba170..6e73bdd 100644
+index 71ba170c46..9d9af51db0 100644
 --- a/packages/api/session-controller/README.zh.md
 +++ b/packages/api/session-controller/README.zh.md
-@@ -91,3 +91,5 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用
+@@ -91,3 +91,7 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用
  **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。
  
  会话列表元数据将 presentation.initialized 视为首轮前已有可见内容，并保留可选的生产者用途标签。搜索先返回当前 user、assistant 和预置上下文消息，再补充只在日志配置中明确声明了可搜索 presentation.text 的其他会话。任意配置值和被替换消息仍不参与搜索。每类查询使用已有的工作量上限，结果共用原有总数限制。
 +
 +提示词接纳接收可选的预期 historyVersion，消费者在现有维护保护中校验。接纳监听器可以为已经持久接纳的请求返回 null，避免再次入队。客户端快照独立携带 historySelection，不受已加载事件窗口限制；打开后加载选中的历史。
++
++Host 集成通过 submitUserInput 提交用户输入，使用新请求身份、已持久保存的附件及调用方接纳资料。该入口不暴露为 Remote 方法。它与普通 prompt 共用模型与附件校验、session/prompt-admission 和入队处理。校验通过后，session/prompt-accepted 在入队前持久记录接纳结果；此阶段失败会阻止入队，但不能撤销已经保存的事实。重试使用相同请求身份，不重复接纳。
 diff --git a/packages/api/session-controller/src/client/contract/events.ts b/packages/api/session-controller/src/client/contract/events.ts
-index bc825f0..05cd9f5 100644
+index bc825f08fd..05cd9f5676 100644
 --- a/packages/api/session-controller/src/client/contract/events.ts
 +++ b/packages/api/session-controller/src/client/contract/events.ts
 @@ -1,7 +1,7 @@
@@ -813,7 +219,7 @@ index bc825f0..05cd9f5 100644
    }
  }
 diff --git a/packages/api/session-controller/src/client/sessions/session.ts b/packages/api/session-controller/src/client/sessions/session.ts
-index 2945f0b..1f59f7b 100644
+index 2945f0b5c4..1f59f7b226 100644
 --- a/packages/api/session-controller/src/client/sessions/session.ts
 +++ b/packages/api/session-controller/src/client/sessions/session.ts
 @@ -5,7 +5,7 @@ import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
@@ -887,10 +293,19 @@ index 2945f0b..1f59f7b 100644
      for (const entry of visible) this.observeSubmissionEvent(entry.event)
      this.notifier.markDirty()
 diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
-index e9adb7f..4211334 100644
+index e9adb7feb5..5a0d15ac97 100644
 --- a/packages/api/session-controller/src/commands.ts
 +++ b/packages/api/session-controller/src/commands.ts
-@@ -55,12 +55,12 @@ import type {
+@@ -6,7 +6,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
+ import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
+ import { AttachmentError } from '@deepseek-ai/dsh-attachment'
+ import type {
+-  AttachmentAdmissionPart, FileAttachmentRef, ImageAttachmentRef,
++  AttachmentAdmissionPart, AdmittedPromptContentPart, FileAttachmentRef, ImageAttachmentRef,
+ } from '@deepseek-ai/dsh-attachment'
+ import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/types'
+ import type {} from '@deepseek-ai/dsh-client-file-upload'
+@@ -55,12 +55,19 @@ import type {
  declare module '@deepseek-ai/cordis' {
    interface Events {
      /**
@@ -902,28 +317,200 @@ index e9adb7f..4211334 100644
       */
 -    'session/prompt-admission'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage>): Promise<UserMessage>
 +    'session/prompt-admission'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage | null>): Promise<UserMessage | null>
++    /**
++     * Persist validated input before enqueue. A failure prevents enqueue but cannot undo prior writes.
++     * @mode serial
++     * @param agent - target Agent protected by prompt admission.
++     * @param message - user input accepted by every validation listener.
++     */
++    'session/prompt-accepted'(agent: Agent, message: UserMessage): Promise<void> | void
      /**
       * Validate a freshly created or adopted Session before returning it to its caller.
       * @mode serial
-@@ -357,6 +357,7 @@ export class SessionCommandController {
+@@ -71,18 +78,22 @@ declare module '@deepseek-ai/cordis' {
+   }
+ }
+ 
++/** Host-owned user submission with already durable attachments. */
++export interface HostUserInput extends Omit<SessionPromptRequest, 'content'> {
++  /** Text and attachment references obtained from trusted Session records. */
++  readonly content: readonly AdmittedPromptContentPart[]
++  /** Consumer-owned admission data; not accepted by the public prompt RPC. */
++  readonly admission: Readonly<Record<string, unknown>>
++}
++
+ interface SessionReadState {
+   readonly id: SessionId
+   readonly header: SessionHeader
+   readonly events: readonly SessionEvent[]
+ }
+ 
+-type PromptContentCandidate =
+-  | SessionPromptRequest['content'][number]
+-  | Extract<SessionUpdateQueueRequest['action'], { readonly kind: 'edit' }>['content'][number]
+-
+-function hasPromptContent(content: readonly PromptContentCandidate[]): boolean {
+-  return content.some(part => part.type !== 'text' || part.text.trim().length > 0)
++function hasPromptContent(content: readonly { readonly type: string; readonly text?: string }[]): boolean {
++  return content.some(part => part.type !== 'text' || (part.text ?? '').trim().length > 0)
+ }
+ 
+ /** Implements Session business commands delegated by the Session Controller Remote service. */
+@@ -326,7 +337,21 @@ export class SessionCommandController {
+    * @param request - Session identity, prompt content, source metadata, and delivery mode.
+    * @returns acknowledgement that the Agent accepted the prompt.
+    */
+-  async prompt(request: SessionPromptRequest): Promise<SessionPromptValue> {
++  prompt(request: SessionPromptRequest): Promise<SessionPromptValue> {
++    return this.acceptPrompt({ kind: 'wire', request })
++  }
++
++  /**
++   * Admit Host-owned user content through the ordinary prompt pipeline.
++   * @param request - fresh request identity, durable content and consumer admission data.
++   * @returns acknowledgement after admission and enqueue, or durable deduplication.
++   */
++  submitUserInput(request: HostUserInput): Promise<SessionPromptValue> {
++    return this.acceptPrompt({ kind: 'host', request })
++  }
++
++  private async acceptPrompt(submission: { kind: 'wire'; request: SessionPromptRequest } | { kind: 'host'; request: HostUserInput }): Promise<SessionPromptValue> {
++    const { request } = submission
+     if (!hasPromptContent(request.content)) {
+       throw new RemoteError(
+         'gateway/bad-request',
+@@ -346,22 +371,25 @@ export class SessionCommandController {
+     }
+     const agent = await this.resolveAgent(request.sessionId)
+     if (hasPromptRequest(agent, request.requestId)) return { accepted: true }
+-    const selection = this.agents.selectionFor(agent).current
+-    if (!routeServed(this.ctx, selection.provider)) {
+-      throw new RemoteError(
+-        'session/model-unavailable',
+-        `no adapter serves provider "${selection.provider}"; select a model for this session`,
+-        { provider: selection.provider, model: selection.model },
+-      )
+-    }
      const source: MessageSource = {
        kind: 'user',
        rpcId: request.requestId,
-+      ...(request.historyVersion === undefined ? {} : { admission: { historyVersion: request.historyVersion } }),
++      ...('admission' in request || request.historyVersion !== undefined ? { admission: { ...('admission' in request ? request.admission : {}), ...(request.historyVersion === undefined ? {} : { historyVersion: request.historyVersion }) } } : {}),
        ...(clientTimeZone === undefined ? {} : { clientTimeZone }),
      }
      const hasImage = request.content.some(part => part.type === 'image')
-@@ -387,7 +388,7 @@ export class SessionCommandController {
+-    const admit = async (): Promise<SessionPromptValue> => {
++    const admit = async (signal?: AbortSignal): Promise<SessionPromptValue> => {
+       try {
++        signal?.throwIfAborted()
++        const selection = this.agents.selectionFor(agent).current
++        if (!routeServed(this.ctx, selection.provider)) {
++          throw new RemoteError(
++            'session/model-unavailable',
++            `no adapter serves provider "${selection.provider}"; select a model for this session`,
++            { provider: selection.provider, model: selection.model },
++          )
++        }
++
+         if (hasImage) {
+           const current = this.agents.selectionFor(agent).current
+           const model = await this.ctx.llm.resolveModelInfo(current.provider, current.model)
+@@ -373,12 +401,25 @@ export class SessionCommandController {
+             )
+           }
+         }
+-        const admission = resolvePromptFileReceipts(
+-          request.content,
+-          receiptId => this.ctx.fileUploads.resolve(agent, receiptId),
+-        )
+-        const content = await this.ctx.attachments.admitPromptContent(admission.content)
+-        const input: UserMessage = createUserMessage({ content, source })
++        let receiptIds: readonly FileUploadReceiptId[] = []
++        let content: readonly AdmittedPromptContentPart[]
++        if (submission.kind === 'host') {
++          content = submission.request.content
++          for (const part of content) {
++            if (part.type === 'image') await this.ctx.attachments.readImage(part.attachment, signal)
++            if (part.type === 'file') {
++              for await (const chunk of this.ctx.attachments.readFileStream(part.attachment, signal)) void chunk
++            }
++          }
++        } else {
++          const admission = resolvePromptFileReceipts(
++            submission.request.content, receiptId => this.ctx.fileUploads.resolve(agent, receiptId),
++          )
++          receiptIds = admission.receiptIds
++          content = await this.ctx.attachments.admitPromptContent(admission.content)
++        }
++        signal?.throwIfAborted()
++        const input: UserMessage = createUserMessage({ content: [...content], source })
+         const message = await this.ctx.waterfall('session/prompt-admission', agent, input, () => Promise.resolve(input))
+         if (this.ctx.agents.get(agent.id) !== agent) {
+           throw new RemoteError(
+@@ -387,8 +428,10 @@ export class SessionCommandController {
              { sessionId: agent.id },
            )
          }
 -        if (hasPromptRequest(agent, request.requestId)) return { accepted: true }
+-        using binding = this.ctx.fileUploads.bindPrompt(agent, admission.receiptIds, request.requestId)
 +        if (message === null || hasPromptRequest(agent, request.requestId)) return { accepted: true }
-         using binding = this.ctx.fileUploads.bindPrompt(agent, admission.receiptIds, request.requestId)
++        signal?.throwIfAborted()
++        using binding = this.ctx.fileUploads.bindPrompt(agent, receiptIds, request.requestId)
++        await this.ctx.serial('session/prompt-accepted', agent, message)
          if (request.mode === 'steer') agent.steer(message)
          else agent.followup(message)
+         binding.commit()
+@@ -401,7 +444,7 @@ export class SessionCommandController {
+       }
+       return { accepted: true }
+     }
+-    const guarded = () => agent.status === 'idle' ? agent.runMaintenance(async () => admit()) : admit()
++    const guarded = () => agent.status === 'idle' ? agent.runMaintenance(signal => admit(signal)) : admit()
+     return hasImage ? this.agents.serializeImageAdmission(agent, guarded) : guarded()
+   }
+ 
+@@ -621,8 +664,8 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
+   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
+   return agent.session.snapshotEvents().some((event) => {
+     if (event.type === 'agent/inbox/spliced') return event.data.inserted.some(matches)
+-    if (event.type !== 'user/message') return false
+-    const source = event.data.source
++    if (event.type !== 'user/message' && event.type !== 'context/message') return false
++    const source = event.type === 'user/message' ? event.data.source : event.data.message.source
+     return source.kind === 'user' && 'rpcId' in source && source.rpcId === requestId
+   })
+ }
+diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
+index be6e8d7ebc..0289f543ac 100644
+--- a/packages/api/session-controller/src/index.ts
++++ b/packages/api/session-controller/src/index.ts
+@@ -15,7 +15,8 @@ import {
+   inspectApiSession,
+   type ApiSessionAgentResult,
+ } from './agent.ts'
+-import { SessionCommandController } from './commands.ts'
++import { SessionCommandController, type HostUserInput } from './commands.ts'
++export type { HostUserInput } from './commands.ts'
+ import { SessionControlController } from './control.ts'
+ import { SessionHistoryController } from './history.ts'
+ import { SessionFileReferences } from './file-references.ts'
+@@ -349,6 +350,15 @@ export class SessionController extends TypertRemoteService {
+     return this.commands.prompt(request)
+   }
+ 
++  /**
++   * Submit user-authored content retained by a trusted Host integration.
++   * @param request - fresh submission identity, durable attachments and admission data.
++   * @returns acknowledgement from the shared prompt admission pipeline.
++   */
++  submitUserInput(request: HostUserInput): Promise<SessionPromptValue> {
++    return this.commands.submitUserInput(request)
++  }
++
+   /**
+    * Read one image proven reachable from the addressed Session log.
+    * @param request - Session and attachment identities used for authorization.
 diff --git a/packages/api/session-controller/src/types.ts b/packages/api/session-controller/src/types.ts
-index c223dd4..3478aba 100644
+index c223dd47c8..3478abac21 100644
 --- a/packages/api/session-controller/src/types.ts
 +++ b/packages/api/session-controller/src/types.ts
 @@ -319,6 +319,8 @@ export interface SessionPromptRequest {
@@ -936,7 +523,7 @@ index c223dd4..3478aba 100644
  
  /** Receipt after one prompt enters the target Agent inbox. */
 diff --git a/packages/api/session-controller/tests/commands-upload-file.host.spec.ts b/packages/api/session-controller/tests/commands-upload-file.host.spec.ts
-index 426c967..73287fd 100644
+index 426c967f66..ceeb8b222d 100644
 --- a/packages/api/session-controller/tests/commands-upload-file.host.spec.ts
 +++ b/packages/api/session-controller/tests/commands-upload-file.host.spec.ts
 @@ -486,6 +486,7 @@ describe('durable prompt admission', () => {
@@ -947,8 +534,80 @@ index 426c967..73287fd 100644
          return { ...message, source: { ...message.source, admission: { fixture: { version: 1 } } } }
        })
        followup.mockImplementation((message: UserMessage) => {
+@@ -502,3 +503,71 @@ describe('durable prompt admission', () => {
+     } finally { await ctx.fiber.dispose() }
+   })
+ })
++
++
++describe('Host user input admission', () => {
++  it('shares validation and commit ordering while assigning a fresh user identity', async () => {
++    const { ctx, controller, agent, followup, saveImages, saveFile } = await uploadHarness()
++    const accepted: UserMessage[] = []
++    try {
++      ctx.on('session/prompt-admission', async (_agent, message, next) => {
++        expect(message.source.kind).toBe('user')
++        return next()
++      })
++      ctx.on('session/prompt-accepted', (_agent, message) => { accepted.push(message) })
++      await controller.prompt({ sessionId: agent.id, requestId: 'ordinary' as SessionRequestId, mode: 'queue', content: [{ type: 'text', text: 'Same input' }] })
++      await controller.submitUserInput({ sessionId: agent.id, requestId: 'repeated' as SessionRequestId, mode: 'queue', content: [{ type: 'text', text: 'Same input' }], admission: { consumer: 'retained-history' } })
++      expect(followup).toHaveBeenCalledTimes(2)
++      const first = followup.mock.calls[0]![0], repeated = followup.mock.calls[1]![0]
++      expect(repeated.content).toEqual(first.content)
++      expect(repeated.id).not.toBe(first.id)
++      expect(repeated.source).toMatchObject({ kind: 'user', rpcId: 'repeated', admission: { consumer: 'retained-history' } })
++      expect(accepted).toEqual([first, repeated])
++      expect(saveImages).not.toHaveBeenCalled(); expect(saveFile).not.toHaveBeenCalled()
++    } finally { await ctx.fiber.dispose() }
++  })
++
++  it('does not commit or enqueue when a validation listener rejects the input', async () => {
++    const { ctx, controller, agent, followup } = await uploadHarness()
++    const commit = vi.fn()
++    try {
++      ctx.on('session/prompt-accepted', commit)
++      ctx.on('session/prompt-admission', async (_agent, _message, next) => { await next(); throw new Error('input rejected') })
++      await expect(controller.submitUserInput({ sessionId: agent.id, requestId: 'rejected' as SessionRequestId, mode: 'queue', content: [{ type: 'text', text: 'Input' }], admission: {} })).rejects.toThrow('prompt rejected')
++      expect(commit).not.toHaveBeenCalled(); expect(followup).not.toHaveBeenCalled()
++    } finally { await ctx.fiber.dispose() }
++  })
++
++  it('rejects unavailable models and unsupported retained images before acceptance', async () => {
++    const { ctx, controller, agent, followup } = await uploadHarness()
++    const commit = vi.fn(), read = vi.fn()
++    const request = { sessionId: agent.id, requestId: 'image-reuse' as SessionRequestId, mode: 'queue' as const, content: [{ type: 'image' as const, attachment: { attachmentId: AttachmentId('sha256:' + 'ab'.repeat(32)), mediaType: 'image/png' as const, bytes: 3, width: 1, height: 1 } }], admission: {} }
++    try {
++      ctx.on('session/prompt-accepted', commit)
++      ctx.attachments.readImage = read
++      vi.spyOn(ctx.llm, 'listProviders').mockReturnValueOnce([])
++      await expect(controller.submitUserInput(request)).rejects.toMatchObject({ code: 'session/model-unavailable' })
++      vi.spyOn(ctx.llm, 'resolveModelInfo').mockResolvedValueOnce({ provider: 'fixture', id: 'fixture-model', name: 'Fixture', inputModalities: ['text'] })
++      await expect(controller.submitUserInput(request)).rejects.toMatchObject({ code: 'session/attachment-invalid', details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' } })
++      expect(commit).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled(); expect(followup).not.toHaveBeenCalled()
++    } finally { await ctx.fiber.dispose() }
++  })
++
++  it('reads retained files without consuming upload receipts and rejects missing bytes', async () => {
++    const { ctx, controller, agent, followup } = await uploadHarness()
++    const ref: FileAttachmentRef = { attachmentId: AttachmentId(`sha256:${'ab'.repeat(32)}`), name: 'input.txt', bytes: 3 }
++    const read = vi.fn(async function* () { yield new Uint8Array([1, 2, 3]) })
++    const bind = vi.spyOn(ctx.fileUploads, 'bindPrompt')
++    try {
++      ctx.attachments.readFileStream = read
++      const request = { sessionId: agent.id, requestId: 'file-reuse' as SessionRequestId, mode: 'queue' as const, content: [{ type: 'file' as const, attachment: ref }], admission: {} }
++      await controller.submitUserInput(request)
++      expect(read).toHaveBeenCalledWith(ref, expect.any(AbortSignal))
++      expect(bind.mock.calls[0]?.[1]).toEqual([])
++      expect(followup.mock.calls[0]![0].content).toEqual(request.content)
++      read.mockImplementation(async function* () { yield await Promise.reject(new Error('missing file')) })
++      await expect(controller.submitUserInput({ ...request, requestId: 'missing' as SessionRequestId })).rejects.toThrow('prompt rejected')
++      expect(followup).toHaveBeenCalledTimes(1)
++    } finally { await ctx.fiber.dispose() }
++  })
++})
 diff --git a/packages/api/session-controller/tests/session-projections.host.spec.ts b/packages/api/session-controller/tests/session-projections.host.spec.ts
-index 90ffb10..7842a87 100644
+index 90ffb10456..7842a8754a 100644
 --- a/packages/api/session-controller/tests/session-projections.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-projections.host.spec.ts
 @@ -95,7 +95,7 @@ const lastUserUnit = () => ({
@@ -960,44 +619,8 @@ index 90ffb10..7842a87 100644
    },
    stateVersion: 1,
  }) satisfies ProjectionDefinition<'test/last-user', LastUserState>
-diff --git a/packages/client/ui-chat/README.i18n.yaml b/packages/client/ui-chat/README.i18n.yaml
-index 1f730c1..4b5e9e8 100644
---- a/packages/client/ui-chat/README.i18n.yaml
-+++ b/packages/client/ui-chat/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/client/ui-chat/README.md
--README.md: 4af338e1b43fb540ecd10d9a605120974e0421c3
--README.zh.md: 22be12234072cb81b8d2992dc980e30ac9345520
-+README.md: 911d634168f2963b04d8a272683df5bf167f1aa0
-+README.zh.md: 7fba43b8f3b120b178d9961253f48fc359f7a29e
-diff --git a/packages/client/ui-chat/README.md b/packages/client/ui-chat/README.md
-index 4af338e..911d634 100644
---- a/packages/client/ui-chat/README.md
-+++ b/packages/client/ui-chat/README.md
-@@ -92,3 +92,7 @@ None.
- **Runtime invariant:** No companion is published. Conversation and Slot registration enforce Chat target consistency.
- 
- Client plugins call ctx.chatPresentation.preserveReplies(preset) to keep every reply-bearing Assistant step visible in Compact mode for that preset. Reasoning within those steps and separate Tool rows still fold. Registrations are effects; disposal restores ordinary behavior. The policy applies equally to live and restored history without changing model requests or the persisted Normal/Compact preference.
-+
-+The conversation.chat.turn-actions chain can replace the default fork controls for a complete turn, including one without closing text. It receives the turn and its raw closing coordinate. Selectors remain pure functions of their owner props.
-+
-+Client plugins call ctx.chatPresentation.preserveUserInputs(producer) to show replayed user input as ordinary user bubbles. The logged producer stays intact, and other injected messages keep their context presentation. Registration and disposal update loaded and live messages. The conversation.chat.user-actions list adds actions beside a user bubble and supplies its raw message sequence.
-diff --git a/packages/client/ui-chat/README.zh.md b/packages/client/ui-chat/README.zh.md
-index 22be122..7fba43b 100644
---- a/packages/client/ui-chat/README.zh.md
-+++ b/packages/client/ui-chat/README.zh.md
-@@ -94,3 +94,7 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点。没有
- **运行时不变式：** 不发布伴生入口。Conversation 与 slot 注册已经强制 Chat target 一致。
- 
- 客户端插件调用 ctx.chatPresentation.preserveReplies(preset)，让指定预设在紧凑模式下保留所有含有回复正文的 Assistant 步骤。其中的思考及独立工具行仍会折叠。登记按 effect 管理，撤销后恢复普通行为。策略对实时与恢复的历史同样生效，不改变模型请求，也不修改已保存的标准／紧凑显示偏好。
-+
-+conversation.chat.turn-actions 链可以替换完整轮次的默认分支控件，包括没有结束正文的轮次。它接收轮次及原始结束坐标。选择器仍是仅依赖所属参数的纯函数。
-+
-+客户端插件调用 ctx.chatPresentation.preserveUserInputs(producer)，让复用的用户输入按普通用户气泡展示。日志中的生产者不变，其他注入消息仍按上下文展示。注册与撤销对已加载和实时消息都生效。conversation.chat.user-actions 列表在用户气泡旁添加操作，并提供消息的原始序号。
 diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
-index da9e1fc..cb9d67d 100644
+index da9e1fc34b..ba58683b48 100644
 --- a/packages/client/ui-chat/src/client/apply.ts
 +++ b/packages/client/ui-chat/src/client/apply.ts
 @@ -106,6 +106,7 @@ export function apply(ctx: Context): void {
@@ -1014,150 +637,25 @@ index da9e1fc..cb9d67d 100644
          return {
 -          hooks: { transcriptView: transcriptView.mode, replyPresets: presentation.presets },
 +          hooks: {
-+            transcriptView: transcriptView.mode, replyPresets: presentation.presets, userInputProducers: presentation.userInputProducers,
++            transcriptView: transcriptView.mode, replyPresets: presentation.presets,
 +          },
            keyedHooks: {
              chatNode: key => chat.getSnapshot().nodes.source(key),
              chatNodeProcess: key => chat.getSnapshot().nodes.processSource(key),
 diff --git a/packages/client/ui-chat/src/client/chat-presentation.ts b/packages/client/ui-chat/src/client/chat-presentation.ts
-index 5660398..72bc287 100644
+index 5660398875..1b6a649da0 100644
 --- a/packages/client/ui-chat/src/client/chat-presentation.ts
 +++ b/packages/client/ui-chat/src/client/chat-presentation.ts
-@@ -12,6 +12,14 @@ export interface IChatPresentation {
+@@ -12,6 +12,7 @@ export interface IChatPresentation {
     * @returns release this registration; also released with the calling plugin.
     */
    preserveReplies(preset: string): () => void
-+  /** Producers whose replayed input uses ordinary user-message chrome. */
-+  readonly userInputProducers: ObservableSnapshot<readonly string[]>
-+  /**
-+   * Present a producer's user-role input as a user bubble without changing provenance.
-+   * @param producer - plugin source identity.
-+   * @returns effect-owned registration disposer.
-+   */
-+  preserveUserInputs(producer: string): () => void
++
  }
  
  declare module '@deepseek-ai/cordis' {
-@@ -24,6 +32,10 @@ declare module '@deepseek-ai/cordis' {
- /** Effect-owned preset policies with observable registration and removal. */
- export class ChatPresentation extends Service implements IChatPresentation {
-   private readonly registrations = new Map<symbol, string>()
-+  private readonly inputRegistrations = new Map<symbol, string>()
-+  private readonly inputStore = createSnapshotStore<readonly string[]>([])
-+  /** Producers retaining user-message presentation. */
-+  readonly userInputProducers: ObservableSnapshot<readonly string[]> = this.inputStore
-   private readonly store = createSnapshotStore<readonly string[]>([])
-   /** Shared immutable preset snapshot. */
-   readonly presets: ObservableSnapshot<readonly string[]> = this.store
-@@ -44,5 +56,18 @@ export class ChatPresentation extends Service implements IChatPresentation {
-     return () => { void dispose() }
-   }
- 
-+  preserveUserInputs(producer: string): () => void {
-+    const dispose = this.ctx.effect(() => {
-+      const id = Symbol(producer)
-+      this.inputRegistrations.set(id, producer)
-+      this.inputStore.set([...new Set(this.inputRegistrations.values())])
-+      return () => {
-+        this.inputRegistrations.delete(id)
-+        this.inputStore.set([...new Set(this.inputRegistrations.values())])
-+      }
-+    }, `chatPresentation.preserveUserInputs(${JSON.stringify(producer)})`)
-+    return () => { void dispose() }
-+  }
-+
-   private publish(): void { this.store.set([...new Set(this.registrations.values())]) }
- }
-diff --git a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
-index 74bfaf5..bdd8d83 100644
---- a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
-+++ b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
-@@ -9,13 +9,14 @@ import { storedTurnProcessEntry } from '../stores.ts'
- import { useSearchableHidden } from './searchable-hidden.ts'
- import css from './ChatView.module.css'
- 
--interface ChatNodeSeatProps extends ChatNodeOwnerProps {
-+interface ChatNodeSeatProps extends Omit<ChatNodeOwnerProps, 'renderUserActions'> {
-   readonly nodeKey: string
-   readonly useChatNode: ChatViewSlotProps['useChatNode']
-   readonly useChatNodeProcess: ChatViewSlotProps['useChatNodeProcess']
-   readonly historyIncomplete: boolean
-   readonly compactTranscript: boolean
-   readonly preserveReplies: boolean
-+  readonly userInputProducers: readonly string[]
-   readonly useStore: ChatViewSlotProps['useStore']
-   readonly actions: ChatViewSlotProps['actions']
-   readonly renderSlot: ChatViewSlotProps['renderSlot']
-@@ -38,12 +39,22 @@ function turnOf(node: ChatNode | undefined): number | undefined {
- 
- /** Subscribe, apply Turn-process visibility, and dispatch one stable Context key. */
- export const ChatNodeSeat = memo(function ChatNodeSeat({
--  nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript, preserveReplies,
-+  nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript, preserveReplies, userInputProducers,
-   cwd, openFile, openSkill, inspectCall, forkAt,
-   loadImage, renderMessageImages, fileMentions, useStore, actions, renderSlot, t,
- }: ChatNodeSeatProps) {
-   const node = useChatNode(nodeKey)
--  const routedNode = node as ChatNode | undefined
-+  const original = node as ChatNode | undefined
-+  const routedNode = useMemo<ChatNode | undefined>(() => {
-+    if (original?.kind !== 'context') return original
-+    const source = original.data.source
-+    return source !== null && typeof source === 'object'
-+      && 'kind' in source && source.kind === 'plugin'
-+      && 'plugin' in source && typeof source.plugin === 'string'
-+      && userInputProducers.includes(source.plugin)
-+      ? { ...original, kind: 'user', data: { ...original.data, kind: 'user' } }
-+      : original
-+  }, [original, userInputProducers])
-   const turn = turnOf(routedNode)
-   const processPresentation = useChatNodeProcess(nodeKey)
-   const processSpec = processPresentation?.spec
-@@ -115,11 +126,12 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
-       forkAt,
-       loadImage,
-       renderMessageImages,
-+      renderUserActions: seq => renderSlot('conversation.chat.user-actions', { seq }),
-       fileMentions,
-       turnProcess,
-     }, [
-     node, cwd, openFile, openSkill, inspectCall, forkAt,
--    loadImage, renderMessageImages, fileMentions, turnProcess,
-+    loadImage, renderMessageImages, fileMentions, turnProcess, renderSlot,
-   ])
-   if (routedNode === undefined || owner === null) return null
-   const turnData = turnDataOf(routedNode)
-diff --git a/packages/client/ui-chat/src/client/chat/ChatView.tsx b/packages/client/ui-chat/src/client/chat/ChatView.tsx
-index 7a19a02..56db124 100644
---- a/packages/client/ui-chat/src/client/chat/ChatView.tsx
-+++ b/packages/client/ui-chat/src/client/chat/ChatView.tsx
-@@ -217,7 +217,7 @@ const ChatNodeList = memo(function ChatNodeList({ order, ...seatProps }: ChatNod
- export function ChatView({
-   useSession, useChat, useChatNode, useChatNodeProcess, useSessions, useStore, actions, renderSlot,
-   sessionId, openFile, openSkill, loadOlder, loadThrough, loadImage, openView, chatScroll, forkAt, fileMentions,
--  useTranscriptView, useProjection, useReplyPresets, t,
-+  useTranscriptView, useProjection, useReplyPresets, useUserInputProducers, t,
- }: ChatViewSlotProps) {
-   const order = useChat(s => s.order)
-   const nodeStore = useChat(s => s.nodes)
-@@ -236,6 +236,7 @@ export function ChatView({
-   const inbox = useSession(s => s.queue)
-   // Workspace root off the session list row: path summaries display relative to it.
-   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
-+  const userInputProducers = useUserInputProducers(producers => producers)
-   const preserveRepliesForPresets = useReplyPresets(presets => presets)
-   const preserveReplies = useSessions((s) => {
-     const preset = s.byId[sessionId]?.projectionValues?.agentPreset
-@@ -793,6 +794,7 @@ export function ChatView({
-             historyIncomplete={hasMore}
-             compactTranscript={compactTranscript}
-             preserveReplies={preserveReplies}
-+            userInputProducers={userInputProducers}
-             useStore={useStore}
-             actions={actions}
-             cwd={cwd}
 diff --git a/packages/client/ui-chat/src/client/chat/MessageItem.tsx b/packages/client/ui-chat/src/client/chat/MessageItem.tsx
-index 0666fe7..49592b9 100644
+index 0666fe7115..49592b9603 100644
 --- a/packages/client/ui-chat/src/client/chat/MessageItem.tsx
 +++ b/packages/client/ui-chat/src/client/chat/MessageItem.tsx
 @@ -313,7 +313,7 @@ export function PendingSubmissionBubble({ submission, renderMessageImages, t }:
@@ -1178,7 +676,7 @@ index 0666fe7..49592b9 100644
            className={css.actions}
            t={t}
 diff --git a/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx b/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
-index 36c76b7..715537d 100644
+index 36c76b7c26..715537d6ee 100644
 --- a/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
 +++ b/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
 @@ -7,7 +7,7 @@ import { assistantText } from './turn-assistant.ts'
@@ -1218,7 +716,7 @@ index 36c76b7..715537d 100644
    )
  })
 diff --git a/packages/client/ui-chat/src/client/chat/register-node-renderers.ts b/packages/client/ui-chat/src/client/chat/register-node-renderers.ts
-index e58ec4a..4da79db 100644
+index e58ec4a9ad..4da79db948 100644
 --- a/packages/client/ui-chat/src/client/chat/register-node-renderers.ts
 +++ b/packages/client/ui-chat/src/client/chat/register-node-renderers.ts
 @@ -48,6 +48,7 @@ export function registerChatNodeRenderers(ctx: Context): void {
@@ -1229,73 +727,86 @@ index e58ec4a..4da79db 100644
        'conversation.chat.turnTail': { kind: 'chain', scope: 'session' },
        'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' },
      },
-diff --git a/packages/client/ui-chat/src/client/contract/slots.ts b/packages/client/ui-chat/src/client/contract/slots.ts
-index 23fae7c..2539b4f 100644
---- a/packages/client/ui-chat/src/client/contract/slots.ts
-+++ b/packages/client/ui-chat/src/client/contract/slots.ts
-@@ -1,4 +1,5 @@
- /** Chat-owned Slot declarations and composed component props. */
-+import type { ReactNode } from 'react'
- import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
- import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
- import type {
-@@ -43,6 +44,12 @@ export interface TurnTailOwnerProps {
-   openFile: (path: string) => void
+diff --git a/packages/client/ui-chat/src/client/conversation-nodes/message.ts b/packages/client/ui-chat/src/client/conversation-nodes/message.ts
+index 3cd6538bd5..b1ddd28197 100644
+--- a/packages/client/ui-chat/src/client/conversation-nodes/message.ts
++++ b/packages/client/ui-chat/src/client/conversation-nodes/message.ts
+@@ -44,42 +44,47 @@ function isCompactionCheckpoint(event: Parameters<ConversationNodeDefinition['ma
+ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
+   kind: 'input-message',
+   target: 'chat',
+-  match: event => event.type === 'user/message'
+-    && isAppendSurfaceEvent(event)
+-    && !isCompactionCheckpoint(event)
+-    ? { id: String(event.data.id), role: 'start' }
+-    : null,
++  match: (event) => {
++    if (event.type !== 'user/message' && event.type !== 'context/message') return null
++    if (!isAppendSurfaceEvent(event) || isCompactionCheckpoint(event)) return null
++    if (event.type === 'user/message') return { id: String(event.data.id), role: 'start' }
++    if (event.data.message.role === 'user' && event.data.message.source.kind === 'user')
++      return { id: String(event.data.message.id), role: 'start' }
++    return null
++  },
+   start: (_context, match, reader) => {
+-    if (match.event.type !== 'user/message') throw new Error('input-message start requires user/message')
++    if (match.event.type !== 'user/message' && match.event.type !== 'context/message') throw new Error('input-message start requires a message')
+     const event = match.event
+-    if (event.data.source.kind !== 'user') {
++    const message = event.type === 'user/message' ? event.data : event.data.message
++    const source = message.source
++    if (source.kind !== 'user') {
+       return {
+         kind: 'context',
+         seq: event.seq,
+         time: event.time,
+-        content: event.data.content,
+-        source: event.data.source,
+-        provenance: contextProvenance(event.data.source),
+-        form: contextForm(event.data.source),
++        content: message.content,
++        source: message.source,
++        provenance: contextProvenance(message.source),
++        form: contextForm(message.source),
+       }
+     }
+     const claimed = reader.previous<InboxState>('inbox-next-step')
+-      ?.state.currentClaimed.has(String(event.data.id)) === true
++      ?.state.currentClaimed.has(String(message.id)) === true
+     return claimed
+       ? {
+         kind: 'steering',
+-        messageId: event.data.id,
++        messageId: message.id,
+         seq: event.seq,
+         time: event.time,
+-        content: event.data.content,
+-        source: event.data.source,
++        content: message.content,
++        source: message.source,
+       }
+       : {
+         kind: 'user',
+         seq: event.seq,
+         time: event.time,
+-        content: event.data.content,
+-        source: event.data.source,
++        content: message.content,
++        source: message.source,
+       }
+   },
+   update: context => context.state,
+@@ -90,7 +95,7 @@ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
  }
  
-+/** Original log position of a durable user-message bubble. */
-+export interface UserActionOwnerProps {
-+  /** Raw Session sequence, unchanged by history selection. */
-+  readonly seq: number
-+}
-+
- /** Owner currency of finalized-assistant actions. */
- export interface AssistantActionOwnerProps {
-   messageId: MessageId
-@@ -92,6 +99,12 @@ export interface ChatNodeOwnerProps {
-    */
-   loadImage: MessageImageLoader
-   renderMessageImages: RenderMessageImages
-+  /**
-+   * Render actions owned by the Chat view beside one durable user bubble.
-+   * @param seq - raw message sequence.
-+   * @returns registered action elements.
-+   */
-+  renderUserActions: (seq: number) => ReactNode
-   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
-   /** Turn-process state when this Node belongs to a projected Turn. */
-   turnProcess?: TurnProcessOwnerProps | undefined
-@@ -135,6 +148,8 @@ export interface ChatViewInjected {
-   hooks: {
-     /** Presets exempting reply text from completed-Turn folding. */
-     replyPresets: ObservableSnapshot<readonly string[]>
-+    /** Plugin producers whose user-role inputs retain user-bubble presentation. */
-+    userInputProducers: ObservableSnapshot<readonly string[]>
-     /** Persisted completed-Turn transcript presentation. */
-     transcriptView: SnapshotStore<TranscriptViewMode>
-   }
-@@ -162,7 +177,7 @@ export interface ChatViewInjected {
- /** Full Chat view props. */
- export type ChatViewSlotProps =
-   PropsRuntime<'conversation.view'>
--  & PropsRenderSlots<'conversation.chat.node' | 'conversation.message.images'>
-+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.message.images' | 'conversation.chat.user-actions'>
-   & PropsStore<ChatStore>
-   & InjectFace<ChatViewInjected>
-   & PropsLocale<'chat'>
-@@ -213,6 +228,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
-      * selector that accepts the owner renders; an all-declined chain is empty.
-      */
-     'conversation.chat.turnTail': { kind: 'chain'; scope: 'session'; owner: TurnTailOwnerProps }
-+    /** Optional in-session history actions replacing the default fork controls. */
-+    'conversation.chat.turn-actions': { kind: 'chain'; scope: 'session'; owner: TurnTailOwnerProps }
-+    /** Ordered actions beside a durable user-message bubble; an empty list adds nothing. */
-+    'conversation.chat.user-actions': { kind: 'list'; scope: 'session'; owner: UserActionOwnerProps }
-     /**
-      * Ordered actions for one finalized assistant message. Each entry receives
-      * the durable message id; a fresh `id` adds an action and reusing one replaces
+ /**
+- * Register the user, steering, and injected-context message contribution.
++ * Register input classification before Chat ordering and process folding.
+  * @param ctx - owning UI Conversation context.
+  */
+ export function registerMessageConversationNode(ctx: Context): void {
 diff --git a/packages/client/ui-chat/src/client/index.ts b/packages/client/ui-chat/src/client/index.ts
-index 3f1db50..33f8df5 100644
+index 3f1db50fd6..33f8df5b54 100644
 --- a/packages/client/ui-chat/src/client/index.ts
 +++ b/packages/client/ui-chat/src/client/index.ts
 @@ -31,7 +31,7 @@ export type { ChatStoreState, ToolCallId, TurnProcessViewEntry } from './contrac
@@ -1307,8 +818,46 @@ index 3f1db50..33f8df5 100644
    ChatNodeViewProps, ChatScrollPosition, ChatStore, ChatViewInjected, ChatViewSlotProps,
    CommandRowOwnerProps, CommandRowProps, MessageImagesProps, OpenFileOptions,
    TurnProcessOwnerProps, TurnTailOwnerProps, UseChat, UseChatNodeTurnData,
+diff --git a/packages/client/ui-chat/tests/__snapshots__/chat-presentation.client.spec.ts.snap b/packages/client/ui-chat/tests/__snapshots__/chat-presentation.client.spec.ts.snap
+new file mode 100644
+index 0000000000..6bf0da085c
+--- /dev/null
++++ b/packages/client/ui-chat/tests/__snapshots__/chat-presentation.client.spec.ts.snap
+@@ -0,0 +1,32 @@
++// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
++
++exports[`orders replayed inputs before thought controls in live and rebuilt Chat history 1`] = `
++{
++  "input": {
++    "content": [
++      {
++        "text": "Replayed question",
++        "type": "text",
++      },
++    ],
++    "kind": "user",
++    "source": {
++      "kind": "user",
++    },
++  },
++  "navigation": [
++    {
++      "prompt": "Replayed question",
++      "response": "Reply",
++      "turn": 1,
++    },
++  ],
++  "order": [
++    "user",
++    "turn-process",
++    "context",
++    "assistant-step",
++    "turn-tail",
++  ],
++}
++`;
 diff --git a/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx b/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx
-index d24a0a3..af0f8d4 100644
+index d24a0a3446..af0f8d436d 100644
 --- a/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx
 +++ b/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx
 @@ -65,7 +65,8 @@ function MessageItem({ node, t: translate, referenceLabels, skillNames }: Messag
@@ -1322,38 +871,81 @@ index d24a0a3..af0f8d4 100644
    switch (node.kind) {
      case 'user':
 diff --git a/packages/client/ui-chat/tests/chat-presentation.client.spec.ts b/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
-index 6192993..e20ad00 100644
+index 61929933d5..5e49283b6c 100644
 --- a/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
 +++ b/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
-@@ -22,3 +22,15 @@ it('publishes late registrations and releases only the disposing owner', async (
+@@ -1,6 +1,11 @@
+ // @vitest-environment jsdom
+ import { Context } from '@deepseek-ai/cordis'
+ import { expect, it, vi } from 'vitest'
++import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
++import { MutableSessionEventSource, type ISessions, type SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
++import { createUserMessage, createAssistantMessage } from '@deepseek-ai/dsh-llm'
++import { SessionId, SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
++import { registerConversationNodes } from '../src/client/conversation-nodes/register.ts'
+ import { ChatPresentation } from '../src/client/chat-presentation.ts'
+ 
+ it('publishes late registrations and releases only the disposing owner', async () => {
+@@ -22,3 +27,54 @@ it('publishes late registrations and releases only the disposing owner', async (
    expect(changed).toHaveBeenCalled()
    unsubscribe(); await provider.dispose()
  })
 +
-+it('retains input producer policies until every registering owner is released', async () => {
-+  const ctx = new Context(), provider = ctx.plugin({ apply: (inner: Context) => { new ChatPresentation(inner) } })
-+  await provider
-+  const service = ctx.chatPresentation, changed = vi.fn(), stop = service.userInputProducers.subscribe(changed)
-+  const first = service.preserveUserInputs('replay-producer'), second = service.preserveUserInputs('replay-producer')
-+  expect(service.userInputProducers.getSnapshot()).toEqual(['replay-producer'])
-+  first(); expect(service.userInputProducers.getSnapshot()).toEqual(['replay-producer'])
-+  second(); expect(service.userInputProducers.getSnapshot()).toEqual([])
-+  expect(changed).toHaveBeenCalledTimes(4)
-+  stop(); await provider.dispose()
++it('orders replayed inputs before thought controls in live and rebuilt Chat history', async () => {
++  const ctx = new Context()
++  new UiConversation(ctx, {} as ISessions)
++  registerConversationNodes(ctx)
++  const feed = new MutableSessionEventSource()
++  const source = { sessionId: SessionId('replayed-chat'), ctx, eventSource: feed } as unknown as SessionBinding
++  const binding = ctx.uiConversation.binding(source)
++  binding.activate('chat')
++  const chat = binding.target('chat')
++  const append = (event: SessionEvent): void => { feed.append({ type: 'event', event }) }
++  const replay = createUserMessage({ content: [{ type: 'text', text: 'Replayed question' }], source: { kind: 'user' } })
++  const injected = createUserMessage({ content: [{ type: 'text', text: 'Injected policy' }], source: { kind: 'plugin', plugin: 'policy-producer' } })
++  const kinds = () => { const value = chat.getSnapshot()!; return value.order.map(key => value.nodes.get(key)?.kind) }
++  try {
++    append({ seq: SessionSeq(1), time: 1, type: 'turn/start', data: { turn: 1 } })
++    append({ seq: SessionSeq(2), time: 2, type: 'user/message', surfaceOp: 'append', data: replay })
++    expect(kinds()).toEqual(['user'])
++    append({ seq: SessionSeq(3), time: 3, type: 'user/message', surfaceOp: 'append', data: injected })
++    append({ seq: SessionSeq(4), time: 4, type: 'step/start', data: { turn: 1, step: 1 } })
++    append({ seq: SessionSeq(5), time: 5, type: 'assistant/message', surfaceOp: 'append', data: { turn: 1, step: 1, stream: [], message: createAssistantMessage({ content: [{ type: 'reasoning', text: 'Recorded thought' }, { type: 'text', text: 'Reply' }], source: { provider: 'test', model: 'test' } }) } })
++    append({ seq: SessionSeq(6), time: 6, type: 'step/end', data: { turn: 1, step: 1 } })
++    append({ seq: SessionSeq(7), time: 7, type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
++    expect(kinds().slice(0, 3)).toEqual(['user', 'turn-process', 'context'])
++    expect(chat.getSnapshot()!.navigation.items()[0]?.prompt).toBe('Replayed question')
++    const input = chat.getSnapshot()!.nodes.values().find(node => node.kind === 'user')!
++    expect(input.data).toMatchObject({ content: replay.content, source: replay.source })
++    expect({
++      order: kinds(),
++      navigation: chat.getSnapshot()!.navigation.items().map(({ turn, prompt, response }) => ({ turn, prompt, response })),
++      input: { kind: input.kind, source: replay.source, content: replay.content },
++    }).toMatchSnapshot()
++    expect(feed.getSnapshot().entries[1]?.event.data).toBe(replay)
++  } finally { await ctx.fiber.dispose() }
++})
++
++it('renders accepted user input outside a turn without creating an execution', async () => {
++  const ctx = new Context()
++  new UiConversation(ctx, {} as ISessions)
++  registerConversationNodes(ctx)
++  const feed = new MutableSessionEventSource()
++  const binding = ctx.uiConversation.binding({ sessionId: SessionId('interrupted'), ctx, eventSource: feed } as unknown as SessionBinding)
++  binding.activate('chat')
++  try {
++    const message = createUserMessage({ content: [{ type: 'text', text: 'Accepted before interruption' }], source: { kind: 'user' } })
++    feed.append({ type: 'event', event: { seq: SessionSeq(1), time: 1, type: 'context/message', surfaceOp: 'append', data: { groupId: 'accepted-input', index: 0, message } } })
++    const snapshot = binding.target('chat').getSnapshot()!
++    expect(snapshot.order.map(key => snapshot.nodes.get(key)?.kind)).toEqual(['user'])
++    expect(snapshot.navigation.items()).toEqual([])
++  } finally { await ctx.fiber.dispose() }
 +})
 diff --git a/packages/client/ui-chat/tests/chat-view.client.spec.tsx b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
-index f462224..e20c5ad 100644
+index f4622249f7..eb71a8217b 100644
 --- a/packages/client/ui-chat/tests/chat-view.client.spec.tsx
 +++ b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
-@@ -59,6 +59,7 @@ beforeEach(() => {
- })
- 
- const SID = 's1' as SessionId
-+const NO_INPUT_PRODUCERS: readonly string[] = []
- type RoutedChatNodeOwner = ChatNodeOwnerProps & { readonly node: ChatNode }
- 
- function sessionSnapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
-@@ -277,7 +278,8 @@ function makeHarness(
+@@ -277,7 +277,8 @@ function makeHarness(
    }> = []
    const renderCommandSlot = ((_key: string, _owner: object, opts?: { fallback?: React.ReactNode }) =>
      opts?.fallback ?? null) as unknown as React.ComponentProps<typeof CommandNodeView>['renderSlot']
@@ -1363,68 +955,25 @@ index f462224..e20c5ad 100644
      React.ComponentProps<typeof TurnTailNodeView>['renderSlotChain']
    const renderTurnTailSlot = (() => null) as unknown as
      React.ComponentProps<typeof TurnTailNodeView>['renderSlot']
-@@ -367,6 +369,7 @@ function makeHarness(
-   const SessionProviderStub: ChatViewSlotProps['SessionProvider'] = ({ children }) => <>{children}</>
-   const props: ChatViewSlotProps = {
-     useReplyPresets: selector => selector([]),
-+    useUserInputProducers: selector => selector(NO_INPUT_PRODUCERS),
-     usePanelInfo: selector => selector({ activePanelId: null }),
-     sessionId: SID,
-     useSession: bindSnapshotSelector(session.source),
-@@ -1618,6 +1621,19 @@ describe('ChatView', () => {
+@@ -1618,6 +1619,16 @@ describe('ChatView', () => {
      expect(row.getAttribute('hidden')).toBe('until-found')
    })
  
-+  it('renders registered replay producers as user bubbles without changing the recorded source', () => {
-+    const input = { ...context(1, 'replayed input'), source: { kind: 'plugin' as const, plugin: 'replay-producer' } }
++  it('renders user input and plugin context with distinct presentations', () => {
++    const input = { ...user(1, 'replayed input'), source: { kind: 'user' as const } }
 +    const other = { ...context(2, 'injected policy'), source: { kind: 'plugin' as const, plugin: 'policy-producer' } }
 +    const h = makeHarness({ nodes: [input, other, assistant(3, 'reply')], turnEnds: new Map([[1, 4]]) })
-+    h.props.useUserInputProducers = selector => selector(['replay-producer'])
 +    const view = render(<h.ChatView {...h.props} />)
 +    expect(view.getByText('replayed input').closest('[data-chat-flow-kind="user"]')).not.toBeNull()
 +    expect(view.container.querySelector('[data-chat-flow-key="fixture:context:2"]')?.getAttribute('data-chat-flow-kind')).toBe('context')
-+    expect(input.source).toEqual({ kind: 'plugin', plugin: 'replay-producer' })
-+    view.rerender(<h.ChatView {...h.props} useUserInputProducers={selector => selector([])} />)
-+    expect(view.container.querySelector('[data-chat-flow-key="fixture:context:1"]')?.getAttribute('data-chat-flow-kind')).toBe('context')
++    expect(input.source).toEqual({ kind: 'user' })
 +  })
 +
    it('folds a completed Turn even while the reader is away from the tail', () => {
      const first = assistant(2, 'first answer', 1, 1)
      const h = makeHarness({ nodes: [user(1, 'question'), first], running: true })
-diff --git a/packages/client/ui-conversation/README.i18n.yaml b/packages/client/ui-conversation/README.i18n.yaml
-index e579bf0..94d8988 100644
---- a/packages/client/ui-conversation/README.i18n.yaml
-+++ b/packages/client/ui-conversation/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/client/ui-conversation/README.md
--README.md: e32b891146cdd8583870ee405d3d81fb158ef8bb
--README.zh.md: 5d5d16a4d697d0c6ba1aceccc9562f175decdd34
-+README.md: 352a975c6915f1f92af142477bf26049ff936d35
-+README.zh.md: 7b4a8654ad58b22e2b8ae3ba1188740a3ff7a298
-diff --git a/packages/client/ui-conversation/README.md b/packages/client/ui-conversation/README.md
-index e32b891..352a975 100644
---- a/packages/client/ui-conversation/README.md
-+++ b/packages/client/ui-conversation/README.md
-@@ -136,3 +136,5 @@ None.
- </details>
- 
- **Runtime invariant:** No companion is published. Conversation Definitions, target builders, and Views are already validated by their owning registries and the Slot ledger.
-+
-+Conversation assembly filters raw event windows through the durable historySelection projection before building Chat and Trajectory. Raw event windows remain available to audit consumers. A selection version change rebuilds the visible path; event coordinates remain raw. Composer blocks can restrict submission while leaving draft editing and cancellation available.
-diff --git a/packages/client/ui-conversation/README.zh.md b/packages/client/ui-conversation/README.zh.md
-index 5d5d16a..7b4a865 100644
---- a/packages/client/ui-conversation/README.zh.md
-+++ b/packages/client/ui-conversation/README.zh.md
-@@ -136,3 +136,5 @@ Hero 提供目标选择器替换位置，以文件夹选择器为默认显示，
- </details>
- 
- **运行时不变式：** 不发布伴生入口。Conversation Definition、target builder 与 View 已由其所属注册表和 Slot ledger 校验。
-+
-+会话组装先按持久 historySelection 投影筛选原始事件窗口，再构建对话和轨迹。审计消费者仍可读取原始窗口。选择版本变化时重建可见路径，事件坐标仍指向原始日志。输入框阻止项可以只限制发送，同时保留草稿编辑和取消操作。
 diff --git a/packages/client/ui-conversation/src/client/contract/composer-blocks.ts b/packages/client/ui-conversation/src/client/contract/composer-blocks.ts
-index 2771745..be2b0a4 100644
+index 277174547a..be2b0a4973 100644
 --- a/packages/client/ui-conversation/src/client/contract/composer-blocks.ts
 +++ b/packages/client/ui-conversation/src/client/contract/composer-blocks.ts
 @@ -5,6 +5,8 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -1437,7 +986,7 @@ index 2771745..be2b0a4 100644
  
  /** The registry face other plugins reach through `ctx.conversation.blocks`. */
 diff --git a/packages/client/ui-conversation/src/client/contract/slots.ts b/packages/client/ui-conversation/src/client/contract/slots.ts
-index c1c80b2..16841a2 100644
+index c1c80b2989..16841a2ad1 100644
 --- a/packages/client/ui-conversation/src/client/contract/slots.ts
 +++ b/packages/client/ui-conversation/src/client/contract/slots.ts
 @@ -294,7 +294,7 @@ export interface ComposerBarOwnerProps {
@@ -1449,73 +998,8 @@ index c1c80b2..16841a2 100644
    /** Lock all message actions while preserving the resident composer surface. */
    disabled?: boolean
    /** Whether the shared Workspace picker is expanded. */
-diff --git a/packages/client/ui-conversation/src/client/conversation/assembly.ts b/packages/client/ui-conversation/src/client/conversation/assembly.ts
-index a6d453c..5cf47d9 100644
---- a/packages/client/ui-conversation/src/client/conversation/assembly.ts
-+++ b/packages/client/ui-conversation/src/client/conversation/assembly.ts
-@@ -4,6 +4,7 @@ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
- import type {
-   ISessions, SessionBinding, SessionEventSource, SessionEventWindow,
- } from '@deepseek-ai/dsh-api-session-controller/client'
-+import { historyContains } from '@deepseek-ai/dsh-session/surface'
- import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
- import {
-   createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
-@@ -48,6 +49,7 @@ class BoundConversation implements ConversationBinding {
-   private readonly viewStore: ConversationViewSnapshotStore
-   private readonly targetSources = new Map<string, ObservableSnapshot<unknown>>()
-   private revision = -1
-+  private historyVersion = 0
-   private frame: number | undefined
-   private disposeFeed: () => void = () => {}
- 
-@@ -95,23 +97,27 @@ class BoundConversation implements ConversationBinding {
- 
-   private replace(window: SessionEventWindow): void {
-     this.revision = window.revision
--    this.publish(this.assembler.replaceWindow(window.entries, window.hasMore))
-+    this.historyVersion = window.historySelection?.version ?? 0
-+    const selection = window.historySelection
-+    const entries = selection ? window.entries.filter(entry => entry.event.type !== 'history/selected' &&
-+      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : window.entries
-+    this.publish(this.assembler.replaceWindow(entries, window.hasMore))
-   }
- 
-   private accept(window: SessionEventWindow): void {
-     if (window.revision === this.revision) return
--    if (window.revision !== this.revision + 1 || window.change.kind === 'replace') {
-+    if ((window.historySelection?.version ?? 0) !== this.historyVersion || window.revision !== this.revision + 1 || window.change.kind === 'replace') {
-       this.replace(window)
-       return
-     }
-     this.revision = window.revision
-     switch (window.change.kind) {
-       case 'prepend':
--        this.publish(this.assembler.prepend(window.change.entries, window.hasMore))
-+        this.publish(this.assembler.prepend(this.selectedEntries(window, window.change.entries), window.hasMore))
-         return
-       case 'append': {
-         let publication: ConversationPublication = 'none'
--        for (const event of window.change.entries) {
-+        for (const event of this.selectedEntries(window, window.change.entries)) {
-           const next = this.assembler.append(event)
-           if (next === 'immediate' || publication === 'none') publication = next
-         }
-@@ -127,6 +133,12 @@ class BoundConversation implements ConversationBinding {
-     }
-   }
- 
-+  private selectedEntries(window: SessionEventWindow, entries: SessionEventWindow['entries']): SessionEventWindow['entries'] {
-+    const selection = window.historySelection
-+    return selection ? entries.filter(entry => entry.event.type !== 'history/selected' &&
-+      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : entries
-+  }
-+
-   private publish(publication: ConversationPublication): void {
-     if (publication === 'none') return
-     if (publication === 'animation-frame' && typeof requestAnimationFrame === 'function') {
 diff --git a/packages/client/ui-conversation/src/client/input/blocks.ts b/packages/client/ui-conversation/src/client/input/blocks.ts
-index 403a70a..9f7832b 100644
+index 403a70a739..9f7832bdef 100644
 --- a/packages/client/ui-conversation/src/client/input/blocks.ts
 +++ b/packages/client/ui-conversation/src/client/input/blocks.ts
 @@ -29,10 +29,10 @@ export class ComposerBlockRegistry implements ComposerBlocks {
@@ -1532,7 +1016,7 @@ index 403a70a..9f7832b 100644
    }
  
 diff --git a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
-index c8da3fc..a93701a 100644
+index c8da3fc358..a93701a472 100644
 --- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
 +++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
 @@ -125,7 +125,7 @@ export const InputBar = memo(function InputBar({
@@ -1586,7 +1070,7 @@ index c8da3fc..a93701a 100644
    const primarySubmitMode = resolveSubmitMode(busyEnter, running, 'enter', steeringAvailable)
    const plainMessageDraft = !empty && input?.phase === 'plain' && !draft.trimStart().startsWith('/')
 diff --git a/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts b/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts
-index 4ded681..c6b5f49 100644
+index 4ded681334..c6b5f490fe 100644
 --- a/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts
 +++ b/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts
 @@ -13,3 +13,13 @@ it('keeps independent blockers until each owner releases its own entry', () => {
@@ -1604,7 +1088,7 @@ index 4ded681..c6b5f49 100644
 +  expect(blocks.storeFor(id).getSnapshot()).toEqual({ reason: 'saving', submissionOnly: true })
 +})
 diff --git a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
-index 2d3a003..072e5f1 100644
+index 2d3a003756..072e5f1679 100644
 --- a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
 +++ b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
 @@ -140,6 +140,23 @@ async function bootRegistries(): Promise<{
@@ -1632,7 +1116,7 @@ index 2d3a003..072e5f1 100644
      let nextFrame = 0
      const frames = new Map<number, FrameRequestCallback>()
 diff --git a/packages/client/ui-conversation/tests/input-bar.client.spec.tsx b/packages/client/ui-conversation/tests/input-bar.client.spec.tsx
-index 1ca1c53..04d0a69 100644
+index 1ca1c53ab7..04d0a691d7 100644
 --- a/packages/client/ui-conversation/tests/input-bar.client.spec.tsx
 +++ b/packages/client/ui-conversation/tests/input-bar.client.spec.tsx
 @@ -75,7 +75,7 @@ interface BenchOptions {
@@ -1662,7 +1146,7 @@ index 1ca1c53..04d0a69 100644
      const { textarea, sink } = bench({ running: true, busyEnter: 'steer', draft: '直接插话' })
      fireEvent.keyDown(textarea, { key: 'Enter' })
 diff --git a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
-index 4ef71e2..9c2cad3 100644
+index 4ef71e2a10..9c2cad3151 100644
 --- a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
 +++ b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
 @@ -337,6 +337,7 @@ function panelProps(data: WorkflowRunChatData, sessions = listState(), openSessi
@@ -1673,69 +1157,9 @@ index 4ef71e2..9c2cad3 100644
      renderMessageImages: () => null,
      fileMentions: () => undefined,
      openSession,
-diff --git a/packages/core/agent-loop/README.i18n.yaml b/packages/core/agent-loop/README.i18n.yaml
-index b27640c..89a2778 100644
---- a/packages/core/agent-loop/README.i18n.yaml
-+++ b/packages/core/agent-loop/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/core/agent-loop/README.md
--README.md: 4fde8c60e16fe505759a9f4f7b34c0e21833b1e0
--README.zh.md: be4776593642e8abf2cb7fdd4ede30e351da374c
-+README.md: cdc8bff7bb0c78891ff142811034ecf7d654369f
-+README.zh.md: 793c90669657511a6d1e3d18190f80f4110b0ddd
-diff --git a/packages/core/agent-loop/README.md b/packages/core/agent-loop/README.md
-index 4fde8c6..cdc8bff 100644
---- a/packages/core/agent-loop/README.md
-+++ b/packages/core/agent-loop/README.md
-@@ -213,3 +213,5 @@ These limits define when the loop needs special care. They are current package c
- None.
- 
- </details>
-+
-+History selection invalidates model-history and runtime-context projections. A selected path without a request header starts from the Agent's configured route. Authored-message deduplication follows selected history, so an initial prefix omitted by selection can be admitted again without changing its producer identity. No branch-specific Loop phase is used.
-diff --git a/packages/core/agent-loop/README.zh.md b/packages/core/agent-loop/README.zh.md
-index be47765..793c906 100644
---- a/packages/core/agent-loop/README.zh.md
-+++ b/packages/core/agent-loop/README.zh.md
-@@ -213,3 +213,5 @@ const handle = await ctx.agents.create({
- 无。
- 
- </details>
-+
-+历史选择使模型历史与运行上下文投影失效。选中的路径没有请求头时，使用 Agent 配置的路由。预置消息按选中的历史去重，被选择排除的起始前缀可以再次接纳，同时保留生产者身份。不增加分支专用的 Loop 阶段。
-diff --git a/packages/core/agent-loop/src/agent.ts b/packages/core/agent-loop/src/agent.ts
-index 176536b..4976070 100644
---- a/packages/core/agent-loop/src/agent.ts
-+++ b/packages/core/agent-loop/src/agent.ts
-@@ -374,9 +374,8 @@ export class ReactLoopAgent implements Agent {
-       if (firstAttempt) {
-         for (const context of decision.initialMessages ?? []) {
-           // A resumed partial prefix retains each authored message identity.
--          const authoredIds = this.ctx.sessionProjections.stateOf(this.session, 'authoredContextIds')
--          /* v8 ignore next -- factory registration precedes every driver attachment. */
--          if (authoredIds === undefined) throw new Error('authored context projection is not registered')
-+          const authoredIds = (await this.session.readHistory()).events.flatMap(event =>
-+            event.type === 'context/message' ? [event.data.message.id] : [])
-           if (!authoredIds.includes(context.message.id))
-             this.session.append('context/message', context, { surfaceOp: 'append' })
-         }
-@@ -527,9 +526,8 @@ export class ReactLoopAgent implements Agent {
-     const reasoningEffort = this.options.reasoningEffort ?? persistedReasoningEffort
-     const maxTokens = this.options.maxTokens
-     const seedConfig = deepFreeze(structuredClone(
--      this.requestHeaderLogged
--        // oxlint-disable-next-line typescript/no-non-null-assertion -- the instance logged the header it now folds
--        ? requestProposal(persistedHeader!)
-+      this.requestHeaderLogged && persistedHeader !== undefined
-+        ? requestProposal(persistedHeader)
-         : {
-           ...route,
-           ...reasoningEffort === undefined ? {} : { reasoningEffort },
 diff --git a/packages/core/agent-loop/src/authored-context.ts b/packages/core/agent-loop/src/authored-context.ts
 deleted file mode 100644
-index 1cd6e89..0000000
+index 1cd6e89d48..0000000000
 --- a/packages/core/agent-loop/src/authored-context.ts
 +++ /dev/null
 @@ -1,21 +0,0 @@
@@ -1762,7 +1186,7 @@ index 1cd6e89..0000000
 -} satisfies ProjectionDefinition<'authoredContextIds', string[]>
 diff --git a/packages/core/agent-loop/src/history-selection.ts b/packages/core/agent-loop/src/history-selection.ts
 new file mode 100644
-index 0000000..c63122c
+index 0000000000..c63122c417
 --- /dev/null
 +++ b/packages/core/agent-loop/src/history-selection.ts
 @@ -0,0 +1,24 @@
@@ -1791,7 +1215,7 @@ index 0000000..c63122c
 +  wire: { viewSchema: schema, view: state => state },
 +} satisfies ProjectionDefinition<'historySelection', SessionHistorySelection | null>
 diff --git a/packages/core/agent-loop/src/index.ts b/packages/core/agent-loop/src/index.ts
-index 9343a55..58f7679 100644
+index 9343a5519d..58f7679b43 100644
 --- a/packages/core/agent-loop/src/index.ts
 +++ b/packages/core/agent-loop/src/index.ts
 @@ -33,7 +33,7 @@ import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
@@ -1813,7 +1237,7 @@ index 9343a55..58f7679 100644
      this.runtime = { ctx }
      ctx.effect(() => () => this.ownership.dispose(), 'agentLoop.transactions()')
 diff --git a/packages/core/agent-loop/src/runtime-context.ts b/packages/core/agent-loop/src/runtime-context.ts
-index af9f3fa..c98ad05 100644
+index af9f3fa640..c98ad057c5 100644
 --- a/packages/core/agent-loop/src/runtime-context.ts
 +++ b/packages/core/agent-loop/src/runtime-context.ts
 @@ -8,7 +8,7 @@
@@ -1851,93 +1275,9 @@ index af9f3fa..c98ad05 100644
          this.retained = { seq: event.seq, text: textOf(event.data) }
        } else if (this.retained
          && isReplacementSurfaceEvent(event)
-diff --git a/packages/core/session/README.i18n.yaml b/packages/core/session/README.i18n.yaml
-index 8b95eca..083e6db 100644
---- a/packages/core/session/README.i18n.yaml
-+++ b/packages/core/session/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/core/session/README.md
--README.md: 1bfe9bc2432d9bfaf62e9c46dc571591c2406863
--README.zh.md: b0a63c30a86c888532c3984b06c4d8bf3cd2cce0
-+README.md: c356d0f5a92ab8493a206946df5751437e7dffb4
-+README.zh.md: 605a2940fe3569db63281047a3cb244e69bd7e2a
-diff --git a/packages/core/session/README.md b/packages/core/session/README.md
-index 1bfe9bc..c356d0f 100644
---- a/packages/core/session/README.md
-+++ b/packages/core/session/README.md
-@@ -16,6 +16,7 @@ English | [中文](README.zh.md)
- - [Use this package](#use-this-package)
- - [Understand the implementation](#understand-the-implementation)
- - [Further Exploration](#further-exploration)
-+- [Selected execution history](#selected-execution-history)
- - [Model Experience](#model-experience)
- - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
- - [Dev Note](#dev-note)
-@@ -129,6 +130,14 @@ The package-level contract is enough for most consumers; read these when you nee
- -----
- 
- <a id="model-experience"></a>
-+## Selected execution history
-+
-+<a id="selected-execution-history"></a>
-+
-+history/selected stores ordered, disjoint inclusive raw-event ranges and a consecutive selection version. Every reference precedes the selection. It changes derived history, not raw records, lifecycle counters or usage. Subsequent events extend that selected history until another selection. Required event registration prevents unaware readers from silently treating all alternatives as one history.
-+
-+Session.readHistory returns a stable selected read with its selection version and raw high-water position. Surface, request-header and context reconstruction use the same selection. Reconstruct a historical request from its original raw prefix, not from today's selected read. The [history-selection decision](../../../.agents/notes/implemented/architecture/2026-09-16-history-selection.md) explains these separate reads.
-+
- ## Model Experience
- 
- ### Derived message history
-@@ -183,7 +192,7 @@ These limits define when the session store needs special care. They are current
- - **`fork()` cuts only at stable boundaries of live sessions** — the selected prefix must end outside an open turn and the source must be in the store; forking a persisted-but-unloaded session is excluded from the fork API.
- - **`SESSION_FORMAT_VERSION` names the [current logical representation](../../../docs/session-format-status.md)** — the current reader rejects retired `header.system` and validates `system/message` payloads and protected-head rewrites. Historical headers and events belong to adjacent format packages; the adjacent migration chain converts supported history before constructing `Session`, and the write-open path publishes only the current-format successor. Equal-version unknown events require the envelope's explicit `ignorable` marker, which does not promise safe structural migration ([mechanism](../../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md)).
- - **`TurnEndReasonMap` omits the ACP-named `refusal` / `max_turn_requests` variants** — producer-gated: they land when an adapter or the loop first emits them.
--- **No session tree beyond fork** — a pi-style entry tree over branched sessions is deferred unless a consumer needs more than boundary-based forking.
-+- **Tree semantics belong to consumers** — Session retains and selects execution ranges; plugins define nodes and branch operations.
- 
- <a id="dev-note"></a>
- ### Dev Note
-diff --git a/packages/core/session/README.zh.md b/packages/core/session/README.zh.md
-index b0a63c3..605a294 100644
---- a/packages/core/session/README.zh.md
-+++ b/packages/core/session/README.zh.md
-@@ -16,6 +16,7 @@ kind: "package-reference"
- - [使用本包](#use-this-package)
- - [理解实现](#understand-the-implementation)
- - [进一步探索](#further-exploration)
-+- [选中的执行历史](#selected-execution-history)
- - [模型体验](#model-experience)
- - [已知限制与延期工作](#known-limitations-and-deferred-work)
- - [开发备注](#dev-note)
-@@ -129,6 +130,14 @@ session.deriveMessages()         // the derived model history
- -----
- 
- <a id="model-experience"></a>
-+## 选中的执行历史
-+
-+<a id="selected-execution-history"></a>
-+
-+history/selected 保存有序、不重叠的原始事件闭区间及连续递增的选择版本。引用均位于选择记录之前。选择只改变派生历史，不改动原始记录、生命周期计数或用量。后续事件追加到该历史，直到再次选择。必读事件登记使不识别它的读取器明确失败，避免把全部候选误当成一段历史。
-+
-+Session.readHistory 返回稳定的选中历史、选择版本及原始读取位置。展示、请求头及上下文重建采用同一选择。历史请求应从当时的原始前缀重建，不能使用今天的选中历史。[历史选择记录](../../../.agents/notes/implemented/architecture/2026-09-16-history-selection.zh.md)说明这两种读取。
-+
- ## 模型体验
- 
- ### 派生消息历史
-@@ -183,7 +192,7 @@ session.deriveMessages()         // the derived model history
- - **`fork()` 仅在实时会话的稳定边界处切分**：所选前缀结束时不得有开放轮次，且源会话必须位于存储中；fork API 不支持对已持久化但未加载的会话进行 fork。
- - **`SESSION_FORMAT_VERSION` 命名[当前逻辑表示](../../../docs/session-format-status.zh.md)**——当前读取器拒绝已退役的 `header.system`，并校验 `system/message` 载荷与受保护头节点的重写。历史 header 与事件归相邻格式包所有；相邻迁移链在构造 `Session` 前转换受支持的历史，写打开只发布当前格式的后继代际。同版本未知事件要求信封显式带有 `ignorable` 标记，但这不保证结构迁移的安全性（[机制](../../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.zh.md)）。
- - **`TurnEndReasonMap` 不含 ACP（Agent Client Protocol）命名的 `refusal`／`max_turn_requests` 变体**：受生产方约束；只有当适配器或循环首次产生这些变体时才加入。
--- **fork 之外没有会话树**：基于分支会话的 pi 风格条目树被推迟，除非消费方需要超越基于边界的 forking 的能力。
-+- **树的语义由消费方定义**：Session 保留、选择执行区间；插件定义节点及分支操作。
- 
- <a id="dev-note"></a>
- ### 开发备注
 diff --git a/packages/core/session/src/history.ts b/packages/core/session/src/history.ts
 new file mode 100644
-index 0000000..ab85aab
+index 0000000000..ab85aab11f
 --- /dev/null
 +++ b/packages/core/session/src/history.ts
 @@ -0,0 +1,69 @@
@@ -2010,73 +1350,8 @@ index 0000000..ab85aab
 +export function historyVersion(events: readonly SessionEvent[]): number {
 +  return events.findLast(event => event.type === 'history/selected')?.data.version ?? 0
 +}
-diff --git a/packages/core/session/src/index.ts b/packages/core/session/src/index.ts
-index 8804de6..1efec74 100644
---- a/packages/core/session/src/index.ts
-+++ b/packages/core/session/src/index.ts
-@@ -19,6 +19,8 @@ import type { CreateSessionOptions, EpochHeader, PrepareSessionOptions, RequestC
- import { deriveEventMessage, SurfaceManager, validateSessionEventData, validateSurfaceMetadata } from './surface.ts'
- import type { SessionSurface } from './surface.ts'
- import { foldRequestHeader } from './request-header.ts'
-+import { selectHistory, historyVersion } from './history.ts'
-+export { selectHistory, historyContains, historyVersion } from './history.ts'
- 
- export * from './types.ts'
- export { SessionPreparation } from './preparation.ts'
-@@ -648,6 +650,15 @@ export class Session {
-     return Object.freeze(this.log.slice(fromSeq, toSeqExclusive))
-   }
- 
-+  /**
-+   * Read a fixed selected execution history independently of model-message assembly.
-+   * @returns raw coordinates and immutable selected records at this read position.
-+   */
-+  readHistory(): Promise<{ version: number; through: SessionLogOffset; events: readonly SessionEvent[] }> {
-+    return Promise.resolve(Object.freeze({ version: historyVersion(this.log), through: this.seq,
-+      events: Object.freeze(selectHistory(this.log)) }))
-+  }
-+
-   /**
-    * Return this Session's events after its fork-inherited prefix.
-    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
-@@ -782,7 +793,10 @@ export class Session {
-       // consumer mutating it in place (instead of building a replacement)
-       // would desync every later comparison against the log, so mutation
-       // throws instead.
--      this.headerFold = deepFreeze(foldRequestHeader(this.log.slice(this.headerFoldSeq), this.headerFold))
-+      const delta = this.log.slice(this.headerFoldSeq)
-+      this.headerFold = deepFreeze(delta.some(event => event.type === 'history/selected')
-+        ? foldRequestHeader(selectHistory(this.log))
-+        : foldRequestHeader(delta, this.headerFold))
-       this.headerFoldSeq = this.log.length
-     }
-     return this.headerFold
-@@ -799,7 +813,10 @@ export class Session {
-    */
-   requestContext(): RequestContext | undefined {
-     if (this.contextFoldSeq < this.log.length) {
--      for (const event of this.log.slice(this.contextFoldSeq)) {
-+      const delta = this.log.slice(this.contextFoldSeq)
-+      const selected = delta.some(event => event.type === 'history/selected')
-+      if (selected) this.contextFold = undefined
-+      for (const event of selected ? selectHistory(this.log) : delta) {
-         if (event.type === 'request/context') this.contextFold = deepFreeze({ ...event.data })
-       }
-       this.contextFoldSeq = this.log.length
-diff --git a/packages/core/session/src/known-event-types.ts b/packages/core/session/src/known-event-types.ts
-index 7c2bb29..b0221f0 100644
---- a/packages/core/session/src/known-event-types.ts
-+++ b/packages/core/session/src/known-event-types.ts
-@@ -39,6 +39,7 @@ export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set([
-   'feedback/message-put',
-   'feedback/record',
-   'goal/change',
-+  'history/selected',
-   'hook/invoked',
-   'hook/result',
-   'llm/retry',
 diff --git a/packages/core/session/src/request-header.ts b/packages/core/session/src/request-header.ts
-index 326165a..c927a89 100644
+index 326165a1bd..c927a8937a 100644
 --- a/packages/core/session/src/request-header.ts
 +++ b/packages/core/session/src/request-header.ts
 @@ -10,6 +10,7 @@
@@ -2096,122 +1371,9 @@ index 326165a..c927a89 100644
      if (event.type === 'request/header') state = canonicalHeader(event.data.header)
    }
    return state
-diff --git a/packages/core/session/src/surface.ts b/packages/core/session/src/surface.ts
-index b34e549..b5ed5b5 100644
---- a/packages/core/session/src/surface.ts
-+++ b/packages/core/session/src/surface.ts
-@@ -10,6 +10,8 @@
- 
- import type { Message } from '@deepseek-ai/dsh-llm'
- import { SessionLogOffset, SessionSeq } from './types.ts'
-+import { validateHistoryRanges } from './history.ts'
-+export { selectHistory, historyContains, historyVersion } from './history.ts'
- import { KNOWN_SESSION_EVENT_TYPES } from './known-event-types.ts'
- import type {
-   SessionEvent,
-@@ -144,6 +146,11 @@ export function validateSessionEventData(
-   subject: string,
- ): void {
-   const data: unknown = event.data
-+  if (event.type === 'history/selected') {
-+    if (!isRecord(data) || !Number.isSafeInteger(data['version']) || (data['version'] as number) < 1)
-+      throw new Error(`${subject} invalid history selection version`)
-+    if (!Array.isArray(data['ranges'])) throw new Error(`${subject} history ranges must be an array`)
-+  }
-   if (event.type === 'session/configuration') {
-     if (!isRecord(data)) throw new Error(`${subject} configuration must be an object`)
-     const presentation = data['presentation']
-@@ -236,6 +243,7 @@ interface SurfaceReplacePlan extends SurfaceFoldReplacement {
- /** One validated surface transition that has not mutated fold state yet. */
- type SurfacePlan =
-   | { kind: 'append'; seq: SessionSeq }
-+  | { kind: 'select'; nodes: SessionSeq[] }
-   | SurfaceReplacePlan
- 
- /** Create an empty surface fold state. */
-@@ -463,6 +471,21 @@ function planSurfaceEvent(
-     throw new Error(`session event seq ${event.seq} is not contiguous; expected ${expectedSeq}`)
-   }
-   const surfaceOp = validateSurfaceMetadata(event)
-+  if (event.type === 'history/selected') {
-+    validateHistoryRanges(event.data.ranges, event.seq)
-+    const previous = events.slice(0, event.seq - baseSeq).findLast(item => item.type === 'history/selected')
-+    if (event.data.version !== (previous?.data.version ?? 0) + 1) throw new Error('history selection version is not consecutive')
-+    const selected = createFoldState()
-+    for (const range of event.data.ranges) {
-+      if (range.start < baseSeq) throw new Error('history selection requires earlier records')
-+      for (let seq = range.start; seq <= range.end; seq++) {
-+        const entry = events[seq - baseSeq]
-+        if (!entry) throw new Error('history selection references a missing record')
-+        if (entry.type !== 'history/selected') applySurfaceEvent(selected, entry, SessionSeq(seq), events, baseSeq)
-+      }
-+    }
-+    return { kind: 'select', nodes: selected.nodes }
-+  }
-   if (surfaceOp === undefined) return
-   if (surfaceOp === 'append') {
-     return { kind: 'append', seq: event.seq }
-@@ -497,7 +520,10 @@ function applySurfacePlan(
-   state: SurfaceFoldState,
-   plan: SurfacePlan | undefined,
- ): SurfaceFoldReplacement | undefined {
--  if (plan?.kind === 'append') {
-+  if (plan?.kind === 'select') {
-+    state.nodes = plan.nodes
-+    state.replaceGeneration += 1
-+  } else if (plan?.kind === 'append') {
-     state.nodes.push(plan.seq)
-   } else if (plan?.kind === 'replace') {
-     state.nodes.splice(plan.startIdx, plan.endIdx - plan.startIdx + 1, plan.seq)
-diff --git a/packages/core/session/src/types.ts b/packages/core/session/src/types.ts
-index 12e3b12..5f92346 100644
---- a/packages/core/session/src/types.ts
-+++ b/packages/core/session/src/types.ts
-@@ -260,6 +260,24 @@ export interface RequestContext {
-  */
- export type RequestHeaderReason = 'initial' | 'resume' | 'change' | 'series'
- 
-+/** Latest explicit history selection delivered independently of history pagination. */
-+export interface SessionHistorySelection {
-+  /** Raw coordinate of the selection fact. */
-+  readonly seq: SessionSeq
-+  /** Monotonic selection version. */
-+  readonly version: number
-+  /** Inclusive retained execution ranges. */
-+  readonly ranges: readonly SessionHistoryRange[]
-+}
-+
-+/** Inclusive raw execution range retained by a history selection. */
-+export interface SessionHistoryRange {
-+  /** First retained raw event sequence. */
-+  readonly start: SessionSeq
-+  /** Last retained raw event sequence. */
-+  readonly end: SessionSeq
-+}
-+
- /**
-  * The merge-extensible, append-only source of truth for an agent interaction.
-  * Message history is derived from this log. Every event is lossless JSON and
-@@ -267,6 +285,16 @@ export type RequestHeaderReason = 'initial' | 'resume' | 'change' | 'series'
-  * compact raw streams so persistence stores one durable settlement per attempt.
-  */
- export interface SessionEventMap {
-+  /** Select existing execution records without rewriting the log or event coordinates. */
-+  'history/selected': {
-+    /** Monotonic selection identity, starting at one. */
-+    version: number
-+    /** Inclusive, ordered ranges of preceding raw records. */
-+    ranges: readonly SessionHistoryRange[]
-+    /** Consumer-owned immutable facts committed with this selection. */
-+    metadata: unknown
-+  }
-+
-   /**
-    * Opens turn `turn` before the loop claims queued input or runs pre-step.
-    * Rejection, empty input, cancellation, or failure may close it with no
 diff --git a/packages/core/session/tests/history.spec.ts b/packages/core/session/tests/history.spec.ts
 new file mode 100644
-index 0000000..5b78b34
+index 0000000000..5b78b34a01
 --- /dev/null
 +++ b/packages/core/session/tests/history.spec.ts
 @@ -0,0 +1,35 @@
@@ -2250,8 +1412,39 @@ index 0000000..5b78b34
 +  expect(foldSurface(events.slice(0, 1)).nodes).toEqual([0])
 +  expect(selectHistory(events).map(event => event.seq)).toEqual([2])
 +})
+diff --git a/packages/core/session/tests/surface.spec.ts b/packages/core/session/tests/surface.spec.ts
+index 0bb92547d5..1375ef3e7a 100644
+--- a/packages/core/session/tests/surface.spec.ts
++++ b/packages/core/session/tests/surface.spec.ts
+@@ -1,3 +1,4 @@
++import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
+ import { describe, expect, it } from 'vitest'
+ import type { SessionEvent, SurfaceEvent, SurfaceEventType } from '@deepseek-ai/dsh-session'
+ import {
+@@ -982,6 +983,21 @@ describe('authored context records', () => {
+   })
+ })
+ 
++it('retains interrupted user input and attachments without creating a turn', () => {
++  const session = Session.create(SessionId('accepted-user'))
++  const message = createMessage({ role: 'user', content: [{ type: 'text', text: 'Input' }, { type: 'file', attachment: { attachmentId: brandString<Branded<'AttachmentId'>>('sha256:' + 'ab'.repeat(32)), name: 'input.txt', bytes: 3 } }], source: { kind: 'user', admission: { historyVersion: 1 } } })
++  const data = { groupId: 'accepted', index: 0, message: { ...message, role: 'user' as const } }
++  session.append('context/message', data, { surfaceOp: 'append' })
++  expect(session.deriveMessages()).toEqual([message])
++  expect(Session.create(SessionId('restored-user'), session.snapshotEvents()).deriveMessages()).toEqual([message])
++  for (const invalid of [
++    { ...data, message: { ...message, role: 'assistant' } },
++    { ...data, message: { ...message, source: { kind: 'user', admission: 1 } } },
++    { ...data, message: { ...message, content: [{ type: 'tool-result', content: [] }] } },
++  ]) expect(() => session.append('context/message', invalid as never, { surfaceOp: 'append' })).toThrow()
++  expect(session.snapshotEvents()).toHaveLength(1)
++})
++
+ describe('configuration presentation', () => {
+   it('retains display fields in a log-only record and rejects malformed presentation', () => {
+     const session = Session.create(SessionId('display'))
 diff --git a/packages/extensions/cordis-client-runner/src/client/api-catalog.ts b/packages/extensions/cordis-client-runner/src/client/api-catalog.ts
-index edcee4b..b0e63a5 100644
+index edcee4be43..b0e63a5219 100644
 --- a/packages/extensions/cordis-client-runner/src/client/api-catalog.ts
 +++ b/packages/extensions/cordis-client-runner/src/client/api-catalog.ts
 @@ -776,7 +776,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
@@ -2263,244 +1456,36 @@ index edcee4b..b0e63a5 100644
    },
    {
      name: 'SessionFace',
-diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-index fa4a20d..61d614e 100644
---- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-+++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-@@ -174,7 +174,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'none',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.assistant-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.assistant-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:221',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:240',
-   },
-   {
-     key: 'conversation.chat.commandview',
-@@ -221,7 +221,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     occupants: [],
-     replaceRisk: 'none',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.commandview\', () => ctx.slots.register(\n      { name: \'conversation.chat.commandview\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:209',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:224',
-   },
-   {
-     key: 'conversation.chat.node',
-@@ -238,7 +238,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-       },
-     ],
-     ownerProps: [
--      '/** Stable owner currency delivered to a keyed Chat renderer. */\nexport interface ChatNodeOwnerProps {\n  cwd?: string | undefined\n  /** Open the current source file of a skill referenced by a sent message. */\n  openSkill: (name: string) => void\n  openFile: (path: string, options?: OpenFileOptions) => void\n  inspectCall: (callId: ToolCallId) => void\n  forkAt: (seq: number) => void\n  /**\n   * Session-authorized image loader, down-threaded from the Chat view so a\n   * chat-node renderer can render the attachment presentation slot directly\n   * with only the durable references plus this loader, instead of receiving a\n   * rendering closure.\n   */\n  loadImage: MessageImageLoader\n  renderMessageImages: RenderMessageImages\n  fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined\n  /** Turn-process state when this Node belongs to a projected Turn. */\n  turnProcess?: TurnProcessOwnerProps | undefined\n}',
-+      '/** Stable owner currency delivered to a keyed Chat renderer. */\nexport interface ChatNodeOwnerProps {\n  cwd?: string | undefined\n  /** Open the current source file of a skill referenced by a sent message. */\n  openSkill: (name: string) => void\n  openFile: (path: string, options?: OpenFileOptions) => void\n  inspectCall: (callId: ToolCallId) => void\n  forkAt: (seq: number) => void\n  /**\n   * Session-authorized image loader, down-threaded from the Chat view so a\n   * chat-node renderer can render the attachment presentation slot directly\n   * with only the durable references plus this loader, instead of receiving a\n   * rendering closure.\n   */\n  loadImage: MessageImageLoader\n  renderMessageImages: RenderMessageImages\n  /**\n   * Render actions owned by the Chat view beside one durable user bubble.\n   * @param seq - raw message sequence.\n   * @returns registered action elements.\n   */\n  renderUserActions: (seq: number) => ReactNode\n  fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined\n  /** Turn-process state when this Node belongs to a projected Turn. */\n  turnProcess?: TurnProcessOwnerProps | undefined\n}',
-     ],
-     ownerPropsReferences: [
-       'MarkdownFileMentions',
-@@ -289,7 +289,52 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'shadows-shipped-ui',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.node\', () => ctx.slots.register(\n      { name: \'conversation.chat.node\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:190',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:205',
-+  },
-+  {
-+    key: 'conversation.chat.turn-actions',
-+    kind: 'chain',
-+    scope: 'session',
-+    summary: 'Optional in-session history actions replacing the default fork controls.',
-+    doc: 'Optional in-session history actions replacing the default fork controls.',
-+    registerOptions: [
-+      {
-+        name: 'select',
-+        requirement: 'required',
-+        type: '(owner) => unknown | null',
-+        doc: 'Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\'s `matched` prop. All-null falls through to the owner\'s fallback.',
-+      },
-+    ],
-+    ownerProps: [
-+      '/** Owner currency of the completed-Turn extension chain. */\nexport interface TurnTailOwnerProps {\n  turn: TurnLocation\n  seq: number\n  openFile: (path: string) => void\n}',
-+    ],
-+    ownerPropsReferences: [
-+      'TurnLocation',
-+    ],
-+    standardProps: [
-+      'useResource: UseResource',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'usePanelInfo: UsePanelInfo',
-+      'useSessions: UseSessions',
-+      'useSessionPendingInteraction: UseSessionPendingInteraction',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'useChat: UseChat',
-+      'useConversation: UseConversation',
-+      'useInput: SnapshotSelectorHook<InputState>',
-+      'inputActions: InputActions',
-+      'useSession: SessionSnapshotSelector',
-+      'sessionId: SessionId',
-+      'useProjection: UseProjection',
-+      'useTrajectory: UseTrajectory',
-+    ],
-+    keyDomain: '',
-+    hookContext: '',
-+    slotInject: '',
-+    declaredBy: 'an entry in \'conversation.chat.node\' (client-ui-chat), so it exists while that entry is mounted',
-+    occupants: [],
-+    replaceRisk: 'none',
-+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turn-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.turn-actions\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:232',
-   },
-   {
-     key: 'conversation.chat.turnTail',
-@@ -336,7 +381,62 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'none',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turnTail\', () => ctx.slots.register(\n      { name: \'conversation.chat.turnTail\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:215',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:230',
-+  },
-+  {
-+    key: 'conversation.chat.user-actions',
-+    kind: 'list',
-+    scope: 'session',
-+    summary: 'Ordered actions beside a durable user-message bubble; an empty list adds nothing.',
-+    doc: 'Ordered actions beside a durable user-message bubble; an empty list adds nothing.',
-+    registerOptions: [
-+      {
-+        name: 'id',
-+        requirement: 'required',
-+        type: 'string',
-+        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
-+      },
-+      {
-+        name: 'order',
-+        requirement: 'optional',
-+        type: 'number',
-+        doc: 'Position among the entries, ascending (default 0).',
-+      },
-+      {
-+        name: 'label',
-+        requirement: 'optional',
-+        type: 'string | (() => string)',
-+        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
-+      },
-+    ],
-+    ownerProps: [
-+      '/** Original log position of a durable user-message bubble. */\nexport interface UserActionOwnerProps {\n  /** Raw Session sequence, unchanged by history selection. */\n  readonly seq: number\n}',
-+    ],
-+    ownerPropsReferences: [],
-+    standardProps: [
-+      'useResource: UseResource',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'usePanelInfo: UsePanelInfo',
-+      'useSessions: UseSessions',
-+      'useSessionPendingInteraction: UseSessionPendingInteraction',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'useChat: UseChat',
-+      'useConversation: UseConversation',
-+      'useInput: SnapshotSelectorHook<InputState>',
-+      'inputActions: InputActions',
-+      'useSession: SessionSnapshotSelector',
-+      'sessionId: SessionId',
-+      'useProjection: UseProjection',
-+      'useTrajectory: UseTrajectory',
-+    ],
-+    keyDomain: '',
-+    hookContext: '',
-+    slotInject: '',
-+    declaredBy: 'an entry in \'conversation.view\' (client-ui-chat), so it exists while that entry is mounted',
-+    occupants: [],
-+    replaceRisk: 'none',
-+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.user-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.user-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:234',
-   },
-   {
-     key: 'conversation.composer',
-@@ -397,9 +497,10 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     doc: 'Resident composer body, including the no-Session inert state.',
-     registerOptions: [],
-     ownerProps: [
--      '/** Owner share of the resident composer bar. */\nexport interface ComposerBarOwnerProps {\n  /** Hero uses centered placement; composer uses the active bottom placement. */\n  variant: \'hero\' | \'composer\'\n  /** A feature-owned reason that makes message input inert while leaving model selection live. */\n  blocked?: { readonly reason: string }\n  /** Lock all message actions while preserving the resident composer surface. */\n  disabled?: boolean\n  /** Whether the shared Workspace picker is expanded. */\n  workspacePickerOpen?: boolean\n  /** Open the Workspace picker from the inert composer surface. */\n  onRequestWorkspace?: () => void\n  placeholder?: string\n  /** Optional content rendered above the composer surface. */\n  accessory?: ReactNode\n}',
-+      '/** Owner share of the resident composer bar. */\nexport interface ComposerBarOwnerProps {\n  /** Hero uses centered placement; composer uses the active bottom placement. */\n  variant: \'hero\' | \'composer\'\n  /** A feature-owned reason that makes message input inert while leaving model selection live. */\n  blocked?: ComposerBlock\n  /** Lock all message actions while preserving the resident composer surface. */\n  disabled?: boolean\n  /** Whether the shared Workspace picker is expanded. */\n  workspacePickerOpen?: boolean\n  /** Open the Workspace picker from the inert composer surface. */\n  onRequestWorkspace?: () => void\n  placeholder?: string\n  /** Optional content rendered above the composer surface. */\n  accessory?: ReactNode\n}',
-     ],
-     ownerPropsReferences: [
-+      'ComposerBlock',
-       'Workspace',
-     ],
-     standardProps: [
-@@ -1055,7 +1156,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'shadows-shipped-ui',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.message.images\', () => ctx.slots.register(\n      { name: \'conversation.message.images\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:203',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:218',
-   },
-   {
-     key: 'conversation.session',
-diff --git a/packages/extensions/tool-cordis/src/api-catalog.ts b/packages/extensions/tool-cordis/src/api-catalog.ts
-index fe478a4..4cfa9a1 100644
---- a/packages/extensions/tool-cordis/src/api-catalog.ts
-+++ b/packages/extensions/tool-cordis/src/api-catalog.ts
-@@ -3417,9 +3417,9 @@ export const EVENT_API: readonly EventApiEntry[] = [
-   {
-     name: 'session/prompt-admission',
-     mode: 'waterfall',
--    signature: '\'session/prompt-admission\'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage>): Promise<UserMessage>',
--    summary: 'Validate a fully resolved real user message and attach durable admission metadata.',
--    description: 'Validate a fully resolved real user message and attach durable admission metadata.',
-+    signature: '\'session/prompt-admission\'(agent: Agent, message: UserMessage, next: () => Promise<UserMessage | null>): Promise<UserMessage | null>',
-+    summary: 'Validate a resolved real user message or acknowledge an already persisted input.',
-+    description: 'Validate a resolved real user message or acknowledge an already persisted input.',
-     parameters: [{ name: 'agent', description: 'target Agent.' }, { name: 'message', description: 'validated user content, including its stable request identity.' }],
-   },
-   {
-@@ -5080,7 +5080,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
-   },
-   {
-     name: 'Session',
--    declaration: 'export class Session {\n    get surface(): SessionSurface;\n    readonly header: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    get id(): SessionId;\n    readonly firstLiveSeq: SessionLogOffset;\n    static create(id: SessionId, seed?: readonly SessionEvent[], header?: SessionHeader, inheritedEventCount?: SessionLogOffset): Session;\n    static fromRestore(id: SessionId, seed: readonly SessionEvent[], header: SessionHeader, inheritedEventCount: SessionLogOffset, eventState: SessionSeedEventState): Session;\n    eventAt(seq: SessionSeq): SessionEvent | undefined;\n    snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[];\n    ownEvents(): readonly SessionEvent[];\n    isOwnSeq(seq: SessionSeq): boolean;\n    get seq(): SessionLogOffset;\n    append<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [\n        opts: SurfaceIntent<T>\n    ] : [\n    ]): SessionEvent<T>;\n    requestHeader(): EpochHeader | undefined;\n    requestContext(): RequestContext | undefined;\n    deriveMessages(): Message[];\n    deriveEventMessage(event: SessionEvent): Message | null;\n}',
-+    declaration: 'export class Session {\n    get surface(): SessionSurface;\n    readonly header: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    get id(): SessionId;\n    readonly firstLiveSeq: SessionLogOffset;\n    static create(id: SessionId, seed?: readonly SessionEvent[], header?: SessionHeader, inheritedEventCount?: SessionLogOffset): Session;\n    static fromRestore(id: SessionId, seed: readonly SessionEvent[], header: SessionHeader, inheritedEventCount: SessionLogOffset, eventState: SessionSeedEventState): Session;\n    eventAt(seq: SessionSeq): SessionEvent | undefined;\n    snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[];\n    readHistory(): Promise<{\n        version: number;\n        through: SessionLogOffset;\n        events: readonly SessionEvent[];\n    }>;\n    ownEvents(): readonly SessionEvent[];\n    isOwnSeq(seq: SessionSeq): boolean;\n    get seq(): SessionLogOffset;\n    append<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [\n        opts: SurfaceIntent<T>\n    ] : [\n    ]): SessionEvent<T>;\n    requestHeader(): EpochHeader | undefined;\n    requestContext(): RequestContext | undefined;\n    deriveMessages(): Message[];\n    deriveEventMessage(event: SessionEvent): Message | null;\n}',
-   },
-   {
-     name: 'SessionAccess',
-@@ -5148,7 +5148,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
-   },
-   {
-     name: 'SessionEventMap',
--    declaration: 'export interface SessionEventMap {\n    \'turn/start\': {\n        turn: number;\n    };\n    \'turn/end\': {\n        turn: number;\n        reason: TurnEndReason;\n    };\n    \'step/start\': {\n        turn: number;\n        step: number;\n    };\n    \'step/end\': {\n        turn: number;\n        step: number;\n    };\n    \'user/message\': UserMessage;\n    \'system/message\': {\n        turn: number;\n        step: number;\n        message: SystemMessage;\n    };\n    \'context/message\': {\n        groupId: string;\n        index: number;\n        name?: string;\n        message: import(\'@deepseek-ai/dsh-llm\').Message & {\n            readonly role: \'user\' | \'assistant\';\n        };\n    };\n    \'session/configuration\': {\n        key: string;\n        value: unknown;\n        presentation?: {\n            initialized?: true;\n            label?: string;\n            text?: string;\n        };\n    };\n    \'assistant/message\': {\n        turn: number;\n        step: number;\n        message: AssistantMessage;\n        stream: AssistantStreamRecord[];\n        usage?: TokenUsage;\n        interrupted?: true;\n    };\n    \'assistant/attempt\': {\n        turn: number;\n        step: number;\n        stream: AssistantStreamRecord[];\n    };\n    \'tool/call\': {\n        turn: number;\n        step: number;\n        callId: ToolCallId;\n        name: string;\n        arguments: string;\n    };\n    \'tool/result\': {\n        turn: number;\n        step: number;\n        message: ToolResultMessage;\n        error?: {\n            name: string;\n         /* …truncated — full shape in source */',
-+    declaration: 'export interface SessionEventMap {\n    \'history/selected\': {\n        version: number;\n        ranges: readonly SessionHistoryRange[];\n        metadata: unknown;\n    };\n    \'turn/start\': {\n        turn: number;\n    };\n    \'turn/end\': {\n        turn: number;\n        reason: TurnEndReason;\n    };\n    \'step/start\': {\n        turn: number;\n        step: number;\n    };\n    \'step/end\': {\n        turn: number;\n        step: number;\n    };\n    \'user/message\': UserMessage;\n    \'system/message\': {\n        turn: number;\n        step: number;\n        message: SystemMessage;\n    };\n    \'context/message\': {\n        groupId: string;\n        index: number;\n        name?: string;\n        message: import(\'@deepseek-ai/dsh-llm\').Message & {\n            readonly role: \'user\' | \'assistant\';\n        };\n    };\n    \'session/configuration\': {\n        key: string;\n        value: unknown;\n        presentation?: {\n            initialized?: true;\n            label?: string;\n            text?: string;\n        };\n    };\n    \'assistant/message\': {\n        turn: number;\n        step: number;\n        message: AssistantMessage;\n        stream: AssistantStreamRecord[];\n        usage?: TokenUsage;\n        interrupted?: true;\n    };\n    \'assistant/attempt\': {\n        turn: number;\n        step: number;\n        stream: AssistantStreamRecord[];\n    };\n    \'tool/call\': {\n        turn: number;\n        step: number;\n        callId: ToolCallId;\n        name: string;\n        arguments: string;\n    };\n    \'tool/result\': { /* …truncated — full shape in source */',
-   },
-   {
-     name: 'SessionEventMetadataFilter',
-@@ -5266,6 +5266,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
-     name: 'SessionHeader',
-     declaration: 'export interface SessionHeader {\n    readonly version: typeof SESSION_FORMAT_VERSION;\n    readonly id: SessionId;\n    readonly createdAt: number;\n    readonly cwd?: string;\n    readonly parentSession?: SessionId;\n    readonly isSeeded: boolean;\n    readonly origin?: \'subagent\';\n    readonly delegationDepth?: number;\n    readonly agentPreset?: string;\n}',
-   },
-+  {
-+    name: 'SessionHistoryRange',
-+    declaration: 'export interface SessionHistoryRange {\n    readonly start: SessionSeq;\n    readonly end: SessionSeq;\n}',
-+  },
-   {
-     name: 'SessionHistoryRecord',
-     declaration: 'export type SessionHistoryRecord = SessionEventEntry;',
-@@ -5384,7 +5388,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
-   },
-   {
-     name: 'SessionPromptRequest',
--    declaration: 'export interface SessionPromptRequest {\n    readonly requestId: SessionRequestId;\n    readonly sessionId: SessionId;\n    readonly mode: \'queue\' | \'steer\';\n    readonly content: readonly PromptContentPart[];\n    readonly clientTimeZone?: string;\n}',
-+    declaration: 'export interface SessionPromptRequest {\n    readonly requestId: SessionRequestId;\n    readonly sessionId: SessionId;\n    readonly mode: \'queue\' | \'steer\';\n    readonly content: readonly PromptContentPart[];\n    readonly clientTimeZone?: string;\n    readonly historyVersion?: number;\n}',
-   },
-   {
-     name: 'SessionPromptValue',
-@@ -6150,10 +6154,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
-     name: 'ToolResultBlock',
-     declaration: 'export interface ToolResultBlock {\n    type: \'tool-result\';\n    toolCallId: ToolCallId;\n    content: ContentBlock[];\n    isError?: boolean;\n}',
-   },
--  {
--    name: 'ToolResultMessage',
--    declaration: 'export interface ToolResultMessage extends Message {\n    readonly role: \'user\';\n    readonly content: [\n        ToolResultBlock\n    ];\n    readonly source: ToolMessageSource;\n}',
--  },
-   {
-     name: 'ToolResultView',
-     declaration: 'export type ToolResultView = GenericResultView | TerminalResultView | DiffResultView | SearchResultView | ReadResultView | WebResultView;',
+diff --git a/packages/sdk/client/tests/fake-runtime.ts b/packages/sdk/client/tests/fake-runtime.ts
+index c752d98ed1..c8e895b5b7 100644
+--- a/packages/sdk/client/tests/fake-runtime.ts
++++ b/packages/sdk/client/tests/fake-runtime.ts
+@@ -121,6 +121,7 @@ function runTurn(sessionId: string): void {
+   }
+   event(sessionId, 'turn/start', { turn: 0 })
+   if (env.FAKE_AUTHORED_CONTEXT !== undefined) {
++    event(sessionId, 'context/message', { groupId: 'accepted', index: 0, message: { id: 'accepted-user', role: 'user', source: { kind: 'user', rpcId: 'retained' }, content: [{ type: 'text', text: 'Accepted input' }] } })
+     event(sessionId, 'session/configuration', { key: 'fixture', value: { selected: true }, presentation: { initialized: true, label: 'Reading', text: 'Opening' } })
+     event(sessionId, 'context/message', { groupId: 'fixture', index: 0, name: 'Authored', message: { id: 'authored', role: 'assistant', source: { kind: 'plugin', plugin: 'fixture' }, content: [{ type: 'text', text: 'Not model output' }] } })
+   }
+diff --git a/packages/sdk/client/tests/sdk-client.spec.ts b/packages/sdk/client/tests/sdk-client.spec.ts
+index 45212a35fe..d98b6cdcaa 100644
+--- a/packages/sdk/client/tests/sdk-client.spec.ts
++++ b/packages/sdk/client/tests/sdk-client.spec.ts
+@@ -125,9 +125,10 @@ describe('DeepSeekHarness', () => {
+     const harness = harnessWith({ FAKE_TEXT: 'model answer', FAKE_AUTHORED_CONTEXT: '1' })
+     const result = await harness.run('go')
+     expect(result.finalResponse).toBe('model answer')
+-    expect(result.events.find(event => event.type === 'context/message')?.data).toEqual({
++    expect(result.events.filter(event => event.type === 'context/message')[1]?.data).toEqual({
+       groupId: 'fixture', index: 0, name: 'Authored', message: { id: 'authored', role: 'assistant', source: { kind: 'plugin', plugin: 'fixture' }, content: [{ type: 'text', text: 'Not model output' }] },
+     })
++    expect(result.events.find(event => event.type === 'context/message')?.data.message.source).toEqual({ kind: 'user', rpcId: 'retained' })
+     expect(result.events.find(event => event.type === 'session/configuration')?.data).toEqual({ key: 'fixture', value: { selected: true }, presentation: { initialized: true, label: 'Reading', text: 'Opening' } })
+   })
+ 
 diff --git a/packages/session/session-format-catalog/src/current.ts b/packages/session/session-format-catalog/src/current.ts
-index 8a156ab..0117ab9 100644
+index 8a156ab071..2fafbe06f4 100644
 --- a/packages/session/session-format-catalog/src/current.ts
 +++ b/packages/session/session-format-catalog/src/current.ts
 @@ -59,6 +59,8 @@ export function validateInstalledCurrentSessionArtifact(artifact: SessionFormatA
@@ -2512,7 +1497,7 @@ index 8a156ab..0117ab9 100644
    const messageView = (value: SessionFormatJsonValue): SessionFormatJsonValue => {
      if (!isSessionFormatJsonObject(value) || !isSessionFormatJsonObject(value['source'])) return value
      const source = value['source']
-@@ -67,7 +69,27 @@ export function releasedValidationView(artifact: SessionFormatArtifact): Session
+@@ -67,12 +69,32 @@ export function releasedValidationView(artifact: SessionFormatArtifact): Session
      const { admission: _admission, ...released } = source
      return { ...value, source: released }
    }
@@ -2540,8 +1525,14 @@ index 8a156ab..0117ab9 100644
      if (event.type === 'context/message') {
        changed.add(index)
        const data = event.data
+       if (!isSessionFormatJsonObject(data) || !isSessionFormatJsonObject(data['message'])) throw new Error('authored context requires a message object')
+-      return { ...event, type: 'user/message', data: { ...data['message'], role: 'user' } }
++      return { ...event, type: 'user/message', data: messageView({ ...data['message'], role: 'user' }) }
+     }
+     if (event.type === 'user/message') {
+       const data = messageView(event.data)
 diff --git a/packages/session/session-format-catalog/tests/catalog.spec.ts b/packages/session/session-format-catalog/tests/catalog.spec.ts
-index c4de44e..9a8a1f7 100644
+index c4de44e0e5..3297b2e736 100644
 --- a/packages/session/session-format-catalog/tests/catalog.spec.ts
 +++ b/packages/session/session-format-catalog/tests/catalog.spec.ts
 @@ -1,5 +1,7 @@
@@ -2552,7 +1543,20 @@ index c4de44e..9a8a1f7 100644
  import { sessionFormatCatalog } from '../src/index.ts'
  
  function deepFreeze<T>(value: T): T {
-@@ -287,3 +289,23 @@ describe('installed authored context persistence', () => {
+@@ -277,6 +279,12 @@ describe('installed authored context persistence', () => {
+     const encoded = restore(rows).events.flatMap(event => sessionFormatCatalog.encodeCurrentEvent(event))
+     expect(restore(encoded).events).toEqual(rows)
+   })
++  it('restores interrupted user inputs outside turns with retained attachments', () => {
++    const row = { type: 'context/message', seq: 0, time: 1, surfaceOp: 'append', data: { groupId: 'accepted', index: 0, message: { ...user.data, content: [{ type: 'file', attachment: { attachmentId: 'sha256:' + 'ab'.repeat(32), name: 'input.txt', bytes: 3 } }] } } }
++    const reader = sessionFormatCatalog.createRestore(header, { recovery: 'strict', validation: 'current' })
++    reader.decodeRow(sessionFormatCatalog.encodeCurrentEvent(row))
++    expect(reader.finish().events).toEqual([row])
++  })
+   it('rejects invalid authored roles, source metadata and surface references before restoration', () => {
+     for (const changed of [
+       { ...context, data: { ...context.data, message: { ...context.data.message, role: 'system' } } },
+@@ -287,3 +295,23 @@ describe('installed authored context persistence', () => {
      expect(() => restore([system, context, { ...user, data: { ...user.data, source: { kind: 'user', admission: 'bad' } } }])).toThrow()
    })
  })
@@ -2577,7 +1581,7 @@ index c4de44e..9a8a1f7 100644
 +  expect(() => restore(invalid)).toThrow('system/message does not match an open step')
 +})
 diff --git a/packages/session/session-projection-cache/tests/cache.spec.ts b/packages/session/session-projection-cache/tests/cache.spec.ts
-index b38f49e..4eeeb84 100644
+index b38f49eec1..4eeeb84f3e 100644
 --- a/packages/session/session-projection-cache/tests/cache.spec.ts
 +++ b/packages/session/session-projection-cache/tests/cache.spec.ts
 @@ -71,7 +71,7 @@ const marksUnit = (stateVersion = 1) => ({
@@ -2608,7 +1612,7 @@ index b38f49e..4eeeb84 100644
    stateVersion: 1,
  } satisfies ProjectionDefinition<'cache-test/secondary-marks', MarksState>
 diff --git a/packages/session/session-projection/tests/registry.spec.ts b/packages/session/session-projection/tests/registry.spec.ts
-index 0954b2d..08ee2ee 100644
+index 0954b2daf5..08ee2ee33a 100644
 --- a/packages/session/session-projection/tests/registry.spec.ts
 +++ b/packages/session/session-projection/tests/registry.spec.ts
 @@ -65,7 +65,7 @@ const marksUnit = (): Omit<ProjectionDefinition<'test/marks', MarksState>, 'wire
@@ -2630,7 +1634,7 @@ index 0954b2d..08ee2ee 100644
            if (value === undefined) throw new Error('test state lacks a raw view')
            computedViews.push(value)
 diff --git a/packages/subagent/subagent/tests/list-children.spec.ts b/packages/subagent/subagent/tests/list-children.spec.ts
-index 6d83648..c2bf915 100644
+index 6d83648d23..c2bf915821 100644
 --- a/packages/subagent/subagent/tests/list-children.spec.ts
 +++ b/packages/subagent/subagent/tests/list-children.spec.ts
 @@ -213,7 +213,7 @@ const hostileProjectionDefinition = {
@@ -2642,29 +1646,9 @@ index 6d83648..c2bf915 100644
        if (state.poisoned === true) throw new Error('hostile unit rejects the poisoned log')
        return null
      },
-diff --git a/python/sdk/tests/test_client.py b/python/sdk/tests/test_client.py
-index cb3c5bb..f1313f0 100644
---- a/python/sdk/tests/test_client.py
-+++ b/python/sdk/tests/test_client.py
-@@ -43,6 +43,7 @@ for line in sys.stdin:
-         print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "agent/inbox/spliced", "data": {"target": "next-turn", "start": 0, "inserted": [{"id": "message-1"}]}}}}), flush=True)
-         print(json.dumps({"jsonrpc": "2.0", "method": "session.status", "params": {"sessionId": params["sessionId"], "status": "running"}}), flush=True)
-         print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"messageId": "message-1"}}), flush=True)
-+        print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "history/selected", "data": {"version": 1, "ranges": [], "metadata": {"purpose": "fixture"}}}}}), flush=True)
-         print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "session/configuration", "data": {"key": "opening", "value": {}, "presentation": {"initialized": True, "label": "Reading", "text": "Opening"}}}}}), flush=True)
-         print(json.dumps({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": params["sessionId"], "event": {"type": "context/message", "data": {"groupId": "fixture", "index": 0, "message": {"role": "assistant", "source": {"kind": "plugin", "plugin": "fixture"}, "content": [{"type": "text", "text": "Not model output"}]}}}}}), flush=True)
-         print(json.dumps({
-@@ -110,6 +111,7 @@ for line in sys.stdin:
-         result = harness.run("say hello", session_id="main")
- 
-     assert result.final_response == "hello from runtime"
-+    assert next(event for event in result.events if event["type"] == "history/selected")["data"] == {"version": 1, "ranges": [], "metadata": {"purpose": "fixture"}}
-     assert next(event for event in result.events if event["type"] == "session/configuration")["data"]["presentation"]["text"] == "Opening"
-     assert next(event for event in result.events if event["type"] == "context/message")["data"]["message"]["role"] == "assistant"
-     assert result.finish_reason == "max-tokens"
 diff --git a/snapshots/sdk/history-selection/notifications.expected.jsonl b/snapshots/sdk/history-selection/notifications.expected.jsonl
 new file mode 100644
-index 0000000..6c367e8
+index 0000000000..6c367e80fc
 --- /dev/null
 +++ b/snapshots/sdk/history-selection/notifications.expected.jsonl
 @@ -0,0 +1,17 @@
@@ -2687,14 +1671,14 @@ index 0000000..6c367e8
 +{"method":"session.status","params":{"sessionId":"{{sessionId}}","status":"idle"}}
 diff --git a/snapshots/sdk/history-selection/result.expected.json b/snapshots/sdk/history-selection/result.expected.json
 new file mode 100644
-index 0000000..589038c
+index 0000000000..589038c6f2
 --- /dev/null
 +++ b/snapshots/sdk/history-selection/result.expected.json
 @@ -0,0 +1 @@
 +{"sessionId":"{{sessionId}}","finalResponse":"PONG"}
 diff --git a/snapshots/sdk/history-selection/session.v3.jsonl b/snapshots/sdk/history-selection/session.v3.jsonl
 new file mode 100644
-index 0000000..d70749a
+index 0000000000..d70749a973
 --- /dev/null
 +++ b/snapshots/sdk/history-selection/session.v3.jsonl
 @@ -0,0 +1,21 @@
@@ -2721,7 +1705,7 @@ index 0000000..d70749a
 +{"type":"turn/end","data":{"turn":1,"reason":{"kind":"completed"}}}
 diff --git a/snapshots/sdk/history-selection/snapshot.yml b/snapshots/sdk/history-selection/snapshot.yml
 new file mode 100644
-index 0000000..33d4d8a
+index 0000000000..33d4d8ab5d
 --- /dev/null
 +++ b/snapshots/sdk/history-selection/snapshot.yml
 @@ -0,0 +1,7 @@
@@ -2734,7 +1718,7 @@ index 0000000..33d4d8a
 +  class: history-selection
 diff --git a/snapshots/session/history-selection/context.mjs b/snapshots/session/history-selection/context.mjs
 new file mode 100644
-index 0000000..706dab0
+index 0000000000..706dab0fdf
 --- /dev/null
 +++ b/snapshots/session/history-selection/context.mjs
 @@ -0,0 +1,15 @@
@@ -2755,7 +1739,7 @@ index 0000000..706dab0
 +}
 diff --git a/snapshots/session/history-selection/cordis.snapshot.yml b/snapshots/session/history-selection/cordis.snapshot.yml
 new file mode 100644
-index 0000000..ffd22c1
+index 0000000000..ffd22c1f1d
 --- /dev/null
 +++ b/snapshots/session/history-selection/cordis.snapshot.yml
 @@ -0,0 +1,44 @@
@@ -2805,7 +1789,7 @@ index 0000000..ffd22c1
 +      name: './context.mjs'
 diff --git a/snapshots/session/history-selection/cordis.yml b/snapshots/session/history-selection/cordis.yml
 new file mode 100644
-index 0000000..90c7e15
+index 0000000000..90c7e15583
 --- /dev/null
 +++ b/snapshots/session/history-selection/cordis.yml
 @@ -0,0 +1,3 @@
@@ -2814,7 +1798,7 @@ index 0000000..90c7e15
 +      name: './context.mjs'
 diff --git a/snapshots/session/history-selection/session.v3.jsonl b/snapshots/session/history-selection/session.v3.jsonl
 new file mode 100644
-index 0000000..d70749a
+index 0000000000..d70749a973
 --- /dev/null
 +++ b/snapshots/session/history-selection/session.v3.jsonl
 @@ -0,0 +1,21 @@
@@ -2841,7 +1825,7 @@ index 0000000..d70749a
 +{"type":"turn/end","data":{"turn":1,"reason":{"kind":"completed"}}}
 diff --git a/snapshots/session/history-selection/snapshot.yml b/snapshots/session/history-selection/snapshot.yml
 new file mode 100644
-index 0000000..aa7f9a7
+index 0000000000..aa7f9a7b3f
 --- /dev/null
 +++ b/snapshots/session/history-selection/snapshot.yml
 @@ -0,0 +1,8 @@
@@ -2855,7 +1839,7 @@ index 0000000..aa7f9a7
 +  pin: true
 diff --git a/snapshots/session/history-selection/system-prompt.expected.md b/snapshots/session/history-selection/system-prompt.expected.md
 new file mode 100644
-index 0000000..b3c8e3d
+index 0000000000..b3c8e3db4b
 --- /dev/null
 +++ b/snapshots/session/history-selection/system-prompt.expected.md
 @@ -0,0 +1,32 @@
@@ -2893,7 +1877,7 @@ index 0000000..b3c8e3d
 +Use subagent in the background by default. Start independent delegations together in one assistant message and continue useful work while they run. Set `run_in_background: false` only when your next action depends on that subagent's result. When a background run settles, the runtime sends you a notice containing its outcome and any final assistant message.
 diff --git a/snapshots/session/history-selection/tool-schemas.expected.json b/snapshots/session/history-selection/tool-schemas.expected.json
 new file mode 100644
-index 0000000..1531215
+index 0000000000..1531215c7f
 --- /dev/null
 +++ b/snapshots/session/history-selection/tool-schemas.expected.json
 @@ -0,0 +1,634 @@

@@ -115,7 +115,7 @@ describe('saved compilation', () => {
     const artifact = await f.service.read(result.artifactId)
     const copies = await Promise.all([f.store.save(artifact), f.store.save(artifact)])
     expect(copies).toEqual([artifact, artifact])
-    const conflicting = createArtifact(artifact.sourceHash, artifact.options, { context: { systemPrompt: 'Different', messages: [] }, state: artifact.state, functions: artifact.functions, program: artifact.program })
+    const conflicting = createArtifact(artifact.sourceHash, artifact.options, { context: { systemPrompt: 'Different', messages: [] }, state: artifact.state, functions: artifact.functions, program: artifact.program, composition: artifact.composition })
     await expect(f.store.save(conflicting)).rejects.toMatchObject({ code: 'artifact-conflict' })
     expect(await f.store.read(artifact.id)).toEqual(artifact)
     expect(await readdir(f.store.directory)).toEqual([artifact.id + '.json'])

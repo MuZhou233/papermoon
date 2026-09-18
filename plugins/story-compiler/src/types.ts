@@ -28,23 +28,37 @@ export interface StateDeclaration { readonly initial: JsonObject; readonly schem
 export interface ProgramBundle { readonly files: Record<string, string>; readonly texts: Record<string, string | null> }
 export interface Artifact {
   readonly format: 'papermoon.story'
-  readonly version: 2
-  readonly apiVersion: 2
-  readonly compiler: 'papermoon.commonjs/2'
+  readonly version: 3
+  readonly apiVersion: 3
+  readonly compiler: 'papermoon.commonjs/3'
   readonly id: string
   readonly sourceHash: string
   readonly options: ResolvedOptions
   readonly context: OpeningContext
   readonly state: StateDeclaration
   readonly functions: readonly FunctionDeclaration[]
+  readonly composition: { readonly hash: string } | null
   readonly program: ProgramBundle
   readonly checksum: string
 }
 export type CompileResult = { ok: true; artifact: Artifact; diagnostics: Diagnostic[] } | { ok: false; failure: 'script' | 'operation'; diagnostics: Diagnostic[] }
-export interface Invocation { state: JsonObject; name: string; args: JsonObject; artifact: Pick<Artifact, 'context' | 'state' | 'functions'> }
-export interface WorkerInput extends ProgramBundle { options: ResolvedOptions; invocation?: Invocation }
+export interface Invocation { state: JsonObject; name: string; args: JsonObject; artifact: Pick<Artifact, 'context' | 'state' | 'functions' | 'composition'> }
+export interface WorkerInput extends ProgramBundle { options: ResolvedOptions; invocation?: Invocation; composition?: { input: CompositionInput; artifact: Invocation['artifact'] } }
 export interface FunctionSource { name: string; factory: string; implementation: string }
-export interface EvaluatedDeclaration { context: OpeningContext; state: StateDeclaration; functions: FunctionSource[] }
-export interface CompiledDeclaration { context: OpeningContext; state: StateDeclaration; functions: readonly FunctionDeclaration[]; program: ProgramBundle }
+export interface EvaluatedDeclaration { context: OpeningContext; state: StateDeclaration; functions: FunctionSource[]; composition: string | null }
+export interface CompiledDeclaration { context: OpeningContext; state: StateDeclaration; functions: readonly FunctionDeclaration[]; program: ProgramBundle; composition: Artifact['composition'] }
 export type InvocationResult = { ok: true; state: JsonObject; value: JsonValue } | { ok: false; failure: 'script' | 'operation'; diagnostics: Diagnostic[] }
-export type WorkerResult = { ok: true; compiled: CompiledDeclaration } | { ok: true; state: JsonObject; value: JsonValue } | { ok: false; diagnostic: Diagnostic }
+export type WorkerResult = { ok: true; compiled: CompiledDeclaration } | { ok: true; state: JsonObject; value: JsonValue } | { ok: true; plan: CompositionPlan } | { ok: false; diagnostic: Diagnostic }
+
+/** Readonly historical identities; source bodies and provider replay data stay in the host. */
+export interface ContextReference { readonly id: string; readonly role: 'user' | 'assistant'; readonly name?: string }
+export interface ContextHistoryNode { readonly id: string; readonly outcome: string; readonly blocks: readonly ContextReference[] }
+export interface CompositionInput {
+  readonly opening: { readonly systemPrompt: string; readonly systemPromptName?: string; readonly messages: readonly ContextReference[] }
+  readonly history: readonly ContextHistoryNode[]
+  readonly input: { readonly id: string; readonly content: readonly JsonValue[] }
+  readonly state: JsonObject
+}
+export type ContextItem = { readonly ref: string } | OpeningMessage
+export interface CompositionPlan { readonly systemPrompt: string; readonly systemPromptName?: string; readonly messages: readonly ContextItem[] }
+export type CompositionResult = { ok: true; plan: CompositionPlan } | { ok: false; failure: 'script' | 'operation'; diagnostics: Diagnostic[] }

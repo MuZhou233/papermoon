@@ -51,3 +51,7 @@ The [compiler service](../plugins/story-compiler/README.md#submission-and-frozen
 Function declarations, frozen code and invocation live in the [compiler package](../plugins/story-compiler/README.md). The [performance plugin](../plugins/performances/README.md) serializes calls and persists complete actions in Session logs. Function state does not enter storage KV or model context implicitly.
 
 Worldline nodes and selected-path state belong to the [performance plugin](../plugins/performances/README.md#worldlines). DSH supplies generic logged history selection and request reconstruction. Both derive from the same raw Session log; context assembly does not define the historical tree.
+
+Request composition belongs to the [performance plugin](../plugins/performances/README.md#actual-context); frozen script execution belongs to the compiler's runtime entry. DSH supplies durable request-local selection and replay independently of transcript history. The [decision](../.agents/notes/implemented/architecture/2026-09-17-context-composition.md) records the once-per-input policy.
+
+Performance inspection uses the full DSH trajectory with a compact worldline navigator and original/rewritten context modes. Floors describe story depth; DSH turn numbers retain execution identity. [Inspection semantics](../plugins/performances/README.md#actual-context) remain separate from runtime history selection.

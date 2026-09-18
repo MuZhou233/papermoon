@@ -2,12 +2,15 @@ import { useSyncExternalStore, useRef, useEffect } from 'react'
 import { Button } from '@papermoon/ui'
 import { PRESET } from '../constants.ts'
 import { Runtime, type ClientHost } from './runtime.ts'
-import { WorldlineView, TurnActions, EditInput, InterruptedInput, interruptedInputDefinition } from './worldlines.tsx'
+import { TurnActions, EditInput } from './worldlines.tsx'
+import { Inspection } from './inspection.ts'
+import { WorldlineNavigation, InspectionToolbar } from './navigation.tsx'
+import { compositionTrajectory } from './composition.ts'
 import { Launch } from './launch.tsx'
 import { Opening, openingDefinition, initializationDefinition, actionDefinition } from './context.tsx'
 import { en, zh, type T } from './locales.ts'
 import './style.css'
-export const inject = ['slots', 'locale', 'connection', 'sessions', 'uiAgentPreset', 'conversation', 'uiConversation', 'layout', 'chatPresentation']
+export const inject = ['slots', 'locale', 'connection', 'sessions', 'uiAgentPreset', 'conversation', 'uiConversation', 'layout', 'chatPresentation', 'trajectoryInspection']
 function StartButton({ runtime, t }: { runtime: Runtime; t: T }) {
   const mode = useSyncExternalStore(runtime.host.uiAgentPreset.store.subscribe, runtime.host.uiAgentPreset.store.getSnapshot)
   const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
@@ -35,8 +38,10 @@ function Source({ runtime, t }: { runtime: Runtime; t: T }) {
 }
 export function apply(ctx: ClientHost) {
   ctx.effect(() => ctx.chatPresentation.preserveReplies(PRESET))
-  ctx.effect(() => ctx.chatPresentation.preserveUserInputs('papermoon.worldline'))
+  for (const definition of [openingDefinition, initializationDefinition, actionDefinition, compositionTrajectory]) ctx.effect(() => ctx.uiConversation.events.register(definition))
   const runtime = new Runtime(ctx)
+  const inspection = new Inspection(runtime,ctx.locale.bind('papermoon-performances'))
+  ctx.effect(()=>()=>inspection.dispose())
   ctx.effect(() => ctx.locale.register('papermoon-performances', { en, zh }))
   ctx.effect(() => {
     const off = ctx.sessions.list.subscribe(runtime.observe), offMode = ctx.uiAgentPreset.store.subscribe(runtime.observe)
@@ -46,16 +51,8 @@ export function apply(ctx: ClientHost) {
   })
   for (const [slot, component] of [['shell.overlay', Launch], ['conversation.hero.options', StartButton], ['conversation.session.header.actions', Source]] as const)
     ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, id: 'papermoon-performance', locale: 'papermoon-performances', inject: () => ({ runtime }) }, component))
-  ctx.slots.inject('conversation.view', () => {
-    let unregister: (() => void) | undefined
-    const update = () => {
-      const enabled = ctx.uiAgentPreset.store.getSnapshot().current === PRESET
-      if (enabled && !unregister) unregister = ctx.slots.register({ name: 'conversation.view', id: 'papermoon-worldlines', order: 20, label: () => ctx.locale.bind('papermoon-performances')('worldlines'), locale: 'papermoon-performances', inject: () => ({ runtime }) }, WorldlineView)
-      else if (!enabled && unregister) { unregister(); unregister = undefined }
-    }
-    const off = ctx.uiAgentPreset.store.subscribe(update); update()
-    return () => { off(); unregister?.() }
-  })
+  for (const [slot,component] of [['conversation.trajectory.navigation',WorldlineNavigation],['conversation.trajectory.toolbar',InspectionToolbar]] as const)
+    ctx.slots.inject(slot,()=>ctx.slots.register({name:slot,id:'papermoon-worldlines',locale:'papermoon-performances',inject:()=>({inspection})},component))
   ctx.slots.inject('conversation.chat.user-actions', () => ctx.slots.register({ name: 'conversation.chat.user-actions', id: 'papermoon-edit-input', locale: 'papermoon-performances', inject: () => ({ runtime }) }, EditInput))
   ctx.slots.inject('conversation.chat.turn-actions', () => {
     let unregister: (() => void) | undefined
@@ -69,7 +66,5 @@ export function apply(ctx: ClientHost) {
     const off = ctx.uiAgentPreset.store.subscribe(update); update()
     return () => { off(); unregister?.() }
   })
-  for (const definition of [openingDefinition, initializationDefinition, actionDefinition, interruptedInputDefinition]) ctx.effect(() => ctx.uiConversation.events.register(definition))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({ name: 'conversation.chat.node', key: 'papermoon-interrupted-input', locale: 'papermoon-performances', inject: () => ({ runtime }) }, InterruptedInput))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({ name: 'conversation.chat.node', key: 'papermoon-opening', locale: 'papermoon-performances' }, Opening))
 }

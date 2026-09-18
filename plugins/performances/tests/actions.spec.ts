@@ -25,7 +25,7 @@ beforeAll(async () => {
 const closes: (() => Promise<void>)[] = []
 afterEach(async () => { for (const close of closes.splice(0).reverse()) await close() })
 function fixture(seed: readonly LogRecord[] = [], flush: () => Promise<boolean> = async () => true, selected = artifact) {
-  const payload = { version: 2 as const, originSessionId: 'origin', scriptId: 'script', revisionId: 'revision', ordinal: 1, scriptName: 'Script', projectName: 'Project', description: 'Functions', attachmentKey: 'opening/0', artifact: selected }
+  const payload = { version: 3 as const, originSessionId: 'origin', scriptId: 'script', revisionId: 'revision', ordinal: 1, scriptName: 'Script', projectName: 'Project', description: 'Functions', attachmentKey: 'opening/0', artifact: selected }
   const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
   const events = structuredClone([...seed]), surfaces: unknown[] = []
   const agent = { id: 'current', session: { snapshotEvents: () => events, append(type: string, data: unknown, surface?: { sourceEventSeqs?: number[] }) {

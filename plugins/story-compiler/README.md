@@ -10,7 +10,7 @@ This package compiles a fixed [StoryContent](../story-core/README.md) into start
 |---|---|
 | @papermoon/story-compiler | compile, StoryCompiler, resolveOptions |
 | @papermoon/story-compiler/runtime | loadArtifact, initialize |
-| @papermoon/story-compiler/execution | StoryRuntime.invoke, close |
+| @papermoon/story-compiler/execution | StoryRuntime.invoke, compose, close |
 | @papermoon/story-compiler/service | CompilationService, ArtifactStore |
 | @papermoon/story-compiler/revisions | RevisionArtifacts, revisionCompilation |
 | @papermoon/story-compiler/plugin | Cordis service papermoonStoryCompiler |
@@ -43,11 +43,11 @@ Diagnostics carry code, stage, message and available file, line, column, declara
 
 ## Artifacts and persistence
 
-Artifact format 2 freezes compiler/API identity, canonical source fingerprint, effective options, starting context, initial state/schema, function declarations, loaded modules, selected-language text and SHA-256 integrity data. It stores no function objects, closures, VM instances or bytecode. Loading rejects unsupported versions, invalid fields and damaged hashes without recompilation or repair. Hashes detect modification; they are not signatures.
+Artifact format 3 freezes compiler/API identity, canonical source fingerprint, effective options, starting context, initial state/schema, function declarations, loaded modules, selected-language text and SHA-256 integrity data. It stores no function objects, closures, VM instances or bytecode. Loading rejects unsupported versions, invalid fields and damaged hashes without recompilation or repair. Hashes detect modification; they are not signatures.
 
 CompilationService.compile evaluates a pinned draft and saves success before returning its artifact identity. find matches content, options and compiler identity without executing. read and initialize use artifact identity independently of the draft. ArtifactStore writes JSON with a temporary file and atomic no-overwrite link. Equal saves are idempotent; different results for one key fail. Failed attempts have no stored history. The store's default record limit is 16 MiB, configurable through its constructor. [Development](../../docs/development.md) owns data paths and cleanup.
 
-The Cordis service depends on papermoonStoryCore. Consumer cleanup precedes service shutdown, which drains compilation and simulation before storage releases its connection. The Story database remains format 3 and business KV remains format 1. Artifact format 1 is unsupported; existing files and revision attachments are not rewritten.
+The Cordis service depends on papermoonStoryCore. Consumer cleanup precedes service shutdown, which drains compilation and simulation before storage releases its connection. The Story database remains format 3 and business KV remains format 1. Artifact formats 1 and 2 are unsupported; existing files and revision attachments are not rewritten.
 
 ## Submission and frozen revisions
 

@@ -29,7 +29,7 @@ export function validateContext(value: unknown): asserts value is OpeningContext
   }
 }
 export function compilationKey(sourceHash: string, options: ResolvedOptions): string {
-  return digest({ sourceHash, options, compiler: 'papermoon.commonjs/2', apiVersion: 2 })
+  return digest({ sourceHash, options, compiler: 'papermoon.commonjs/3', apiVersion: 3 })
 }
 function freeze<T>(value: T): T {
   if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value) }
@@ -39,8 +39,8 @@ function freeze<T>(value: T): T {
 export function loadArtifact(serialized: string): Artifact {
   let raw: unknown
   try { raw = JSON.parse(serialized) } catch { throw new ArtifactError('invalid-artifact', 'artifact is not JSON') }
-  object(raw, ['format', 'version', 'apiVersion', 'compiler', 'id', 'sourceHash', 'options', 'context', 'state', 'functions', 'program', 'checksum'])
-  if (raw.format !== 'papermoon.story' || raw.version !== 2 || raw.apiVersion !== 2 || raw.compiler !== 'papermoon.commonjs/2')
+  object(raw, ['format', 'version', 'apiVersion', 'compiler', 'id', 'sourceHash', 'options', 'context', 'state', 'functions', 'program', 'composition', 'checksum'])
+  if (raw.format !== 'papermoon.story' || raw.version !== 3 || raw.apiVersion !== 3 || raw.compiler !== 'papermoon.commonjs/3')
     throw new ArtifactError('unsupported-artifact', 'unsupported artifact format or compiler')
   if (![raw.id, raw.sourceHash, raw.checksum].every(v => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v)))
     throw new ArtifactError('invalid-artifact', 'invalid artifact identity')
@@ -54,6 +54,7 @@ export function loadArtifact(serialized: string): Artifact {
   validateContext(raw.context)
   object(raw.state, ['initial', 'schema'])
   for (const value of [raw.state.initial, raw.state.schema]) if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ArtifactError('invalid-artifact', 'invalid state declaration')
+  if (raw.composition !== null) { object(raw.composition, ['hash']); if (typeof raw.composition.hash !== 'string' || !/^[a-f0-9]{64}$/.test(raw.composition.hash)) throw new ArtifactError('invalid-artifact', 'invalid composition identity') }
   object(raw.program, ['files', 'texts'])
   for (const [key, nullable] of [['files', false], ['texts', true]] as const) {
     const value = raw.program[key]
@@ -81,7 +82,7 @@ export function loadArtifact(serialized: string): Artifact {
 }
 export function createArtifact(sourceHash: string, options: ResolvedOptions, compiled: CompiledDeclaration): Artifact {
   validateContext(compiled.context)
-  const payload = { format: 'papermoon.story', version: 2, apiVersion: 2, compiler: 'papermoon.commonjs/2', id: compilationKey(sourceHash, options), sourceHash, options, context: compiled.context, state: compiled.state, functions: compiled.functions, program: compiled.program }
+  const payload = { format: 'papermoon.story', version: 3, apiVersion: 3, compiler: 'papermoon.commonjs/3', id: compilationKey(sourceHash, options), sourceHash, options, context: compiled.context, state: compiled.state, functions: compiled.functions, program: compiled.program, composition: compiled.composition }
   return loadArtifact(canonical({ ...payload, checksum: digest(payload) }))
 }
 /** Return an independent context; mutating it cannot affect another initialization. */

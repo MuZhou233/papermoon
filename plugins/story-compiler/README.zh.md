@@ -10,7 +10,7 @@
 |---|---|
 | @papermoon/story-compiler | compile, StoryCompiler, resolveOptions |
 | @papermoon/story-compiler/runtime | loadArtifact, initialize |
-| @papermoon/story-compiler/execution | StoryRuntime.invoke, close |
+| @papermoon/story-compiler/execution | StoryRuntime.invoke, compose, close |
 | @papermoon/story-compiler/service | CompilationService, ArtifactStore |
 | @papermoon/story-compiler/revisions | RevisionArtifacts, revisionCompilation |
 | @papermoon/story-compiler/plugin | Cordis 服务 papermoonStoryCompiler |
@@ -43,11 +43,11 @@ runtime 入口校验冻结产物，每次返回独立的起始上下文，不加
 
 ## 产物与持久化
 
-产物格式 2 冻结编译器与 API 身份、规范化源码指纹、有效配置、起始上下文、初始状态与 Schema、函数声明、已加载模块、所选语言文案和 SHA-256 校验信息。不保存函数对象、闭包、VM 实例或字节码。读取时拒绝不支持的版本、无效字段和哈希损坏，不重新编译或修复。哈希用于发现改动，不是签名。
+产物格式 3 冻结编译器与 API 身份、规范化源码指纹、有效配置、起始上下文、初始状态与 Schema、函数声明、已加载模块、所选语言文案和 SHA-256 校验信息。不保存函数对象、闭包、VM 实例或字节码。读取时拒绝不支持的版本、无效字段和哈希损坏，不重新编译或修复。哈希用于发现改动，不是签名。
 
 CompilationService.compile 对固定草稿求值，保存成功后才返回产物身份。find 按内容、配置和编译器身份查询，不执行程序。read 与 initialize 按产物身份读取，不依赖草稿。ArtifactStore 通过临时文件和原子的不覆盖链接写入 JSON。相同结果幂等保存，同一键对应不同结果则失败。不保存失败尝试的历史。存储器默认单条上限为 16 MiB，可通过构造参数调整。[开发文档](../../docs/development.zh.md) 说明数据路径与清理方式。
 
-Cordis 服务依赖 papermoonStoryCore。消费者先清理，服务再取消并等待编译、模拟结束，最后由存储释放连接。Story 数据库仍为格式 3，业务 KV 仍为格式 1。产物格式 1 不受支持，既有文件和修订版本附件不改写。
+Cordis 服务依赖 papermoonStoryCore。消费者先清理，服务再取消并等待编译、模拟结束，最后由存储释放连接。Story 数据库仍为格式 3，业务 KV 仍为格式 1。产物格式 1 和 2 不受支持，既有文件和修订版本附件不改写。
 
 ## 提交与冻结修订版本
 

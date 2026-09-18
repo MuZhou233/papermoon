@@ -10,7 +10,9 @@
     "0007-typed-tool-dictionaries.patch",
     "0008-preset-reply-visibility.patch",
     "0009-tool-argument-json-errors.patch",
-    "0010-execution-history-selection.patch"
+    "0010-execution-history-selection.patch",
+    "0011-request-context-assembly.patch",
+    "0012-readonly-trajectory-inspection.patch"
   ],
   "checks": [
     {
@@ -40,7 +42,10 @@
         "packages/client/ui-conversation/tests/conversation-registry.client.spec.ts",
         "packages/session/session-projection/tests",
         "packages/session/session-projection-cache/tests",
-        "packages/subagent/subagent/tests/list-children.spec.ts"
+        "packages/subagent/subagent/tests/list-children.spec.ts",
+        "packages/llm/token-meter/tests",
+        "packages/core/scope/tests",
+        "packages/client/ui-trajectory/tests"
       ]
     },
     {
@@ -59,7 +64,7 @@
       "script": "test:snapshot",
       "args": [
         "-t",
-        "authored-context|ptc-turn|persistent-tools|system-prompt-in-history|union-tool-schema|retained-tool-outcome|typed-tool-dictionary|cordis-inspect-jsdoc|tool-argument-json-errors|history-selection"
+        "authored-context|ptc-turn|persistent-tools|system-prompt-in-history|union-tool-schema|retained-tool-outcome|typed-tool-dictionary|cordis-inspect-jsdoc|tool-argument-json-errors|history-selection|request-context"
       ]
     }
   ]

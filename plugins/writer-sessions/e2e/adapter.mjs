@@ -23,8 +23,10 @@ export function apply(ctx) {
         yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('fixture-status'), name: 'story_status', arguments: '{}' } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
       } else {
-        yield { type: 'block-start', index: 0, blockType: 'text' }
-        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Fixture reply.' } }
+        yield { type: 'block-start', index: 0, blockType: 'reasoning' }
+        yield { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'Fixture reasoning.' } }
+        yield { type: 'block-start', index: 1, blockType: 'text' }
+        yield { type: 'block-end', index: 1, block: { type: 'text', text: 'Fixture reply.' } }
         yield { type: 'finish', reason: { kind: 'stop' } }
       }
     }

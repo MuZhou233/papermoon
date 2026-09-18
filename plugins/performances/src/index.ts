@@ -11,11 +11,13 @@ export { PRESET } from './constants.ts'
 export const name = 'papermoon-performances'
 export const inject = ['papermoonStoryCore', 'papermoonStoryWorkspaces', 'agents', 'sessions', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
 const envelope = z.strictObject({ type: z.literal('client-request'), rpcId: z.string().min(1), method: z.string(), payload: z.unknown() })
-const operationFields = { sessionId: z.string().min(1), operationId: z.string().min(1), expectedVersion: z.number().int().nonnegative(), nodeId: z.string().min(1) }
+const operationFields = { sessionId: z.string().min(1), operationId: z.string().min(1), expectedVersion: z.number().int().nonnegative(), nodeId: z.string().min(1), clientTimeZone: z.string().optional() }
 const methods = {
   scripts: z.strictObject({}), models: z.strictObject({}),
   choices: z.strictObject({ scriptId: z.string().min(1), revisionId: z.string().min(1).optional() }),
   tree: z.strictObject({ sessionId: z.string().min(1), offset: z.number().int().nonnegative().default(0), limit: z.number().int().min(1).max(100).default(100) }),
+  inspection: z.strictObject({ sessionId: z.string().min(1), nodeId: z.string().min(1), mode: z.enum(['original','rewritten']), limit: z.number().int().min(1).max(1000).default(200), cursor: z.strictObject({nodeId:z.string(),mode:z.enum(['original','rewritten']),through:z.number().int().nonnegative(),offset:z.number().int().nonnegative(),identity:z.string()}).optional() }),
+  request: z.strictObject({ sessionId: z.string().min(1), seq: z.number().int().nonnegative() }),
   node: z.strictObject({ sessionId: z.string().min(1), nodeId: z.string().min(1) }),
   operation: z.discriminatedUnion('kind', [
     z.strictObject({ ...operationFields, kind: z.enum(['select', 'candidate', 'reroll']) }),
@@ -39,7 +41,8 @@ export function apply(ctx: PerformanceHost) {
       if (workspace?.target?.provider === TARGET_PROVIDER) service.prepare(agent, workspace.target.key)
       else if (workspace) throw new Error('performance mode requires a script workspace')
     })
-    yield ctx.on('session/prompt-admission', async (agent, _message, next) => { const message = await next(); return message === null ? null : service.admit(agent, message) })
+    yield ctx.on('session/prompt-admission', async (agent, _message, next) => { const message = await next(); return message === null ? null : service.admit(agent, message, false) })
+    yield ctx.on('session/prompt-accepted', async (agent, message) => { await service.admit(agent, message) })
     for (const agent of ctx.agents.list()) service.attach(agent)
     for (const method of Object.keys(methods) as (keyof typeof methods)[]) yield ctx.connection.fetch.register({
       path: '/api/papermoon-performances/' + method, methods: ['POST'], requestBody: 'buffered',
@@ -57,6 +60,8 @@ export function apply(ctx: PerformanceHost) {
             case 'models': methods.models.parse(raw); value = await ctx.sessionController.modelCatalog(); break
             case 'choices': { const p = methods.choices.parse(raw); value = service.choices(p.scriptId, p.revisionId); break }
             case 'tree': { const p = methods.tree.parse(raw); value = await service.tree(p.sessionId, p.offset, p.limit); break }
+            case 'inspection': { const p = methods.inspection.parse(raw); value = await service.inspection(p.sessionId, p.nodeId, p.mode, p.cursor, p.limit); break }
+            case 'request': { const p = methods.request.parse(raw); value = await service.request(p.sessionId, p.seq); break }
             case 'node': { const p = methods.node.parse(raw); value = await service.node(p.sessionId, p.nodeId); break }
             case 'operation': { const { sessionId, ...p } = methods.operation.parse(raw); value = await service.operation(sessionId, p); break }
             case 'state': value = await service.view(methods.state.parse(raw).sessionId); break

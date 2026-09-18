@@ -22,7 +22,7 @@ Descriptor objects and platform-owned status/result envelopes would change ordin
 
 ## Consequences
 
-Artifact and performance initialization formats require version 2; old versions fail without migration or recompilation. Story database format 3 and business KV format 1 remain unchanged. Submit-time compilation and immutable attachments retain the [frozen revision rules](2026-09-13-frozen-revisions-and-performances.md). Factories cannot change tool identity according to current state; persistent values belong in state. Throws roll back candidates, while business flags in returned JSON have no platform meaning.
+Artifact and performance initialization formats require version 3; old versions fail without migration or recompilation. Story database format 3 and business KV format 1 remain unchanged. Submit-time compilation and immutable attachments retain the [frozen revision rules](2026-09-13-frozen-revisions-and-performances.md). Factories cannot change tool identity according to current state; persistent values belong in state. Throws roll back candidates, while business flags in returned JSON have no platform meaning.
 
 Main tests cover compilation, simulation, invocation, persistence failure, receipt recovery and Fork. Real DSH and browser checks cover native declarations, original results, complete requests and readonly inspection. These checks establish engineering readiness; authored scripts and interaction quality still need experience feedback.
 

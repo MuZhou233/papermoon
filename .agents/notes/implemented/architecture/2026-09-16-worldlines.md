@@ -20,6 +20,6 @@ Hidden child Sessions would split one visible performance across independently m
 
 ## Consequences
 
-Chat and trajectory follow selection; audit and usage remain chronological. Reroll and sent-message editing create siblings; another input branches from the selected point. Editing combines replacement input and generation in one operation, preserving the unsent composer draft. Reads and inspection do not change execution position. Existing performances without worldline records are read-only; no tree is inferred. Story and artifact formats remain unchanged.
+Chat follows runtime selection; trajectory inspects a chosen path or its saved composed context. Audit and usage remain chronological. Reroll and sent-message editing create siblings; another input branches from the selected point. Editing combines replacement input and generation in one operation, preserving the unsent composer draft. Reads and inspection do not change execution position. Existing performances without worldline records are read-only; no tree is inferred. Story and artifact formats remain unchanged.
 
 Worldline reads expose stable ordered nodes independently of model messages. Actual request prefixes remain reconstructable after switching. Custom context windows and summaries can consume nodes later without redefining recorded history. Engineering checks cover state, requests, recovery, scope and browser interactions; experience feedback remains separate.

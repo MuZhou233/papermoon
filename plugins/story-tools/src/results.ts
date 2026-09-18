@@ -1,7 +1,7 @@
 /** Public result declarations, shared by catalog presentation and DSH output validation. */
 import type { ToolName } from './catalog.ts'
 export interface ResultSchema {
-  type?: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean'
+  type?: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null'
   additionalProperties?: boolean
   properties?: Record<string, ResultSchema>
   required?: string[]
@@ -43,9 +43,9 @@ export const results: Record<
   story_compile: {
     schema: { oneOf: [
       object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record) }),
-      object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record), artifactId: string, context: record, options: record, state: record, functions: array(record) }),
+      object({ ok: { type: 'boolean' }, source: record, diagnostics: array(record), artifactId: string, context: record, options: record, state: record, functions: array(record), composition: { oneOf: [record, { type: 'null' }] } }),
     ] },
-    description: 'Returns source identity and diagnostics. Success includes the artifact ID, options, starting context, initial state and function declarations.',
+    description: 'Returns source identity and diagnostics. Success includes the artifact ID, options, starting context, initial state, function declarations and context composition identity.',
   },
   story_status: {
     schema: object({

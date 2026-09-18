@@ -1,3 +1,4 @@
+import { executionPosition, inspectExecution } from '../src/inspection.ts'
 import { afterEach, beforeAll, expect, test } from 'vitest'
 import { applyOperations, createContent } from '@papermoon/story-core'
 import { compile } from '@papermoon/story-compiler'
@@ -24,14 +25,18 @@ const cleanup: (() => Promise<void>)[] = []
 afterEach(async () => { for (const close of cleanup.splice(0)) await close() })
 function fixture(seed: readonly LogRecord[] = [], flush = async () => true) {
   const events = structuredClone([...seed]), sent: InputMessage[] = []
-  const payload = { version: 2 as const, originSessionId: 's', scriptId: 'story', revisionId: 'r', ordinal: 1, scriptName: 'S', projectName: 'P', description: '', attachmentKey: 'opening/0', artifact }
+  const payload = { version: 3 as const, originSessionId: 's', scriptId: 'story', revisionId: 'r', ordinal: 1, scriptName: 'S', projectName: 'P', description: '', attachmentKey: 'opening/0', artifact }
   const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
   const agent = { id: 's', status: 'idle', inbox: { nextTurn: [], nextStep: [], clear() {} },
     session: { snapshotEvents: () => events, append(type: string, data: unknown, intent?: object) {
       const event = { seq: events.length, time: events.length, type, data: structuredClone(data), ...intent }; events.push(event); return event
     } }, followup(input: InputMessage) { sent.push(input) }, async whenIdle() {}, async runMaintenance<T>(fn: (signal: AbortSignal) => Promise<T>) { return fn(new AbortController().signal) },
   } as unknown as Agent
-  const runtime = new StoryRuntime(), actions = new PerformanceActions(agent, fixed, runtime, flush), lines = new Worldlines(agent, fixed, flush, actions)
+  const runtime = new StoryRuntime(), actions = new PerformanceActions(agent, fixed, runtime, flush), lines = new Worldlines(agent, fixed, flush, actions, async (content, operation) => {
+    if (!content.some(part => part && typeof part === 'object' && 'type' in part && (part.type !== 'text' || ('text' in part && String(part.text).trim())))) throw new Error('empty prompt')
+    const input = await lines.admit({ id: crypto.randomUUID(), role: 'user', content, source: { kind: 'user', rpcId: operation.operationId, admission: { historyVersion: operation.expectedVersion, 'papermoon.worldline': operation } } })
+    if (input) agent.followup(input)
+  })
   cleanup.push(async () => { lines.dispose(); await actions.close(); await runtime.close() })
   const admit = (id: string, version = lines.state().version) => lines.admit({ id, role: 'user', content: [{ type: 'text', text: id }], source: { kind: 'user', rpcId: id, admission: { historyVersion: version } } })
   const state = () => projectActions(activeRecords(events, fixed), fixed).state
@@ -56,7 +61,7 @@ test('keeps sealed nodes immutable across branches, rerolls and remembered desce
   await f.operation('select', a.id); expect(f.state()).toEqual({ count: 2 })
   await f.admit('C'); const c = await f.finish(7)
   expect(c.parent).toBe(a.id); expect(f.state()).toEqual({ count: 9 })
-  await f.operation('reroll', b.id); expect(f.sent[0]!.source.kind).toBe('plugin')
+  await f.operation('reroll', b.id); expect(f.sent[0]!.source.kind).toBe('user')
   expect(f.lines.state().pending?.parent).toBe(a.id)
   const b2 = await f.finish(4); expect(b2.parent).toBe(a.id); expect(b2.rerollOf).toBe(b.id)
   expect(f.state()).toEqual({ count: 6 })
@@ -106,6 +111,7 @@ test('deduplicates an admitted input even when the process stopped before enqueu
   expect(await f.admit('lost-response')).toBeNull()
   const restoredInput = activeRecords(f.events, f.fixed).filter(event => event.type === 'context/message')
   expect(restoredInput).toHaveLength(1)
+  expect((restoredInput[0]!.data as { message: InputMessage }).message.source.kind).toBe('user')
   expect((restoredInput[0]!.data as { message: InputMessage }).message.content).toEqual([{ type: 'text', text: 'lost-response' }])
 })
 test('does not seal a committed action with a missing receipt', async () => {
@@ -156,7 +162,7 @@ test('editing an input branches from its original parent and preserves the old n
   expect(f.state()).toEqual({ count: 0 })
   expect(f.lines.state().pending?.parent).toBe(root)
   expect(f.sent[0]?.content).toEqual([{ type: 'text', text: 'edited input' }])
-  expect(f.sent[0]?.source).toMatchObject({ kind: 'plugin', plugin: 'papermoon.worldline', originalInputId: 'original', operation: 'edit' })
+  expect(f.sent[0]?.source).toMatchObject({ kind: 'user', rpcId: 'edit-input' })
   await f.lines.operate(request); expect(f.sent).toHaveLength(1)
   const edited = await f.finish(4)
   expect(edited).toMatchObject({ parent: root, editedFrom: original.id })
@@ -165,7 +171,7 @@ test('editing an input branches from its original parent and preserves the old n
   await f.operation('select', original.id); expect(f.state()).toEqual({ count: 2 })
   await expect(f.lines.operate({ ...request, operationId: 'stale-edit', expectedVersion: 1 })).rejects.toMatchObject({ code: 'worldline-conflict' })
   const length = f.events.length
-  await expect(f.lines.operate({ ...request, operationId: 'empty-edit', expectedVersion: f.lines.state().version, text: '  ' })).rejects.toMatchObject({ code: 'worldline-empty-input' })
+  await expect(f.lines.operate({ ...request, operationId: 'empty-edit', expectedVersion: f.lines.state().version, text: '  ' })).rejects.toThrow('empty prompt')
   expect(f.events).toHaveLength(length)
 })
 test('editing replaces text and retains message attachments', async () => {
@@ -175,4 +181,58 @@ test('editing replaces text and retains message attachments', async () => {
   const node = await f.finish(1)
   await f.lines.operate({ kind: 'edit', nodeId: node.id, operationId: 'attachment-edit', expectedVersion: f.lines.state().version, text: 'new' })
   expect(f.sent[0]?.content).toEqual([{ type: 'text', text: 'new' }, file])
+})
+
+
+test('derives floors independently of DSH turns and excludes sibling history', async () => {
+  const f=fixture();await f.lines.initialize()
+  const finish=async(id:string,turn:number)=>{
+    await f.admit(id);f.agent.session.append('turn/start',{turn});f.agent.session.append('user/message',f.lines.state().pending!.input)
+    f.agent.session.append('turn/end',{turn,reason:{kind:'completed'}});await f.lines.settle();return f.lines.state().nodes.get(f.lines.state().selected)!
+  }
+  const a=await finish('a',1),b=await finish('b',2)
+  await f.operation('select',a.id);const c=await finish('c',3)
+  const nodes=f.lines.state().nodes
+  expect(executionPosition(f.events,nodes,b)).toEqual({floor:2,turn:2})
+  expect(executionPosition(f.events,nodes,c)).toEqual({floor:2,turn:3})
+  const selected=f.lines.state().selected
+  const inspection=inspectExecution(f.events,f.fixed,b.id,'original',()=>{throw new Error('must not resolve a request')})
+  expect(inspection.path.map(n=>n.turn)).toEqual([null,1,2])
+  expect(inspection.events.filter(e=>e.type==='user/message').map(e=>(e.data as InputMessage).id)).toEqual(['a','b'])
+  expect(f.lines.state().selected).toBe(selected)
+  await f.operation('select',a.id);await f.admit('interrupted');await f.lines.settle()
+  expect(executionPosition(f.events,f.lines.state().nodes,f.lines.state().nodes.get(f.lines.state().selected)!)).toEqual({floor:2,turn:null})
+  await expect(async()=>inspectExecution(f.events,f.fixed,b.id,'rewritten',()=>[])).rejects.toThrow('unavailable')
+})
+
+test('inspection pages keep their original read identity across later executions',async()=>{
+  const f=fixture();await f.lines.initialize();await f.admit('one')
+  f.agent.session.append('turn/start',{turn:1});f.agent.session.append('user/message',f.lines.state().pending!.input)
+  f.agent.session.append('turn/end',{turn:1,reason:{kind:'completed'}});await f.lines.settle()
+  const id=f.lines.state().selected,first=inspectExecution(f.events,f.fixed,id,'original',()=>[],undefined,1)
+  expect(first.next).toBeDefined()
+  await f.admit('two');f.agent.session.append('turn/start',{turn:2});f.agent.session.append('turn/end',{turn:2,reason:{kind:'error'}});await f.lines.settle()
+  const next=inspectExecution(f.events,f.fixed,id,'original',()=>[],first.next,1)
+  expect(next.identity).toBe(first.identity);expect(next.through).toBe(first.through)
+  expect(next.events.at(-1)!.seq!).toBeLessThan(first.events[0]!.seq!)
+  expect(()=>inspectExecution(f.events,f.fixed,id,'original',()=>[],{...first.next!,identity:'wrong'})).toThrow('cursor')
+  expect(()=>inspectExecution(f.events,f.fixed,f.lines.state().selected,'original',()=>[],first.next)).toThrow('cursor')
+})
+
+test('rejects multiple real DSH turns inside one sealed execution',async()=>{
+  const f=fixture();await f.lines.initialize();await f.admit('one')
+  f.agent.session.append('turn/start',{turn:1});f.agent.session.append('turn/end',{turn:1,reason:{kind:'completed'}})
+  f.agent.session.append('turn/start',{turn:2});f.agent.session.append('turn/end',{turn:2,reason:{kind:'completed'}});await f.lines.settle()
+  expect(()=>inspectExecution(f.events,f.fixed,f.lines.state().selected,'original',()=>[])).toThrow('conflicting')
+})
+
+test('validation alone neither selects the parent nor accepts an execution', async () => {
+  const f = fixture(); await f.lines.initialize(); await f.admit('first'); const first = await f.finish(2)
+  const before = structuredClone(f.events), state = f.lines.state()
+  const operation = { kind: 'reroll' as const, operationId: 'validated', expectedVersion: state.version, nodeId: first.id }
+  const input: InputMessage = { id: 'fresh', role: 'user', content: first.input!.content, source: { kind: 'user', rpcId: operation.operationId, admission: { historyVersion: state.version, 'papermoon.worldline': operation } } }
+  expect(await f.lines.admit(input, false)).toBe(input)
+  expect(f.events).toEqual(before); expect(f.lines.state().selected).toBe(first.id)
+  await f.lines.admit(input)
+  expect(f.lines.state().pending?.parent).toBe(first.parent)
 })

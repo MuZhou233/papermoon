@@ -22,7 +22,8 @@ test('refreshes action commits without list activity, follows the selected sessi
   let count = 0
   const call = vi.fn(async () => ({ ok: true as const, value: { fixed: {}, worldline: { legacy: false, pending: undefined }, runtime: { state: { count }, actions: [] } } }))
   const host: ClientHost = {
-    chatPresentation: { preserveReplies: () => () => {}, preserveUserInputs: () => () => {} },
+    trajectoryInspection: {register:()=>()=>{}},
+    chatPresentation: { preserveReplies: () => () => {} },
     connection: { rpc: { call } }, sessions: { list, refresh: async () => {}, open: () => {}, binding: id => ({ ctx: {}, session: status, eventSource: id === 'a' ? a : b }) },
     uiAgentPreset: { store: mode, load: async () => {} }, conversation: { blocks: { set: block } }, layout: { selectPanel: () => {} },
     locale: { register: () => () => {}, bind: () => key => key }, effect: () => {},
