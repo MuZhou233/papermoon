@@ -1,329 +1,3 @@
-diff --git a/docs/subsystems/workspace.i18n.yaml b/docs/subsystems/workspace.i18n.yaml
-index 7dd1c638ce..acfab71bd3 100644
---- a/docs/subsystems/workspace.i18n.yaml
-+++ b/docs/subsystems/workspace.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write docs/subsystems/workspace.md
--workspace.md: b8b531497b33ddc9e8897f737fb507ac5f409cad
--workspace.zh.md: 309bff841c36b7cd344c49a0c4e750c40d38a43e
-+workspace.md: cd1331f9f2d550c60220c3fd457e446e6f1b6438
-+workspace.zh.md: 850e1352fe356b0c1f0111d04214c87f73a7bfba
-diff --git a/docs/subsystems/workspace.md b/docs/subsystems/workspace.md
-index b8b531497b..cd1331f9f2 100644
---- a/docs/subsystems/workspace.md
-+++ b/docs/subsystems/workspace.md
-@@ -2,7 +2,7 @@
- 
- English | [中文](workspace.zh.md)
- 
--A workspace is the persistent record of a directory the user works in: a stable id over a canonical path, a display title, and the ordered account of sessions that belong to it. The subsystem is one package ([dsh-workspace](../../packages/workspace/workspace), `ctx.workspaceRegistry`) — an optional host-side capability, not part of the agent-loop spine, and invisible to models (no tools, no prompt text, no session events). It stores its records through the [storage domain form](storage.md) and validates session membership against [`SessionHeader.cwd`](persistence.md#sessionheader--metadata-beside-the-log), so `storageDomain` and `sessionPersistence` are mandatory startup dependencies: an unavailable persistence peer leaves the plugin pending rather than being mistaken for an empty history. Design record: [domain KV storage Agent Note](../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.md); bootstrap and GUI ordering: [Workspace UI product-flow Agent Note](../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md).
-+A workspace stores a stable target, display information and ordered Session membership. Directory targets use a canonical path; resource targets use a provider and key. [dsh-workspace](../../packages/workspace/workspace) requires `storageDomain` and `sessionPersistence`, and contributes no model tools or prompts. Resource providers resolve display information and validate membership. See the [resource workspace decision](../../.agents/notes/implemented/architecture/2026-09-12-resource-workspaces-and-authored-context.md).
- 
- Source: [`packages/workspace/workspace/src/types.ts`](../../packages/workspace/workspace/src/types.ts)
- 
-@@ -16,31 +16,27 @@ Source: [`packages/workspace/workspace/src/types.ts`](../../packages/workspace/w
- type WorkspaceId = Branded<'WorkspaceId'>
- ```
- 
--`WorkspaceId` is a [branded id](core.md#branded-ids). Path identity is separate: `realpathNormalize` (`fs.realpath`; trailing slashes, `..`, and symlinks resolved) is the one uniqueness canon — workspace paths are stored canonicalized, uniqueness is string equality of canonical paths (a symlink to an owned directory collides), and attach-time session cwd checks go through the same canon.
-+`WorkspaceId` is a [branded id](core.md#branded-ids). Directory identity uses `realpathNormalize`; resource identity uses the exact provider/key pair. Resources may share an execution directory.
- 
- ## The workspace entity
- 
- Consumers see only the `Workspace` interface; the implementation stays package-private.
- 
- ```ts type-equiv
--/**
-- * One workspace: a stable id over an existing directory, a display title, and
-- * an ordered candidate account of sessions. Membership requires both an id in
-- * that account and a session header whose canonical cwd equals the workspace
-- * path. Consumers only see this interface; the implementation stays private.
-- */
-+/** A durable target, display information and ordered Session membership. */
- interface Workspace {
-+  /** Provider-owned resource; absent for an ordinary directory Workspace. */
-+  readonly target?: WorkspaceTarget | undefined
-   /** Stable record id (generated uuid). */
-   readonly id: WorkspaceId
- 
-   /**
--   * Canonical directory path: the `fs.realpath` of the path given at create
--   * time (trailing slashes, `..`, and symlinks all resolved). Never rewritten
--   * afterwards, even when the directory disappears (see {@link status}).
-+   * Canonical process directory fixed at registration. Directory targets use
-+   * it as identity; resource targets use their provider and key instead.
-    */
-   readonly path: string
- 
--  /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
-+  /** Display title from the directory name or resource provider; duplicates are allowed. */
-   readonly title: string
- 
-   /** ISO-8601 creation instant, stamped at create and never rewritten. */
-@@ -50,12 +46,9 @@ interface Workspace {
-   readonly updatedAt: string
- 
-   /**
--   * Header-validated sessions in manually owned order: a new session is
--   * prepended at attach, explicit reordering goes through
--   * `insertSessionBefore`, and activity never reorders. The durable candidate
--   * account is filtered synchronously: missing headers, invalid cwd values,
--   * and canonical cwd mismatches are never returned. A subsequent workspace
--   * mutation prunes those filtered candidates durably.
-+   * Ordered Session ownership. Missing Sessions are omitted. Directory targets
-+   * also omit invalid or mismatched cwd values; resource membership is checked
-+   * by its provider at attachment. Accepted mutations prune omitted ids.
-    */
-   readonly sessionIds: readonly SessionId[]
- 
-@@ -67,14 +60,11 @@ interface Workspace {
-   setTitle(title: string): Promise<void>
- 
-   /**
--   * Prepend a session to this workspace's candidate account. An already
--   * accounted id resolves without writing, aside from the durable
--   * filtered-candidate prune every accepted mutation performs. A new id's
--   * live or persisted
--   * header cwd must resolve to an existing directory equal to {@link path};
--   * unknown ids, missing or invalid cwd values, and mismatches reject without
--   * writing.
--   * @param sessionId - The session to record.
-+   * Prepend a Session after target membership validation. Directory targets
-+   * require canonical cwd equality; resources delegate to their provider.
-+   * A Session already owned by another Workspace cannot attach. An existing
-+   * member resolves without reordering.
-+   * @param sessionId - The Session to record.
-    * @returns resolution after durability.
-    */
-   attachSession(sessionId: SessionId): Promise<void>
-@@ -104,12 +94,13 @@ interface Workspace {
-   detachSession(sessionId: SessionId): Promise<void>
- 
-   /**
-+   * Resource targets delegate existence to their provider and report missing-target.
-    * Live directory check, uncached: whether {@link path} currently exists and
-    * is a directory. A missing directory never mutates the record — the
-    * directory may only be temporarily moved.
--   * @returns `'ok'` when the directory exists, `'missing-dir'` otherwise.
-+   * @returns `'ok'` for an existing target, otherwise `'missing-dir'` or `'missing-target'`.
-    */
--  status(): Promise<'ok' | 'missing-dir'>
-+  status(): Promise<'ok' | 'missing-dir' | 'missing-target'>
- }
- ```
- 
-@@ -341,6 +332,21 @@ Durable workspace registry. Startup waits for `sessionPersistence`, builds one c
-  */
- async create(path: string, title?: string): Promise<Workspace>
- 
-+/**
-+ * Register resource resolution and membership policy for the caller's lifetime.
-+ * @param name - provider identity recorded in Workspace targets.
-+ * @param provider - current resolution and durable membership checks.
-+ * @returns disposer removing this provider.
-+ */
-+registerResourceProvider(name: string, provider: WorkspaceResourceProvider): () => void
-+
-+/**
-+ * Register or reuse a provider-owned resource without treating its key as a path.
-+ * @param target - stable provider and resource identity.
-+ * @returns existing or newly committed Workspace.
-+ */
-+async createResource(target: WorkspaceTarget): Promise<Workspace>
-+
- /**
-  * Look up a workspace by id.
-  * @param id - Workspace id.
-@@ -398,3 +404,30 @@ Types: [SessionId](core.md)
- 
- Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
- <!-- END GENERATED cordis-surface -->
-+
-+```ts type-equiv
-+/** A provider-owned resource; its identity is independent of a process directory. */
-+interface WorkspaceTarget {
-+  readonly provider: string
-+  readonly key: string
-+}
-+```
-+
-+```ts type-equiv
-+/** Resource policy installed by a feature plugin. */
-+interface WorkspaceResourceProvider {
-+  /**
-+   * Resolve an existing resource and its execution directory.
-+   * @param key - provider-owned resource identity.
-+   * @returns display information, or undefined for a deleted target.
-+   */
-+  resolve(key: string): Promise<{ readonly title: string; readonly cwd: string } | undefined>
-+  /**
-+   * Check durable feature configuration before attaching a Session.
-+   * @param key - provider-owned resource identity.
-+   * @param sessionId - proposed member.
-+   * @returns whether this Session belongs to the resource.
-+   */
-+  accepts(key: string, sessionId: SessionId): Promise<boolean>
-+}
-+```
-diff --git a/docs/subsystems/workspace.zh.md b/docs/subsystems/workspace.zh.md
-index 309bff841c..850e1352fe 100644
---- a/docs/subsystems/workspace.zh.md
-+++ b/docs/subsystems/workspace.zh.md
-@@ -2,7 +2,7 @@
- 
- [English](workspace.md) | 中文
- 
--工作区（workspace）是用户工作目录的持久记录：一个建立在规范路径之上的稳定 id、一个显示标题，以及归属于它的会话的有序账本。该子系统是单个包（package）（[dsh-workspace](../../packages/workspace/workspace)，`ctx.workspaceRegistry`）——一项宿主侧可选能力，不属于 agent loop（智能体循环）主干，并且对模型不可见（没有工具、没有提示词文本、没有会话事件）。它通过[存储领域数据形式](storage.zh.md)存储自己的记录，并对照 [`SessionHeader.cwd`](persistence.zh.md#sessionheader--metadata-beside-the-log) 校验会话成员资格，因此 `storageDomain` 与 `sessionPersistence` 是必需的启动依赖：持久化这一依赖不可用时，插件保持 pending，而不是把这种不可用误当作空历史。设计记录：[领域 KV 存储 Agent Note（agent 决策记录）](../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.zh.md)；引导与 GUI 顺序：[Workspace UI 产品流程 Agent Note](../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md)。
-+工作区保存稳定目标、显示信息和有序会话归属。文件夹目标使用规范路径，资源目标使用提供者及其键。[dsh-workspace](../../packages/workspace/workspace) 依赖 `storageDomain` 和 `sessionPersistence`，不提供模型工具或提示词。资源提供者负责解析显示信息并校验归属。参见[资源工作区决策](../../.agents/notes/implemented/architecture/2026-09-12-resource-workspaces-and-authored-context.zh.md)。
- 
- 源码：[`packages/workspace/workspace/src/types.ts`](../../packages/workspace/workspace/src/types.ts)
- 
-@@ -16,31 +16,27 @@
- type WorkspaceId = Branded<'WorkspaceId'>
- ```
- 
--`WorkspaceId` 是[品牌化 id](core.zh.md#branded-ids)。路径标识与之分离：`realpathNormalize`（`fs.realpath`；尾部斜杠、`..` 与符号链接全部解析）是唯一的一套唯一性规范——工作区路径以规范化形式存储，唯一性即规范路径的字符串相等（指向已被拥有目录的符号链接会与之冲突），attach 时的会话 cwd 检查也走同一套规范。
-+`WorkspaceId` 是[品牌化 id](core.zh.md#branded-ids)。文件夹身份使用 `realpathNormalize`，资源身份使用精确的提供者与键组合。不同资源可以共用执行目录。
- 
- ## 工作区实体
- 
- 消费方只看到 `Workspace` 接口；实现保持包内私有。
- 
- ```ts type-equiv
--/**
-- * One workspace: a stable id over an existing directory, a display title, and
-- * an ordered candidate account of sessions. Membership requires both an id in
-- * that account and a session header whose canonical cwd equals the workspace
-- * path. Consumers only see this interface; the implementation stays private.
-- */
-+/** A durable target, display information and ordered Session membership. */
- interface Workspace {
-+  /** Provider-owned resource; absent for an ordinary directory Workspace. */
-+  readonly target?: WorkspaceTarget | undefined
-   /** Stable record id (generated uuid). */
-   readonly id: WorkspaceId
- 
-   /**
--   * Canonical directory path: the `fs.realpath` of the path given at create
--   * time (trailing slashes, `..`, and symlinks all resolved). Never rewritten
--   * afterwards, even when the directory disappears (see {@link status}).
-+   * Canonical process directory fixed at registration. Directory targets use
-+   * it as identity; resource targets use their provider and key instead.
-    */
-   readonly path: string
- 
--  /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
-+  /** Display title from the directory name or resource provider; duplicates are allowed. */
-   readonly title: string
- 
-   /** ISO-8601 creation instant, stamped at create and never rewritten. */
-@@ -50,12 +46,9 @@ interface Workspace {
-   readonly updatedAt: string
- 
-   /**
--   * Header-validated sessions in manually owned order: a new session is
--   * prepended at attach, explicit reordering goes through
--   * `insertSessionBefore`, and activity never reorders. The durable candidate
--   * account is filtered synchronously: missing headers, invalid cwd values,
--   * and canonical cwd mismatches are never returned. A subsequent workspace
--   * mutation prunes those filtered candidates durably.
-+   * Ordered Session ownership. Missing Sessions are omitted. Directory targets
-+   * also omit invalid or mismatched cwd values; resource membership is checked
-+   * by its provider at attachment. Accepted mutations prune omitted ids.
-    */
-   readonly sessionIds: readonly SessionId[]
- 
-@@ -67,14 +60,11 @@ interface Workspace {
-   setTitle(title: string): Promise<void>
- 
-   /**
--   * Prepend a session to this workspace's candidate account. An already
--   * accounted id resolves without writing, aside from the durable
--   * filtered-candidate prune every accepted mutation performs. A new id's
--   * live or persisted
--   * header cwd must resolve to an existing directory equal to {@link path};
--   * unknown ids, missing or invalid cwd values, and mismatches reject without
--   * writing.
--   * @param sessionId - The session to record.
-+   * Prepend a Session after target membership validation. Directory targets
-+   * require canonical cwd equality; resources delegate to their provider.
-+   * A Session already owned by another Workspace cannot attach. An existing
-+   * member resolves without reordering.
-+   * @param sessionId - The Session to record.
-    * @returns resolution after durability.
-    */
-   attachSession(sessionId: SessionId): Promise<void>
-@@ -104,12 +94,13 @@ interface Workspace {
-   detachSession(sessionId: SessionId): Promise<void>
- 
-   /**
-+   * Resource targets delegate existence to their provider and report missing-target.
-    * Live directory check, uncached: whether {@link path} currently exists and
-    * is a directory. A missing directory never mutates the record — the
-    * directory may only be temporarily moved.
--   * @returns `'ok'` when the directory exists, `'missing-dir'` otherwise.
-+   * @returns `'ok'` for an existing target, otherwise `'missing-dir'` or `'missing-target'`.
-    */
--  status(): Promise<'ok' | 'missing-dir'>
-+  status(): Promise<'ok' | 'missing-dir' | 'missing-target'>
- }
- ```
- 
-@@ -341,6 +332,21 @@ Durable workspace registry. Startup waits for `sessionPersistence`, builds one c
-  */
- async create(path: string, title?: string): Promise<Workspace>
- 
-+/**
-+ * Register resource resolution and membership policy for the caller's lifetime.
-+ * @param name - provider identity recorded in Workspace targets.
-+ * @param provider - current resolution and durable membership checks.
-+ * @returns disposer removing this provider.
-+ */
-+registerResourceProvider(name: string, provider: WorkspaceResourceProvider): () => void
-+
-+/**
-+ * Register or reuse a provider-owned resource without treating its key as a path.
-+ * @param target - stable provider and resource identity.
-+ * @returns existing or newly committed Workspace.
-+ */
-+async createResource(target: WorkspaceTarget): Promise<Workspace>
-+
- /**
-  * Look up a workspace by id.
-  * @param id - Workspace id.
-@@ -398,3 +404,30 @@ Types: [SessionId](core.zh.md)
- 
- Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
- <!-- END GENERATED cordis-surface -->
-+
-+```ts type-equiv
-+/** A provider-owned resource; its identity is independent of a process directory. */
-+interface WorkspaceTarget {
-+  readonly provider: string
-+  readonly key: string
-+}
-+```
-+
-+```ts type-equiv
-+/** Resource policy installed by a feature plugin. */
-+interface WorkspaceResourceProvider {
-+  /**
-+   * Resolve an existing resource and its execution directory.
-+   * @param key - provider-owned resource identity.
-+   * @returns display information, or undefined for a deleted target.
-+   */
-+  resolve(key: string): Promise<{ readonly title: string; readonly cwd: string } | undefined>
-+  /**
-+   * Check durable feature configuration before attaching a Session.
-+   * @param key - provider-owned resource identity.
-+   * @param sessionId - proposed member.
-+   * @returns whether this Session belongs to the resource.
-+   */
-+  accepts(key: string, sessionId: SessionId): Promise<boolean>
-+}
-+```
 diff --git a/packages/api/workspace-controller/src/feed.ts b/packages/api/workspace-controller/src/feed.ts
 index 57d38f18e5..c9a3705aaa 100644
 --- a/packages/api/workspace-controller/src/feed.ts
@@ -356,6 +30,244 @@ index aa053c8d67..54522a2d3c 100644
    readonly path: string
    /** User-visible title. */
    readonly title: string
+diff --git a/packages/client/ui-agent-preset/src/client/index.ts b/packages/client/ui-agent-preset/src/client/index.ts
+index 8b418afe1c..9d27d59b81 100644
+--- a/packages/client/ui-agent-preset/src/client/index.ts
++++ b/packages/client/ui-agent-preset/src/client/index.ts
+@@ -36,6 +36,13 @@ import { AgentPresetSectionController } from './section-store.ts'
+ import { en, zh, type AgentPresetSettingsKey } from './locales.ts'
+ import { AGENT_PRESET_SETTINGS_NS, AgentPresetSettingsController } from './settings-store.ts'
+ 
++declare module '@deepseek-ai/cordis' {
++  interface Context {
++    /** Observable new-session composition selection, shared with target pickers. */
++    uiAgentPreset: Pick<AgentPresetSeatController, 'store' | 'select' | 'stage' | 'load'>
++  }
++}
++
+ declare module '@deepseek-ai/dsh-client-ui-slots' {
+   interface LocaleNamespaceMap {
+     /** Agent-preset surface copy. */
+@@ -112,6 +119,7 @@ export function apply(ctx: ClientContext): void {
+       return state.current === undefined ? undefined : state.byId[state.current]
+     })
+     activeSeat = seat
++    scope.effect(() => scope.provide('uiAgentPreset', seat), 'ui-agent-preset: public selection')
+     const seatInjected = (): AgentPresetSeatInjected => ({
+       hooks: { agentPresetSeat: seat.store },
+       load: () => seat.load(),
+diff --git a/packages/client/ui-workspace/README.i18n.yaml b/packages/client/ui-workspace/README.i18n.yaml
+index db2cd9bd89..7d7d1a41df 100644
+--- a/packages/client/ui-workspace/README.i18n.yaml
++++ b/packages/client/ui-workspace/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-workspace/README.md
+-README.md: d504ad03e6153a987f94357bb939e75c592f7773
+-README.zh.md: 10c4acd2dfa3c04f9e1d0e2027451907b0ab8fea
++README.md: f135da38ebe424729bcbd52042074d95642292f8
++README.zh.md: c81a480fd41603e3f4dbff9c34961110439708ef
+diff --git a/packages/client/ui-workspace/README.md b/packages/client/ui-workspace/README.md
+index d504ad03e6..f135da38eb 100644
+--- a/packages/client/ui-workspace/README.md
++++ b/packages/client/ui-workspace/README.md
+@@ -121,3 +121,5 @@ None.
+ </details>
+ 
+ **Runtime invariant:** No companion is published. This is a pure-consumer plugin that registers presentational components into two host-declared slots and registers its locale dictionaries; its inject face consists of stateless RPC wrappers plus a create-and-open call. It emits no Cordis events and owns no cross-plugin mutable state.
++
++Session rows retain initialized conversations before a model turn and show the producer-owned purpose label from sessionListMetadata when present. The label is display data, not a built-in mode name.
+diff --git a/packages/client/ui-workspace/README.zh.md b/packages/client/ui-workspace/README.zh.md
+index 10c4acd2df..c81a480fd4 100644
+--- a/packages/client/ui-workspace/README.zh.md
++++ b/packages/client/ui-workspace/README.zh.md
+@@ -121,3 +121,5 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
+ </details>
+ 
+ **运行时不变式：** 不发布伴生入口。这是一个纯消费方插件，只向两个由宿主声明的 slot 注册展示组件，并注册自身的 locale dictionaries；inject face 由无状态 RPC 包装层和一次 create-and-open 调用组成；本插件不发出 Cordis 事件，也不持有跨插件可变状态。
++
++会话行在模型首轮前保留已经初始化的对话，并显示 sessionListMetadata 中可选的生产者用途标签。标签属于展示数据，不是内置模式名。
+diff --git a/packages/client/ui-workspace/src/client/WorkspacePicker.tsx b/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
+index b1801cc3d9..6126220d22 100644
+--- a/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
++++ b/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
+@@ -70,7 +70,7 @@ export function WorkspacePickFlow({
+   selectedId,
+ }: WorkspacePickFlowProps) {
+   const workspaceSnapshot = useWorkspaces(state => state)
+-  const workspaces = workspaceSnapshot.items
++  const workspaces = workspaceSnapshot.items.filter(workspace => workspace.target === undefined)
+   const getAnchorRect = useCallback(
+     () => anchorRef?.current?.getBoundingClientRect() ?? null,
+     [anchorRef],
+diff --git a/packages/client/ui-workspace/src/client/navigation.ts b/packages/client/ui-workspace/src/client/navigation.ts
+index c968595d8a..6c343928f5 100644
+--- a/packages/client/ui-workspace/src/client/navigation.ts
++++ b/packages/client/ui-workspace/src/client/navigation.ts
+@@ -120,7 +120,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+     const sessions = this.sessions.list.getSnapshot()
+     for (const id of sessions.ids) {
+       const summary = sessions.byId[id]
+-      if (summary !== undefined && summary.blank && summary.cwd === workspace.path
++      if (summary !== undefined && summary.blank && (workspace.target !== undefined || summary.cwd === workspace.path)
+         && workspace.sessionIds.includes(summary.id)
+         && !archived.includes(summary.id)) return summary.id
+     }
+diff --git a/packages/client/ui-workspace/src/client/rows/Rows.module.css b/packages/client/ui-workspace/src/client/rows/Rows.module.css
+index 7208d4d4b1..c377680da8 100644
+--- a/packages/client/ui-workspace/src/client/rows/Rows.module.css
++++ b/packages/client/ui-workspace/src/client/rows/Rows.module.css
+@@ -366,3 +366,7 @@
+     transition: none;
+   }
+ }
++
++.time + .time {
++  margin-left: 8px;
++}
+diff --git a/packages/client/ui-workspace/src/client/rows/Rows.tsx b/packages/client/ui-workspace/src/client/rows/Rows.tsx
+index 0c2101bd0a..672bbcd622 100644
+--- a/packages/client/ui-workspace/src/client/rows/Rows.tsx
++++ b/packages/client/ui-workspace/src/client/rows/Rows.tsx
+@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
+ import clsx from 'clsx'
+ import {
+   HoverCard, IconAlarmClockOutline16, IconArchiveOutline20, IconBranchOutline16,
+-  IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
++  IconEditOutline16, IconEllipsisOutline16, IconBranchOutline16 as IconResource16, IconFolderClose16, IconFolderOpen16,
+   IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
+   StateDot,
+ } from '@deepseek-ai/dsh-client-ui-primitives'
+@@ -147,7 +147,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, home,
+       onDragEnd={drag?.end}
+     >
+       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
+-        {row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
++        {row.target !== undefined ? <IconResource16 /> : row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
+       </span>
+       <span className={clsx(css.slot, css.chevron)}>
+         <IconTriangleRightFill14 className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+@@ -465,6 +465,7 @@ export function SessionNodeItem({
+         </span>
+       )}
+       <span className={css.title}>{title}</span>
++      {row.label !== undefined && <span className={css.time}>{row.label}</span>}
+       {row.hasActiveSchedule && <ActiveScheduleIndicator t={t} />}
+       {/* A blank New Session row is a provisional placeholder: nothing has
+           happened in it yet, so a "now" timestamp and the row verbs
+diff --git a/packages/client/ui-workspace/src/client/tree.ts b/packages/client/ui-workspace/src/client/tree.ts
+index 37c6d50e38..c4a9d53599 100644
+--- a/packages/client/ui-workspace/src/client/tree.ts
++++ b/packages/client/ui-workspace/src/client/tree.ts
+@@ -40,6 +40,8 @@ type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteracti
+ 
+ /** One top-level session row in a group or the flat list. */
+ export interface SessionNode {
++  /** Optional producer-owned purpose. */
++  label?: string
+   id: SessionId
+   /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
+   title: string
+@@ -67,6 +69,7 @@ export interface GroupNode {
+   /** Backing Workspace id; absent only for the ungrouped bucket. */
+   workspaceId: WorkspaceId | undefined
+   cwd: string | undefined
++  target?: WorkspaceView['target']
+   /** Workspace creation time (epoch ms); absent only for the ungrouped bucket. */
+   createdAt: number | undefined
+   label: string
+@@ -113,6 +116,7 @@ interface Group {
+   key: string
+   workspaceId: WorkspaceId | undefined
+   cwd: string | undefined
++  target?: WorkspaceView['target']
+   createdAt: number | undefined
+   label: string
+   sessions: SessionSummary[]
+@@ -220,10 +224,10 @@ function groupByWorkspace(
+       if (!sessionVisible(summary, list.current, archived)) continue
+       members.push(summary)
+     }
+-    groups.push(buildGroup(
+-      workspace.workspaceId, workspace.workspaceId, workspace.path,
++    groups.push({ ...buildGroup(
++      workspace.workspaceId, workspace.workspaceId, workspace.target === undefined ? workspace.path : undefined,
+       Date.parse(workspace.createdAt), workspace.title, members, 'account',
+-    ))
++    ), ...(workspace.target === undefined ? {} : { target: workspace.target }) })
+   }
+   const stray = list.ids
+     .map(id => list.byId[id])
+@@ -265,6 +269,7 @@ function sessionNode(
+     id: s.id,
+     title: sessionTitle(s),
+     blank: s.blank,
++    ...(s.projectionValues?.sessionListMetadata?.label === undefined ? {} : { label: s.projectionValues.sessionListMetadata.label }),
+     running: s.running,
+     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
+     completed: s.completed === true,
+@@ -309,6 +314,7 @@ export function deriveGroups(
+       key: g.key,
+       workspaceId: g.workspaceId,
+       cwd: g.cwd,
++      ...(g.target === undefined ? {} : { target: g.target }),
+       createdAt: g.createdAt,
+       label: g.label,
+       sessionCount: g.sessions.length,
+diff --git a/packages/preset/agent-presets/src/index.ts b/packages/preset/agent-presets/src/index.ts
+index 5c0875bfab..57b746e220 100644
+--- a/packages/preset/agent-presets/src/index.ts
++++ b/packages/preset/agent-presets/src/index.ts
+@@ -717,7 +717,7 @@ export class AgentPresets extends TypertRemoteService {
+   async select(agent: Agent, agentPreset: string): Promise<string> {
+     validatePresetId(agentPreset, 'agentPreset')
+     const queued = this.switches.get(agent.id) ?? Promise.resolve()
+-    const turn = queued.then(() => this.swap(agent, agentPreset))
++    const turn = queued.then(() => agent.runMaintenance(async () => this.swap(agent, agentPreset)))
+     const guard = turn.catch(() => undefined)
+     this.switches.set(agent.id, guard)
+     try {
+@@ -742,10 +742,13 @@ export class AgentPresets extends TypertRemoteService {
+         { sessionId: agent.id, agentPreset },
+       )
+     }
++    await this.resolveMountable(agentPreset)
++    await this.selfCtx.serial('agent-preset/selecting', agent, agentPreset)
+     const preset = await this.recompose(agent.ctx, agentPreset)
+     // Recorded only after the swap committed: the log states what the agent
+     // runs, and a rejected mount leaves the previous composition.
+     agent.session.append('agent-preset/selected', { agentPreset: preset.id })
++    await this.selfCtx.serial('agent-preset/changed', agent, preset.id)
+     return preset.id
+   }
+ 
+diff --git a/packages/preset/agent-presets/src/types.ts b/packages/preset/agent-presets/src/types.ts
+index a2bfd68800..7bb0ab3e73 100644
+--- a/packages/preset/agent-presets/src/types.ts
++++ b/packages/preset/agent-presets/src/types.ts
+@@ -80,6 +80,21 @@ declare module '@deepseek-ai/cordis' {
+      * @param agentPreset - the preset recorded by the committed selection.
+      */
+     'agent-preset/selected'(sessionId: SessionId, agentPreset: string): void
++    /**
++     * Reconcile session associations after a composition is durably selected.
++     * A failure leaves the committed selection in place; listeners must be idempotent.
++     * @mode serial
++     * @param agent - Agent with the committed composition.
++     * @param agentPreset - committed preset identity.
++     */
++    'agent-preset/changed'(agent: import('@deepseek-ai/dsh-agent/types').Agent, agentPreset: string): Promise<void> | void
++    /**
++     * Validate a proposed composition before it changes a blank Agent.
++     * @mode serial
++     * @param agent - Agent whose composition will change.
++     * @param agentPreset - proposed preset identity.
++     */
++    'agent-preset/selecting'(agent: import('@deepseek-ai/dsh-agent/types').Agent, agentPreset: string): Promise<void> | void
+   }
+ }
+ 
 diff --git a/packages/workspace/workspace/README.i18n.yaml b/packages/workspace/workspace/README.i18n.yaml
 index 92fa599ba3..2f3251fb68 100644
 --- a/packages/workspace/workspace/README.i18n.yaml

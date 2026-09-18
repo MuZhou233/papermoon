@@ -17,6 +17,7 @@
     "check:docs": "tsx tooling/checks/cli.ts docs",
     "check:notes": "tsx tooling/checks/cli.ts notes",
     "check:patches": "tsx tooling/repository/cli.ts check",
+    "check:patches:source": "tsx tooling/repository/cli.ts check-source",
     "docs:record": "tsx tooling/checks/cli.ts record",
     "note": "tsx tooling/checks/note-cli.ts",
     "test:smoke": "tsx tooling/tests/smoke.ts",

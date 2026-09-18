@@ -12,7 +12,7 @@ The main workflow separates engineering readiness from product experience feedba
 
 ## Before committing
 
-The Agent making a main-repository change follows these steps before committing it. Applied DSH changes retain the submodule's delivery requirements.
+The Agent making a main-repository change follows these steps before committing it. Applied DSH changes use the patch delivery scope below.
 
 1. Inspect the changes, including new files. Confirm that the code, documentation and owning Note describe the same behavior.
 2. If the change includes Chinese or English prose, read the [bilingual writing guide](../.agents/skills/bilingual-syntax-style-guide/SKILL.md). Review the changed passages with their surrounding paragraphs. This includes documentation, Notes, skill instructions, comments and user-facing text. Read each language on its own for natural phrasing. For paired documents, also compare meaning and technical details. Preserve identifiers, protocol values and text that must remain verbatim. A change without prose needs no language review.
@@ -23,9 +23,9 @@ The Agent performs the language review as part of its work. Automated document c
 
 ## DSH patches
 
-Follow the checked-out submodule's delivery requirements for effective changes there. Register the selected package scripts and argument arrays in the patch series. Their successful execution is evidence only for those checks; reviewers confirm that the selection satisfies DSH requirements. Keep required DSH tests, documentation and Notes inside the patches.
+Register package scripts and argument arrays that cover the effective DSH changes. Preserve behavior tests and recorded replay, type checking, lint and checks for runtime-generated catalogs. New behavior needs evidence for its affected consumers; changes to rendering, persistence or interfaces still require the relevant DSH checks. Reviewers assess coverage, not just command success. The [patch guide](../patches/README.md) defines the documentation and decision-record scope; DSH's full-site documentation aggregate is outside this delivery scope.
 
-Source comparison and delivery checks serve different purposes. A patch that applies successfully still needs the required tests. Changes produced by registered patches are expected and pass the source comparison. [Patch maintenance](../patches/README.md) defines the command configuration.
+Source comparison and delivery checks serve different purposes. Mechanical regrouping needs equivalence with the previous source; it does not require repeating unchanged behavior checks. Changed behavior needs its corresponding tests. Source comparison rejects differences absent from the registered patches. Checks run read-only with respect to maintained source and expected results.
 
 ## Isolation and CI
 

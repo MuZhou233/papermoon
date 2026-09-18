@@ -8,7 +8,7 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 职责
 
-主仓库维护插件、工具、文档、依赖和 CI。`dsh/` 的 Gitlink 固定 DSH 官方提交，子模块不作为主仓库 workspace 中的包。作用于 DSH 的修改保存为补丁，按子模块标准交付；管理补丁的工具按主仓库标准交付。同一变更涉及两者时，分别按各自规则验证。
+主仓库维护插件、工具、文档、依赖和 CI。`dsh/` 的 Gitlink 固定 DSH 官方提交，子模块不作为主仓库 workspace 中的包。作用于 DSH 的修改保存为补丁，在 PaperMoon 的[补丁维护范围](../patches/README.zh.md)内保留 DSH 的代码和运行时约束；管理补丁的工具按主仓库标准交付。根据各部分的实际影响选择验证证据。
 
 主仓库独立规定自己的维护规则。使用 DSH 接口不会将其包结构、运行时设计规则、SDK 要求或组织工作流引入主库规范。[维护决策](../.agents/notes/implemented/process/2026-09-11-independent-maintenance.zh.md)记录了这一选择。
 

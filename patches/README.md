@@ -2,48 +2,66 @@
 
 English | [中文](README.zh.md)
 
-## Source ownership
+This directory maintains PaperMoon’s necessary changes to DSH. The parent Gitlink pins the official base; [series.json](series.json) lists the patches and checks. Prefer DSH extension points and PaperMoon plugins for product behavior.
 
-The main repository’s Gitlink selects the official DSH base. `series.json` lists patches in application order and the DSH package scripts required for delivery. Empty patch and check lists mean that DSH is unchanged. Every nonempty patch list must declare checks; reviewers use the submodule’s instructions to assess whether those checks cover the changes.
+`dsh/` is a managed checkout. Export intended changes before `pnpm run setup`, which resets tracked files and removes non-ignored untracked files before applying the patches. Keep runtime data and independent work outside it. See [development](../docs/development.md) for initialization and upgrades.
 
-Patch files are the durable source of customization. Export intended changes before `pnpm run setup`; initialization resets tracked changes and removes non-ignored untracked files in DSH. It does not erase ignored credentials, dependencies or parent runtime data. Do not put independent work inside this managed checkout.
+## Organization
 
-## Series format
+Group changes by maintenance responsibility, including their implementation, tests and direct contracts across files and packages. Keep small consumer adaptations with the shared mechanism they follow. Summaries used by several responsibilities may have their own group.
 
-```json
-{
-  "version": 1,
-  "patches": ["0001-extension.patch"],
-  "checks": [{ "script": "test", "args": ["-t", "extension"] }]
-}
+Each changed DSH file belongs to one patch, containing its complete difference from the pinned base. This makes the final difference readable without following intermediate patches. A patch can cover several capabilities and need not run independently. Git retains the history.
+
+Merge, split, rename or move patches and directories when their responsibilities or shared maintenance needs change. Extend an existing patch when its responsibility continues; introduce a new one when a separate responsibility emerges. The current names, counts and directory levels are not a fixed classification. Move related tests, contracts and generated artifacts with their owner. Pure regrouping requires source equivalence, not a new decision record.
+
+Register each patch path once in `series.json`, relative to this directory, and remove empty patches with their registrations. The manifest defines application order. Patch files and directories must be regular repository files and directories, without symlinks. The manifest’s version identifies its format, not the DSH or patch revision.
+
+## Editing and export
+
+Run these commands from the PaperMoon root.
+
+1. Run `pnpm check:patches:source` before editing. Investigate differences before resetting the checkout.
+2. Edit the final source in `dsh/`, preserving DSH’s code and runtime constraints. Update the affected tests and direct contracts.
+3. Use `git apply --numstat` to inspect the owning patch’s paths. Export their complete differences from `HEAD`, including newly assigned files. Make new files visible with `git -C dsh add -N -- path/to/new-file.ts` first.
+4. Review the export, update other affected patches or their organization, and run source comparison plus the relevant checks. Keep each file in one patch when moving ownership.
+
+For example, all current changes in the token-meter package share one owner:
+
+```sh
+git apply --numstat patches/plugins/token-meter.patch
+git -C dsh diff --binary --no-renames HEAD -- \
+  packages/llm/token-meter \
+  > patches/plugins/token-meter.patch
+pnpm check:patches:source
 ```
 
-The example shows the file format; choose checks that cover your actual patch. Script names must exist in the patched DSH package manifest. Argument arrays are passed without a shell. Do not register commands that modify expected outputs as verification. Preserve DSH-required tests, docs and Notes in each patch; a parent Note is required only for a separate main-repository decision.
+Use a whole directory only when every changed file in it belongs to that patch; otherwise list the owned files. Include all earlier differences, not just the latest edit. Review and static analysis use the reconstructed source in the managed checkout.
 
-Generate Git patches with binary data when needed. Patches may modify only files within DSH. DSH must be a submodule of the main repository, not a symlink or an external worktree. Patch files and their parent directories must not be symlinks either. The parent Git whitespace check permits trailing whitespace only in patch artifacts, whose blank context lines require a space marker. Actual source additions are checked by `git apply --whitespace=error` during reconstruction. Patches are applied through the Git index without three-way merging. If application fails, setup stops, restores the upstream base and skips dependency installation.
+## Documentation and decisions
 
-## Registered capabilities
+Preserve source comments and the affected packages’ necessary bilingual README contracts and pairing records. Update semantics, restrictions and extension points where callers read them. Review both languages before recording pairs with the checked-out DSH command.
 
-The series separates resource workspaces, durable prompt admission with authored context, client selection/message extensions, and initialized-session presentation. These patches contain generic DSH behavior; script rules and writer snapshots stay in PaperMoon plugins. Registered checks cover the affected host/client tests, both compiler faces, lint, documentation and keyless session replay. CI also runs the Python SDK client tests in the submodule.
+Full-site architecture and reference pages retain their upstream baseline; they do not describe every PaperMoon extension. Patches do not synchronize those pages, their generated documentation or DSH Agent Notes. Runtime-generated code, recorded snapshots and test inputs remain maintained artifacts, including Markdown used as test data.
 
-## Verify and update
+Keep patch rationale in the owning main-repository [Agent Note](../.agents/notes/README.md). When consolidating earlier records, preserve distinct reasons, alternatives, constraints and verification evidence, then repair references. Package contracts and decision records each retain one maintained home.
 
-`pnpm check:patches` reconstructs a temporary checkout, compares effective source with the actual submodule, rejects undeclared files, runs registered checks in DSH and compares source again. It accepts the modifications defined by patches rather than requiring a clean worktree. Ignored build and runtime files are outside the source comparison.
+## Verification and generated artifacts
 
-Select tests under the DSH rules for the pinned revision; the command runner does not infer those obligations. [Development](../docs/development.md) describes the complete upgrade sequence. Report which checks ran and their results; link to DSH’s rules instead of maintaining another copy.
+| Command | Purpose |
+|---|---|
+| `pnpm check:patches:source` | Reconstructs the patches in a temporary checkout, compares them with `dsh/` and rejects duplicate file ownership or undeclared source |
+| `pnpm check:patches` | Compares source, runs registered DSH checks, then compares source again |
 
-Registered DSH checks use the same CI package-manager environment as setup, so dependency-layout verification does not attempt a second installation or local Git hook setup.
+The manifest’s checks name DSH package scripts and argument arrays, executed without shell interpolation. A nonempty patch list requires checks. Choose evidence under [testing and delivery](../docs/testing.md#dsh-patches): behavior tests, recorded replay, type checking, lint and runtime-catalog checks. Checks must not rewrite source or expected results. Full-site documentation synchronization is outside this scope.
 
-The inclusive-union patch extends tool schema validation and both language type renderers with anyOf. The retained-outcome patch allows a failed tool receipt to be corrected from earlier durable evidence while preserving its message and call identity. Both use existing registration and Session mechanisms, without product-specific rules.
+Host API generation supports `pnpm -C dsh run gen-cordis-catalog --runtime-only`; freshness checking uses `pnpm -C dsh run verify-cordis-catalog --runtime-only`. Other runtime catalogs retain their DSH generation commands. Review and export regenerated differences; setup applies the saved patches without running generators.
 
-The typed-dictionary patch validates schema-valued additionalProperties and projects dictionary types. The reply-visibility patch provides effect-owned Client registrations for presets that keep intermediate Assistant text visible. PaperMoon registers the moderator preset; the DSH default remains unchanged.
+For mechanical regrouping, compare the reconstruction with the previous source before changing the managed checkout. Behavior changes require their corresponding tests. Source comparison excludes ignored build outputs and runtime files; patch application checks added-source whitespace while preserving context spaces.
 
-The tool-argument diagnostic patch preserves JSON parser failures in ordinary tool error results, including available locations. Malformed arguments do not execute tools; valid JSON continues through parameter validation.
+## Promoting patches to plugins
 
-The execution-history patch adds retained-range selection, request reconstruction, admission deduplication and client selection/action extensions. PaperMoon owns the worldline tree and restores script state from its selected path. The patch also covers both SDKs and preserves frozen Session format generations.
+Local corrections remain patches by default. Consider promoting a coherent part of the patched functionality when it has a clear boundary through DSH extension points or profile composition, PaperMoon needs to maintain its behavior independently, and plugin source is clearer to maintain than an upstream difference.
 
-The request-assembly patch records per-request message references and authored text independently of transcript selection. The Loop, replay and invariant use the same resolver. PaperMoon owns script composition and its inspection page.
+Assess responsibilities and dependencies, not line, file or patch counts. Promotion need not move a whole patch or copy a whole bundled plugin. Changes spreading into shared formats or many consumers need a design review.
 
-The trajectory-inspection patch adds Session-local readonly sources, ordered context records and navigation slots. PaperMoon supplies node selection and dual-mode data; the shared DSH ledger retains search, details, tool associations and request inspection. It does not change Session formats.
-
-Reroll and edited resubmission use shared user-input admission in the execution-history patch. The chat action slots remain generic; message source determines bubble and trajectory classification.
+Maintain the promoted plugin under main-repository rules. Preserve the upstream source, base and license for derived code; compose the plugin through the profile and verify its DSH interactions. Remove transferred differences and regroup what remains. The [maintenance decision](../.agents/notes/implemented/architecture/2026-09-18-patch-maintenance.md) records the rationale and current organization.

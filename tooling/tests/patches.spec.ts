@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { checkPatches, git, readSeries, rebuild, verifyTree } from '../repository/patches.ts'
 import { fixture, commit, put } from './helpers.ts'
 import { runProcess } from '../repository/process.ts'
+import { main } from '../repository/cli.ts'
 
 const roots: string[] = []
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })))
@@ -18,11 +19,11 @@ function make(): string {
   put(root, 'patches/series.json', '{"version":1,"patches":[],"checks":[]}\n')
   return root
 }
-function addPatch(root: string): void {
+function addPatch(root: string, path = '001.patch'): void {
   put(root, 'dsh/a.txt', 'first\n')
-  put(root, 'patches/001.patch', git(join(root, 'dsh'), ['diff', '--binary']))
+  put(root, `patches/${path}`, git(join(root, 'dsh'), ['diff', '--binary']))
   git(join(root, 'dsh'), ['reset', '--hard', 'HEAD'])
-  put(root, 'patches/series.json', '{"version":1,"patches":["001.patch"],"checks":[{"script":"test","args":[]}]}\n')
+  put(root, 'patches/series.json', JSON.stringify({ version: 1, patches: [path], checks: [{ script: 'test', args: [] }] }) + '\n')
 }
 describe('patch ownership and reconstruction', () => {
   it('accepts an empty series and reconstructs declared dirty source repeatedly', () => {
@@ -38,26 +39,52 @@ describe('patch ownership and reconstruction', () => {
     put(directory, 'a.txt', 'first\n\nend\n')
     const patch = git(directory, ['diff', '--binary'])
     expect(patch).toContain('\n \n')
-    put(root, 'patches/001.patch', patch)
-    put(root, 'patches/series.json', JSON.stringify({ version: 1, patches: ['001.patch'], checks: [{ script: 'test', args: [] }] }))
+    const path = 'shared/session/records.patch'
+    put(root, `patches/${path}`, patch)
+    put(root, 'patches/series.json', JSON.stringify({ version: 1, patches: [path], checks: [{ script: 'test', args: [] }] }))
     put(root, '.gitattributes', readFileSync(new URL('../../.gitattributes', import.meta.url), 'utf8'))
     git(root, ['add', '.gitattributes', 'patches'])
     expect(() => git(root, ['diff', '--cached', '--check'])).not.toThrow()
     rebuild(root); verifyTree(root)
     put(root, 'ordinary.txt', 'trailing space \n'); git(root, ['add', 'ordinary.txt'])
     expect(() => git(root, ['diff', '--cached', '--check'])).toThrow()
-    put(root, 'patches/001.patch', patch.replace('+first\n', '+first \n'))
+    put(root, `patches/${path}`, patch.replace('+first\n', '+first \n'))
     expect(() => rebuild(root)).toThrow(/whitespace/)
     expect(readFileSync(join(directory, 'a.txt'), 'utf8')).toBe('base\n\nend\n')
   })
-  it('applies sequential patches in declared order', () => {
+  it('reconstructs disjoint nested patches in either declared order', () => {
+    const root = make(); addPatch(root, 'shared/session/records.patch'); rebuild(root)
+    put(root, 'dsh/b.txt', 'second\n')
+    git(join(root, 'dsh'), ['add', '-N', 'b.txt'])
+    put(root, 'patches/plugins/agent-loop/execution.patch', git(join(root, 'dsh'), ['diff', '--binary', 'HEAD', '--', 'b.txt']))
+    const paths = ['shared/session/records.patch', 'plugins/agent-loop/execution.patch']
+    for (const patches of [paths, [...paths].reverse()]) {
+      put(root, 'patches/series.json', JSON.stringify({version: 1, patches, checks: [{script: 'test', args: []}]}))
+      rebuild(root)
+      expect(readFileSync(join(root, 'dsh/a.txt'), 'utf8')).toBe('first\n')
+      expect(readFileSync(join(root, 'dsh/b.txt'), 'utf8')).toBe('second\n')
+      expect(verifyTree(root).patches).toEqual(patches)
+    }
+  })
+  it('rejects sequential ownership of one file before changing the checkout', () => {
     const root = make(); addPatch(root); rebuild(root)
     put(root, 'dsh/a.txt', 'second\n')
     put(root, 'patches/002.patch', git(join(root, 'dsh'), ['diff', '--binary']))
     put(root, 'patches/series.json', JSON.stringify({version: 1, patches: ['001.patch', '002.patch'], checks: [{script: 'test', args: []}]}))
-    rebuild(root)
+    expect(() => verifyTree(root)).toThrow(/duplicate patch ownership: a.txt in 001.patch and 002.patch/)
+    expect(() => rebuild(root)).toThrow(/duplicate patch ownership/)
     expect(readFileSync(join(root, 'dsh/a.txt'), 'utf8')).toBe('second\n')
-    expect(verifyTree(root).patches).toHaveLength(2)
+  })
+  it('includes rename sources and literal filenames in ownership checks', () => {
+    const root = make(), directory = join(root, 'dsh'), name = '原始 name\t.txt'
+    put(directory, name, 'base\n'); commit(directory); git(root, ['add', 'dsh'])
+    git(directory, ['mv', name, 'renamed.txt'])
+    put(root, 'patches/rename.patch', git(directory, ['diff', '--binary', 'HEAD']))
+    git(directory, ['reset', '--hard', 'HEAD'])
+    put(directory, name, 'changed\n')
+    put(root, 'patches/edit.patch', git(directory, ['diff', '--binary', 'HEAD']))
+    put(root, 'patches/series.json', JSON.stringify({version: 1, patches: ['rename.patch', 'edit.patch'], checks: [{script: 'test', args: []}]}))
+    expect(() => readSeries(root)).toThrow(`duplicate patch ownership: ${name}`)
   })
   it('detects extra files and edits; initialization preserves ignored configuration and parent data', () => {
     const root = make(); addPatch(root); rebuild(root)
@@ -72,7 +99,7 @@ describe('patch ownership and reconstruction', () => {
   })
   it('restores the base after a later patch fails without partially retaining earlier effects', () => {
     const root = make(); addPatch(root)
-    put(root, 'patches/002.patch', 'invalid patch\n')
+    put(root, 'patches/002.patch', 'diff --git a/missing.txt b/missing.txt\n--- a/missing.txt\n+++ b/missing.txt\n@@ -1 +1 @@\n-before\n+after\n')
     put(root, 'patches/series.json', '{"version":1,"patches":["001.patch","002.patch"],"checks":[{"script":"test","args":[]}]}\n')
     expect(() => rebuild(root)).toThrow()
     expect(readFileSync(join(root, 'dsh/a.txt'), 'utf8')).toBe('base\n')
@@ -82,12 +109,24 @@ describe('patch ownership and reconstruction', () => {
     const root = make(); put(root, 'patches/rogue.patch', 'patch')
     expect(() => readSeries(root)).toThrow(/unregistered/); rmSync(join(root, 'patches/rogue.patch'))
     put(root, 'patches/series.json', '{"version":1,"patches":["../outside.patch"],"checks":[]}\n')
-    expect(() => readSeries(root)).toThrow(/filename/)
+    expect(() => readSeries(root)).toThrow(/path/)
     addPatch(root)
     put(root, 'patches/series.json', '{"version":1,"patches":["001.patch"],"checks":[]}\n')
     expect(() => readSeries(root)).toThrow(/requires DSH delivery/)
     put(root, 'patches/series.json', '{"version":1,"patches":["001.patch","001.patch"],"checks":[]}\n')
     expect(() => readSeries(root)).toThrow(/duplicate/)
+  })
+  it('finds undeclared patches in nested ownership directories', () => {
+    const root = make(); addPatch(root, 'plugins/ui-chat/presentation.patch')
+    put(root, 'patches/shared/session/forgotten.patch', 'patch')
+    expect(() => readSeries(root)).toThrow(/unregistered patch: shared\/session\/forgotten.patch/)
+  })
+  it('rejects a symlinked patch directory before modifying the checkout', () => {
+    const root = make(); addPatch(root, 'plugins/ui-chat/presentation.patch')
+    const other = fixture(); roots.push(other)
+    symlinkSync(other, join(root, 'patches/shared'))
+    expect(() => rebuild(root)).toThrow(/symlink/)
+    expect(readFileSync(join(root, 'dsh/a.txt'), 'utf8')).toBe('base\n')
   })
   it('runs declared checks in DSH and does not turn a failed check into source-only success', async () => {
     const root = make(); addPatch(root); rebuild(root)
@@ -102,6 +141,13 @@ describe('patch ownership and reconstruction', () => {
       await runProcess(process.execPath, ['fail.mjs'], cwd)
     })).rejects.toThrow(/exit=7/)
     await expect(checkPatches(root, undefined, async cwd => { put(cwd, 'a.txt', 'mutated by check') })).rejects.toThrow(/source differs/)
+  })
+  it('offers a source-only command that detects drift without running delivery scripts', async () => {
+    const root = make(); addPatch(root, 'shared/session/records.patch'); rebuild(root)
+    put(root, 'patches/series.json', JSON.stringify({ version: 1, patches: ['shared/session/records.patch'], checks: [{ script: 'fail', args: [] }] }))
+    await main(['check-source'], root)
+    put(root, 'dsh/a.txt', 'undeclared change\n')
+    await expect(main(['check-source'], root)).rejects.toThrow(/source differs/)
   })
   it('validates scripts before execution and refuses cancelled checks', async () => {
     const root = make(); addPatch(root); rebuild(root)

@@ -10,7 +10,7 @@ PaperMoon needs a complete set of maintenance tools and rules. Product work in t
 
 ## Decision
 
-The main repository owns its engineering rules, bilingual documentation, adapted checkers and complete Agent Note lifecycle. Effective DSH patches use submodule rules; their decisions are not duplicated in parent Notes. Checks and CI are explicit, with no custom main hook installer.
+The main repository owns its engineering rules, bilingual documentation, adapted checkers and complete Agent Note lifecycle. Effective DSH patches retain its code and runtime constraints; the [patch-maintenance decision](../architecture/2026-09-18-patch-maintenance.md) defines documentation, decision ownership and delivery scope. Checks and CI are explicit, with no custom main hook installer.
 
 ## Alternatives considered
 

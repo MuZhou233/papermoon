@@ -4,7 +4,7 @@
 
 ## 用途与归属
 
-Note 保存主库决定、动机、真实替代方案和影响。非平凡主库变更新增或更新所属 Note，机械性局部修改可以豁免。新增前搜索已有 Note。仅属于 DSH 补丁的决定遵循子模块 Note 规则并保留在补丁中。
+Note 保存 PaperMoon 的决定、动机、真实替代方案和影响，包括通过 DSH 补丁承载的决定。非平凡变更新增或更新所属 Note，机械性局部修改和补丁重组可以豁免。新增前搜索已有 Note。补丁契约按[补丁维护范围](../../patches/README.zh.md)保留在受影响的 DSH 包中，理由只在这里维护。
 
 按状态和分类目录查找 Note，不另设中央索引。文件名使用 `YYYY-MM-DD-topic.md`，日期表示首次提出该主题的时间。分类为 `feature`、`bug-fix`、`simplification`、`architecture`、`process` 和 `testing`。空分类无需占位记录。
 

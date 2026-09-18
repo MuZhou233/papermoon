@@ -1,18 +1,16 @@
 {
   "version": 1,
   "patches": [
-    "0001-resource-workspaces.patch",
-    "0002-session-admission-and-authored-context.patch",
-    "0003-client-selection-and-authored-context.patch",
-    "0004-initialized-session-presentation.patch",
-    "0005-inclusive-tool-unions.patch",
-    "0006-retained-tool-outcomes.patch",
-    "0007-typed-tool-dictionaries.patch",
-    "0008-preset-reply-visibility.patch",
-    "0009-tool-argument-json-errors.patch",
-    "0010-execution-history-selection.patch",
-    "0011-request-context-assembly.patch",
-    "0012-readonly-trajectory-inspection.patch"
+    "shared/session.patch",
+    "shared/tools.patch",
+    "shared/runtime-catalogs.patch",
+    "plugins/agent-loop.patch",
+    "plugins/session-controller.patch",
+    "plugins/workspace.patch",
+    "plugins/chat.patch",
+    "plugins/conversation.patch",
+    "plugins/trajectory.patch",
+    "plugins/token-meter.patch"
   ],
   "checks": [
     {
@@ -45,11 +43,32 @@
         "packages/subagent/subagent/tests/list-children.spec.ts",
         "packages/llm/token-meter/tests",
         "packages/core/scope/tests",
-        "packages/client/ui-trajectory/tests"
+        "packages/client/ui-trajectory/tests",
+        "scripts/gen-cordis-catalog-runtime.spec.ts",
+        "scripts/gen-cordis-catalog-record.spec.ts",
+        "scripts/gen-cordis-catalog-partition.spec.ts"
       ]
     },
     {
-      "script": "doc-sync",
+      "script": "verify-cordis-catalog",
+      "args": [
+        "--runtime-only"
+      ]
+    },
+    {
+      "script": "verify-cordis-inspect-catalog",
+      "args": []
+    },
+    {
+      "script": "verify-client-catalog",
+      "args": []
+    },
+    {
+      "script": "verify-scoped-events",
+      "args": []
+    },
+    {
+      "script": "verify-session-format-catalog",
       "args": []
     },
     {

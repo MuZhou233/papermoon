@@ -30,7 +30,7 @@ on:
       - packages/ui/package.json
       - profiles/**
       - .gitmodules
-      - patches/*.patch
+      - patches/**/*.patch
       - patches/series.json
       - tooling/repository/**
       - tooling/checks/files.ts
@@ -72,7 +72,7 @@ on:
       - packages/ui/package.json
       - profiles/**
       - .gitmodules
-      - patches/*.patch
+      - patches/**/*.patch
       - patches/series.json
       - tooling/repository/**
       - tooling/checks/files.ts

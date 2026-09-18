@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 ## Purpose and ownership
 
-A Note preserves a main-repository decision, its motivation, real alternatives and consequences. Non-trivial main changes add or update the owning Note; mechanical local edits are exempt. Search existing Notes before adding one. DSH-only patch decisions follow the submodule's Note rules and remain inside patches.
+A Note preserves a PaperMoon decision, its motivation, real alternatives and consequences, including decisions carried by DSH patches. Non-trivial changes add or update the owning Note; mechanical local edits and patch regrouping are exempt. Search existing Notes before adding one. Patch contracts stay with the affected DSH packages under the [patch maintenance scope](../../patches/README.md); their rationale has one home here.
 
 Find Notes by status and class directory; no central index is maintained. Filenames use `YYYY-MM-DD-topic.md`, where the date records when the topic was first proposed. Classes are `feature`, `bug-fix`, `simplification`, `architecture`, `process` and `testing`. Empty classes need no placeholder records.
 

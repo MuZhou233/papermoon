@@ -1,211 +1,3 @@
-diff --git a/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.i18n.yaml b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.i18n.yaml
-new file mode 100644
-index 0000000000..b7ccf42bbb
---- /dev/null
-+++ b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.i18n.yaml
-@@ -0,0 +1,6 @@
-+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-+# side as of the last confirmed-consistent state. Both languages carry equal authority;
-+# after editing either side, bring the other along and re-record with:
-+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md
-+2026-09-18-trajectory-inspection.md: 0d7663ad8e8fae6bf1cd69a7ece95518a58bb75f
-+2026-09-18-trajectory-inspection.zh.md: cc68c8e29ab8b38f4f984154c1b1ed2ed35e66bc
-diff --git a/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md
-new file mode 100644
-index 0000000000..0d7663ad8e
---- /dev/null
-+++ b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.md
-@@ -0,0 +1,21 @@
-+# Agent Note: Readonly trajectory inspection
-+
-+Status: implemented
-+
-+English | [中文](2026-09-18-trajectory-inspection.zh.md)
-+
-+## Problem
-+
-+A plugin can need to inspect history outside the active path or display a saved request in a different order. Changing Session history for inspection affects execution; copying the trajectory renderer loses shared detail and attachment behavior.
-+
-+## Decision
-+
-+Trajectory owns an effect-scoped readonly source registry and navigation slots. Conversation assembles explicit event windows using its existing definitions. Ordered context records retain original message identities and source links independently of presentation indexes. Execution records retain turn, step and request grouping. Context references have no new timing or usage. A provider can identify durable user inputs for presentation, preserving their original producer metadata. This keeps replayed user actions distinct from injected instructions without rewriting source events.
-+
-+## Alternatives considered
-+
-+Mutating the active Conversation binding couples inspection to Chat and execution. Fabricating event sequence numbers or timestamps hides source identity. A separate text-only renderer duplicates presentation policy and drops tool and request inspection.
-+
-+## Consequences
-+
-+Registration disposal restores the ordinary source. Plugins supply selection semantics, translated labels and immutable request reads; the generic ledger supplies its existing search, fold, detail and copy behavior. No Session event or SDK format changes. Tests cover reordered references, ordinary views, built bundles and effect cleanup. The [package reference](../../../../packages/client/ui-trajectory/README.md) owns the public extension contract.
-diff --git a/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.zh.md b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.zh.md
-new file mode 100644
-index 0000000000..cc68c8e29a
---- /dev/null
-+++ b/.agents/notes/implemented/architecture/2026-09-18-trajectory-inspection.zh.md
-@@ -0,0 +1,21 @@
-+# Agent Note：只读轨迹检查
-+
-+Status: implemented
-+
-+[English](2026-09-18-trajectory-inspection.md) | 中文
-+
-+## 问题
-+
-+插件可能需要检查当前路径以外的历史，或按不同顺序展示已保存请求。为了检查而改变 Session 历史会影响执行，复制轨迹渲染器则会丢失共享的详情与附件行为。
-+
-+## 决定
-+
-+轨迹维护随 effect 释放的只读数据源注册表和导航插槽。Conversation 通过既有定义组装明确的事件窗口。有序上下文记录保留原始消息身份和来源入口，展示序号独立维护。执行记录保留轮次、步骤和请求分组。上下文引用不产生新的耗时或用量。提供方可指明持久记录中的用户输入，展示时仍保留原始生产者资料。这样能区分复用的用户操作与注入提示词，不必改写来源事件。
-+
-+## 考虑过的替代方案
-+
-+修改当前 Conversation 绑定，会让检查影响对话和执行。虚构日志序号或时间，会掩盖来源身份。独立的文本渲染器重复维护展示规则，也会丢失工具与请求检查。
-+
-+## 后果
-+
-+释放注册后恢复普通数据源。插件提供选择规则、本地化标签和不可变请求读取，通用轨迹保留搜索、折叠、详情和复制能力。不改变 Session 事件或 SDK 格式。测试覆盖引用重排、普通视图、构建产物和 effect 清理。[包文档](../../../../packages/client/ui-trajectory/README.zh.md)维护公开扩展约定。
-diff --git a/packages/client/ui-conversation/README.i18n.yaml b/packages/client/ui-conversation/README.i18n.yaml
-index e579bf04ed..27d2322902 100644
---- a/packages/client/ui-conversation/README.i18n.yaml
-+++ b/packages/client/ui-conversation/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/client/ui-conversation/README.md
--README.md: e32b891146cdd8583870ee405d3d81fb158ef8bb
--README.zh.md: 5d5d16a4d697d0c6ba1aceccc9562f175decdd34
-+README.md: 615316bdfadf81b952d484236b6c4c677d7ee553
-+README.zh.md: 4f6daead368531f3437ba06d6d2bc3a971a27d5c
-diff --git a/packages/client/ui-conversation/README.md b/packages/client/ui-conversation/README.md
-index e32b891146..615316bdfa 100644
---- a/packages/client/ui-conversation/README.md
-+++ b/packages/client/ui-conversation/README.md
-@@ -110,6 +110,8 @@ The selector must be a pure function of the owner currency. Its non-null return
- 
- The Hero exposes a target-selector replacement with the directory selector as fallback, plus an adjacent options slot. Composer blocks are owner-scoped so one plugin cannot clear another plugin’s reason. Clearing a workspace target keeps an existing draft visible and read-only while the composer opens the target picker.
- 
-+UiConversation.inspect(target, entries) creates a readonly projection from an explicit event window using the registered target definitions. It does not mutate a Session binding, select history or dispatch model work.
-+
- ## Model Experience
- 
- None, as this package renders browser state and sends user-admitted inputs through Session Controller APIs without constructing model requests.
-@@ -136,3 +138,5 @@ None.
- </details>
- 
- **Runtime invariant:** No companion is published. Conversation Definitions, target builders, and Views are already validated by their owning registries and the Slot ledger.
-+
-+Conversation assembly filters raw event windows through the durable historySelection projection before building Chat and Trajectory. Raw event windows remain available to audit consumers. A selection version change rebuilds the visible path; event coordinates remain raw. Composer blocks can restrict submission while leaving draft editing and cancellation available.
-diff --git a/packages/client/ui-conversation/README.zh.md b/packages/client/ui-conversation/README.zh.md
-index 5d5d16a4d6..4f6daead36 100644
---- a/packages/client/ui-conversation/README.zh.md
-+++ b/packages/client/ui-conversation/README.zh.md
-@@ -110,6 +110,8 @@ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `match
- 
- Hero 提供目标选择器替换位置，以文件夹选择器为默认显示，并提供相邻选项位置。输入阻止理由按贡献者区分，插件不能清除其他插件的理由。清除工作区选择后，已有输入保持可见并只读，点击输入框仍可打开目标选择器。
- 
-+UiConversation.inspect(target, entries) 使用已注册的目标定义，从明确的事件窗口生成只读投影，不修改 Session 绑定、不选择历史，也不触发模型执行。
-+
- ## 模型体验
- 
- 无，因为本包渲染浏览器状态，并通过 Session Controller API 发送用户确认提交的输入，而不构造模型请求。
-@@ -136,3 +138,5 @@ Hero 提供目标选择器替换位置，以文件夹选择器为默认显示，
- </details>
- 
- **运行时不变式：** 不发布伴生入口。Conversation Definition、target builder 与 View 已由其所属注册表和 Slot ledger 校验。
-+
-+会话组装先按持久 historySelection 投影筛选原始事件窗口，再构建对话和轨迹。审计消费者仍可读取原始窗口。选择版本变化时重建可见路径，事件坐标仍指向原始日志。输入框阻止项可以只限制发送，同时保留草稿编辑和取消操作。
-diff --git a/packages/client/ui-conversation/src/client/conversation/assembly.ts b/packages/client/ui-conversation/src/client/conversation/assembly.ts
-index a6d453c65b..147d623ee2 100644
---- a/packages/client/ui-conversation/src/client/conversation/assembly.ts
-+++ b/packages/client/ui-conversation/src/client/conversation/assembly.ts
-@@ -2,8 +2,9 @@
- import { Service, type Context } from '@deepseek-ai/cordis'
- import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
- import type {
--  ISessions, SessionBinding, SessionEventSource, SessionEventWindow,
-+  ISessions, SessionBinding, SessionEventSource, SessionEventWindow, SessionEventLikeEntry,
- } from '@deepseek-ai/dsh-api-session-controller/client'
-+import { historyContains } from '@deepseek-ai/dsh-session/surface'
- import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
- import {
-   createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
-@@ -48,6 +49,7 @@ class BoundConversation implements ConversationBinding {
-   private readonly viewStore: ConversationViewSnapshotStore
-   private readonly targetSources = new Map<string, ObservableSnapshot<unknown>>()
-   private revision = -1
-+  private historyVersion = 0
-   private frame: number | undefined
-   private disposeFeed: () => void = () => {}
- 
-@@ -95,23 +97,27 @@ class BoundConversation implements ConversationBinding {
- 
-   private replace(window: SessionEventWindow): void {
-     this.revision = window.revision
--    this.publish(this.assembler.replaceWindow(window.entries, window.hasMore))
-+    this.historyVersion = window.historySelection?.version ?? 0
-+    const selection = window.historySelection
-+    const entries = selection ? window.entries.filter(entry => entry.event.type !== 'history/selected' &&
-+      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : window.entries
-+    this.publish(this.assembler.replaceWindow(entries, window.hasMore))
-   }
- 
-   private accept(window: SessionEventWindow): void {
-     if (window.revision === this.revision) return
--    if (window.revision !== this.revision + 1 || window.change.kind === 'replace') {
-+    if ((window.historySelection?.version ?? 0) !== this.historyVersion || window.revision !== this.revision + 1 || window.change.kind === 'replace') {
-       this.replace(window)
-       return
-     }
-     this.revision = window.revision
-     switch (window.change.kind) {
-       case 'prepend':
--        this.publish(this.assembler.prepend(window.change.entries, window.hasMore))
-+        this.publish(this.assembler.prepend(this.selectedEntries(window, window.change.entries), window.hasMore))
-         return
-       case 'append': {
-         let publication: ConversationPublication = 'none'
--        for (const event of window.change.entries) {
-+        for (const event of this.selectedEntries(window, window.change.entries)) {
-           const next = this.assembler.append(event)
-           if (next === 'immediate' || publication === 'none') publication = next
-         }
-@@ -127,6 +133,12 @@ class BoundConversation implements ConversationBinding {
-     }
-   }
- 
-+  private selectedEntries(window: SessionEventWindow, entries: SessionEventWindow['entries']): SessionEventWindow['entries'] {
-+    const selection = window.historySelection
-+    return selection ? entries.filter(entry => entry.event.type !== 'history/selected' &&
-+      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : entries
-+  }
-+
-   private publish(publication: ConversationPublication): void {
-     if (publication === 'none') return
-     if (publication === 'animation-frame' && typeof requestAnimationFrame === 'function') {
-@@ -212,6 +224,23 @@ export class UiConversation extends Service {
-     }, 'ui-conversation assembly')
-   }
- 
-+  /**
-+   * Assemble a readonly event window without changing a Session binding.
-+   * @param target - Registered target whose normal definitions render the window.
-+   * @param entries - Original event identities and optional live frames.
-+   * @returns isolated target snapshot, or undefined for an unregistered target.
-+   */
-+  inspect<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
-+    target: Target,
-+    entries: readonly SessionEventLikeEntry[],
-+  ): ConversationViewSnapshotMap[Target] | undefined {
-+    const assembler = new ConversationNodeAssembler(this.events, this.views)
-+    assembler.replaceWindow(entries, false)
-+    assembler.activateTarget(target)
-+    assembler.flush()
-+    return assembler.snapshot(target) as ConversationViewSnapshotMap[Target] | undefined
-+  }
-+
-   /**
-    * Resolve the Conversation binding for one Controller binding or Session id.
-    * @param source - Session binding or identity.
 diff --git a/packages/client/ui-trajectory/README.i18n.yaml b/packages/client/ui-trajectory/README.i18n.yaml
 index 4518bfeba4..032beb444c 100644
 --- a/packages/client/ui-trajectory/README.i18n.yaml
@@ -880,7 +672,7 @@ index 0000000000..c3b20c4731
 +  }
 +}
 diff --git a/packages/client/ui-trajectory/src/client/layout.ts b/packages/client/ui-trajectory/src/client/layout.ts
-index 644e32025d..d35729f3f7 100644
+index fd361899d0..d35729f3f7 100644
 --- a/packages/client/ui-trajectory/src/client/layout.ts
 +++ b/packages/client/ui-trajectory/src/client/layout.ts
 @@ -31,6 +31,8 @@ export interface TrajectoryGroupModel {
@@ -892,6 +684,30 @@ index 644e32025d..d35729f3f7 100644
    turn: number | null
    groups: readonly TrajectoryGroupModel[]
  }
+@@ -731,7 +733,8 @@ function expandAssistant(
+     .join('\n\n')
+   const message: TrajectoryCellProps = {
+     index: ++index,
+-    recordId: `assistant\u0000${node.turn}\u0000${node.step}`,
++    recordId: node.source === undefined ? `assistant\u0000${node.turn}\u0000${node.step}` : `authored\u0000${node.seq}`,
++    ...(node.source === undefined ? {} : { messageSource: node.source }),
+     kind: 'message',
+     sourceSeq: node.seq,
+     text: messageText !== '' || thinkingText !== ''
+@@ -745,11 +748,11 @@ function expandAssistant(
+     ...(messageText !== '' ? { outputDetail: messageText } : {}),
+     ...(thinkingText !== '' ? { thinkingDetail: thinkingText } : {}),
+     sourceBlocks: node.blocks.map(block => assistantSourceBlock(block)),
+-    timeSeconds: messageDuration,
++    timeSeconds: node.source === undefined ? messageDuration : 0,
+     startedAt: recordedStart,
+   }
+   attachUsage(message, usage)
+-  message.assistantMetrics = {
++  if (node.source === undefined) message.assistantMetrics = {
+     timingRecorded: node.timing !== undefined,
+     stepStartTime: node.timing?.stepStartTime ?? null,
+     firstTokenTime: node.timing?.firstTokenTime ?? null,
 diff --git a/packages/client/ui-trajectory/src/client/locales.ts b/packages/client/ui-trajectory/src/client/locales.ts
 index 6bdc621413..61f0b472f9 100644
 --- a/packages/client/ui-trajectory/src/client/locales.ts
@@ -942,6 +758,33 @@ index 5507fd18ea..2b8e9e1830 100644
      /**
       * Renderer for one group of durable record images in the Trajectory
       * ledger. The owner supplies image references, an authorized loader, and
+diff --git a/packages/client/ui-trajectory/src/client/trajectory-message-definitions.ts b/packages/client/ui-trajectory/src/client/trajectory-message-definitions.ts
+index deb4097406..97451f0ba2 100644
+--- a/packages/client/ui-trajectory/src/client/trajectory-message-definitions.ts
++++ b/packages/client/ui-trajectory/src/client/trajectory-message-definitions.ts
+@@ -189,4 +189,22 @@ const trajectoryMessageDefinition: ConversationNodeDefinition<MessageNode> = {
+ export function registerTrajectoryMessageDefinitions(ctx: Context): void {
+   ctx.uiConversation.events.register(trajectoryInboxDefinition)
+   ctx.uiConversation.events.register(trajectoryMessageDefinition)
++  ctx.uiConversation.events.register({
++    kind: 'trajectory-authored-message', target: 'trajectory',
++    match: event => event.type === 'context/message' ? { id: String(event.seq), role: 'start' } : null,
++    start: () => true,
++    update: () => true,
++    buildViewNode: (context) => {
++      const match = context.start
++      if (match?.event.type !== 'context/message') return null
++      const event = match.event, { message, name, groupId } = event.data
++      const source = { ...message.source, name, groupId, authored: true }
++      const node = message.role === 'user'
++        ? { kind: 'user' as const, seq: event.seq, time: event.time, content: message.content, source }
++        : { kind: 'assistant' as const, messageId: message.id, seq: event.seq, time: event.time,
++          turn: match.location.kind === 'step' ? match.location.turn.turn : 0, step: 0, source,
++          blocks: message.content.map(block => ({ kind: 'text' as const, text: block.type === 'text' ? block.text : '' })) }
++      return trajectoryNode(context, event.seq, { kind: 'node', node })
++    },
++  })
+ }
 diff --git a/packages/client/ui-trajectory/src/client/trajectory-record.ts b/packages/client/ui-trajectory/src/client/trajectory-record.ts
 index 2bcb268f22..b29230c399 100644
 --- a/packages/client/ui-trajectory/src/client/trajectory-record.ts
@@ -1276,270 +1119,3 @@ index 79a0e14b0e..ef5e1c846b 100644
 +  expect(spans).toHaveLength(1)
 +  expect(spans[0]?.getAttribute('data-timeline-record-index')).toBe('2')
 +})
-diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-index fa4a20d78e..1ea7c423e1 100644
---- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-+++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-@@ -174,7 +174,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'none',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.assistant-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.assistant-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:221',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:240',
-   },
-   {
-     key: 'conversation.chat.commandview',
-@@ -221,7 +221,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     occupants: [],
-     replaceRisk: 'none',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.commandview\', () => ctx.slots.register(\n      { name: \'conversation.chat.commandview\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:209',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:224',
-   },
-   {
-     key: 'conversation.chat.node',
-@@ -238,7 +238,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-       },
-     ],
-     ownerProps: [
--      '/** Stable owner currency delivered to a keyed Chat renderer. */\nexport interface ChatNodeOwnerProps {\n  cwd?: string | undefined\n  /** Open the current source file of a skill referenced by a sent message. */\n  openSkill: (name: string) => void\n  openFile: (path: string, options?: OpenFileOptions) => void\n  inspectCall: (callId: ToolCallId) => void\n  forkAt: (seq: number) => void\n  /**\n   * Session-authorized image loader, down-threaded from the Chat view so a\n   * chat-node renderer can render the attachment presentation slot directly\n   * with only the durable references plus this loader, instead of receiving a\n   * rendering closure.\n   */\n  loadImage: MessageImageLoader\n  renderMessageImages: RenderMessageImages\n  fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined\n  /** Turn-process state when this Node belongs to a projected Turn. */\n  turnProcess?: TurnProcessOwnerProps | undefined\n}',
-+      '/** Stable owner currency delivered to a keyed Chat renderer. */\nexport interface ChatNodeOwnerProps {\n  cwd?: string | undefined\n  /** Open the current source file of a skill referenced by a sent message. */\n  openSkill: (name: string) => void\n  openFile: (path: string, options?: OpenFileOptions) => void\n  /** Open another registered conversation view at its own focus identity. */\n  openView?: ((view: string, focus: string) => void) | undefined\n  inspectCall: (callId: ToolCallId) => void\n  forkAt: (seq: number) => void\n  /**\n   * Session-authorized image loader, down-threaded from the Chat view so a\n   * chat-node renderer can render the attachment presentation slot directly\n   * with only the durable references plus this loader, instead of receiving a\n   * rendering closure.\n   */\n  loadImage: MessageImageLoader\n  renderMessageImages: RenderMessageImages\n  /**\n   * Render actions owned by the Chat view beside one durable user bubble.\n   * @param seq - raw message sequence.\n   * @returns registered action elements.\n   */\n  renderUserActions: (seq: number) => ReactNode\n  fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined\n  /** Turn-process state when this /* …truncated — full shape in source */',
-     ],
-     ownerPropsReferences: [
-       'MarkdownFileMentions',
-@@ -289,7 +289,52 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'shadows-shipped-ui',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.node\', () => ctx.slots.register(\n      { name: \'conversation.chat.node\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:190',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:205',
-+  },
-+  {
-+    key: 'conversation.chat.turn-actions',
-+    kind: 'chain',
-+    scope: 'session',
-+    summary: 'Optional in-session history actions replacing the default fork controls.',
-+    doc: 'Optional in-session history actions replacing the default fork controls.',
-+    registerOptions: [
-+      {
-+        name: 'select',
-+        requirement: 'required',
-+        type: '(owner) => unknown | null',
-+        doc: 'Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\'s `matched` prop. All-null falls through to the owner\'s fallback.',
-+      },
-+    ],
-+    ownerProps: [
-+      '/** Owner currency of the completed-Turn extension chain. */\nexport interface TurnTailOwnerProps {\n  turn: TurnLocation\n  seq: number\n  openFile: (path: string) => void\n}',
-+    ],
-+    ownerPropsReferences: [
-+      'TurnLocation',
-+    ],
-+    standardProps: [
-+      'useResource: UseResource',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'usePanelInfo: UsePanelInfo',
-+      'useSessions: UseSessions',
-+      'useSessionPendingInteraction: UseSessionPendingInteraction',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'useChat: UseChat',
-+      'useConversation: UseConversation',
-+      'useInput: SnapshotSelectorHook<InputState>',
-+      'inputActions: InputActions',
-+      'useSession: SessionSnapshotSelector',
-+      'sessionId: SessionId',
-+      'useProjection: UseProjection',
-+      'useTrajectory: UseTrajectory',
-+    ],
-+    keyDomain: '',
-+    hookContext: '',
-+    slotInject: '',
-+    declaredBy: 'an entry in \'conversation.chat.node\' (client-ui-chat), so it exists while that entry is mounted',
-+    occupants: [],
-+    replaceRisk: 'none',
-+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turn-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.turn-actions\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:232',
-   },
-   {
-     key: 'conversation.chat.turnTail',
-@@ -336,7 +381,62 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'none',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.turnTail\', () => ctx.slots.register(\n      { name: \'conversation.chat.turnTail\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:215',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:230',
-+  },
-+  {
-+    key: 'conversation.chat.user-actions',
-+    kind: 'list',
-+    scope: 'session',
-+    summary: 'Ordered actions beside a durable user-message bubble; an empty list adds nothing.',
-+    doc: 'Ordered actions beside a durable user-message bubble; an empty list adds nothing.',
-+    registerOptions: [
-+      {
-+        name: 'id',
-+        requirement: 'required',
-+        type: 'string',
-+        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
-+      },
-+      {
-+        name: 'order',
-+        requirement: 'optional',
-+        type: 'number',
-+        doc: 'Position among the entries, ascending (default 0).',
-+      },
-+      {
-+        name: 'label',
-+        requirement: 'optional',
-+        type: 'string | (() => string)',
-+        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
-+      },
-+    ],
-+    ownerProps: [
-+      '/** Original log position of a durable user-message bubble. */\nexport interface UserActionOwnerProps {\n  /** Raw Session sequence, unchanged by history selection. */\n  readonly seq: number\n}',
-+    ],
-+    ownerPropsReferences: [],
-+    standardProps: [
-+      'useResource: UseResource',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'usePanelInfo: UsePanelInfo',
-+      'useSessions: UseSessions',
-+      'useSessionPendingInteraction: UseSessionPendingInteraction',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'useChat: UseChat',
-+      'useConversation: UseConversation',
-+      'useInput: SnapshotSelectorHook<InputState>',
-+      'inputActions: InputActions',
-+      'useSession: SessionSnapshotSelector',
-+      'sessionId: SessionId',
-+      'useProjection: UseProjection',
-+      'useTrajectory: UseTrajectory',
-+    ],
-+    keyDomain: '',
-+    hookContext: '',
-+    slotInject: '',
-+    declaredBy: 'an entry in \'conversation.view\' (client-ui-chat), so it exists while that entry is mounted',
-+    occupants: [],
-+    replaceRisk: 'none',
-+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.user-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.user-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:234',
-   },
-   {
-     key: 'conversation.composer',
-@@ -397,9 +497,10 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     doc: 'Resident composer body, including the no-Session inert state.',
-     registerOptions: [],
-     ownerProps: [
--      '/** Owner share of the resident composer bar. */\nexport interface ComposerBarOwnerProps {\n  /** Hero uses centered placement; composer uses the active bottom placement. */\n  variant: \'hero\' | \'composer\'\n  /** A feature-owned reason that makes message input inert while leaving model selection live. */\n  blocked?: { readonly reason: string }\n  /** Lock all message actions while preserving the resident composer surface. */\n  disabled?: boolean\n  /** Whether the shared Workspace picker is expanded. */\n  workspacePickerOpen?: boolean\n  /** Open the Workspace picker from the inert composer surface. */\n  onRequestWorkspace?: () => void\n  placeholder?: string\n  /** Optional content rendered above the composer surface. */\n  accessory?: ReactNode\n}',
-+      '/** Owner share of the resident composer bar. */\nexport interface ComposerBarOwnerProps {\n  /** Hero uses centered placement; composer uses the active bottom placement. */\n  variant: \'hero\' | \'composer\'\n  /** A feature-owned reason that makes message input inert while leaving model selection live. */\n  blocked?: ComposerBlock\n  /** Lock all message actions while preserving the resident composer surface. */\n  disabled?: boolean\n  /** Whether the shared Workspace picker is expanded. */\n  workspacePickerOpen?: boolean\n  /** Open the Workspace picker from the inert composer surface. */\n  onRequestWorkspace?: () => void\n  placeholder?: string\n  /** Optional content rendered above the composer surface. */\n  accessory?: ReactNode\n}',
-     ],
-     ownerPropsReferences: [
-+      'ComposerBlock',
-       'Workspace',
-     ],
-     standardProps: [
-@@ -1055,7 +1156,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'shadows-shipped-ui',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.message.images\', () => ctx.slots.register(\n      { name: \'conversation.message.images\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-chat/src/client/contract/slots.ts:203',
-+    source: 'packages/client/ui-chat/src/client/contract/slots.ts:218',
-   },
-   {
-     key: 'conversation.session',
-@@ -1365,7 +1466,75 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
-     ],
-     replaceRisk: 'shadows-shipped-ui',
-     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.trajectory.images\', () => ctx.slots.register(\n      { name: \'conversation.trajectory.images\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
--    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:98',
-+    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:106',
-+  },
-+  {
-+    key: 'conversation.trajectory.navigation',
-+    kind: 'single',
-+    scope: 'session',
-+    summary: 'Optional navigation beside the ledger; viewing does not select runtime history.',
-+    doc: 'Optional navigation beside the ledger; viewing does not select runtime history.',
-+    registerOptions: [],
-+    ownerProps: [],
-+    ownerPropsReferences: [],
-+    standardProps: [
-+      'useResource: UseResource',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'usePanelInfo: UsePanelInfo',
-+      'useSessions: UseSessions',
-+      'useSessionPendingInteraction: UseSessionPendingInteraction',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'useChat: UseChat',
-+      'useConversation: UseConversation',
-+      'useInput: SnapshotSelectorHook<InputState>',
-+      'inputActions: InputActions',
-+      'useSession: SessionSnapshotSelector',
-+      'sessionId: SessionId',
-+      'useProjection: UseProjection',
-+      'useTrajectory: UseTrajectory',
-+    ],
-+    keyDomain: '',
-+    hookContext: '',
-+    slotInject: '',
-+    declaredBy: 'an entry in \'conversation.view\' (client-ui-trajectory), so it exists while that entry is mounted',
-+    occupants: [],
-+    replaceRisk: 'none',
-+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.trajectory.navigation\', () => ctx.slots.register(\n      { name: \'conversation.trajectory.navigation\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-+    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:97',
-+  },
-+  {
-+    key: 'conversation.trajectory.toolbar',
-+    kind: 'single',
-+    scope: 'session',
-+    summary: 'Optional controls above the readonly ledger.',
-+    doc: 'Optional controls above the readonly ledger.',
-+    registerOptions: [],
-+    ownerProps: [],
-+    ownerPropsReferences: [],
-+    standardProps: [
-+      'useResource: UseResource',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'usePanelInfo: UsePanelInfo',
-+      'useSessions: UseSessions',
-+      'useSessionPendingInteraction: UseSessionPendingInteraction',
-+      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
-+      'useChat: UseChat',
-+      'useConversation: UseConversation',
-+      'useInput: SnapshotSelectorHook<InputState>',
-+      'inputActions: InputActions',
-+      'useSession: SessionSnapshotSelector',
-+      'sessionId: SessionId',
-+      'useProjection: UseProjection',
-+      'useTrajectory: UseTrajectory',
-+    ],
-+    keyDomain: '',
-+    hookContext: '',
-+    slotInject: '',
-+    declaredBy: 'an entry in \'conversation.view\' (client-ui-trajectory), so it exists while that entry is mounted',
-+    occupants: [],
-+    replaceRisk: 'none',
-+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.trajectory.toolbar\', () => ctx.slots.register(\n      { name: \'conversation.trajectory.toolbar\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-+    source: 'packages/client/ui-trajectory/src/client/trajectory-contract.ts:99',
-   },
-   {
-     key: 'conversation.view',
-diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
-index fbe8589394..d5bcb48bfe 100644
---- a/scripts/gen-cordis-catalog.ts
-+++ b/scripts/gen-cordis-catalog.ts
-@@ -159,6 +159,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
-   uiRenderer: 'client-side interface-typed browser service — packages/client/ui-renderer/README.md owns the API',
-   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
-   chatPresentation: 'client-side Chat display registrations — packages/client/ui-chat/README.md owns the API',
-+  trajectoryInspection: 'client-side readonly trajectory sources — packages/client/ui-trajectory/README.md owns the API',
-   uiConversation: 'client-side Conversation registries and assembler — packages/client/ui-conversation/README.md owns the API',
-   uiAgentPreset: 'client-side mode selection adapter — packages/client/ui-agent-preset/README.md owns the API',
-   uiWorkspace: 'client-side Workspace navigation adapter — packages/client/ui-workspace/README.md owns the API',
-@@ -345,6 +346,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
-   SessionPage: 'session.md',
-   SessionPageRequest: 'session.md',
-   SessionPromptRequest: 'session.md',
-+  HostUserInput: 'session.md',
-   SessionPromptValue: 'session.md',
-   SessionRenameRequest: 'session.md',
-   SessionRenameValue: 'session.md',

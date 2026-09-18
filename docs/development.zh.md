@@ -21,6 +21,7 @@
 | `pnpm check` | 主库类型、lint、测试、文档与 Note 检查 |
 | `pnpm check:docs` | 主库文档与检查器来源检查 |
 | `pnpm check:notes` | 活跃 Note 与不可变归档检查 |
+| `pnpm check:patches:source` | 比较补丁重建结果与 DSH 源码，不运行交付检查 |
 | `pnpm check:patches` | 重建源码并执行登记的 DSH 交付检查 |
 | `pnpm test:smoke` | 启动临时 Web 进程验证构建产物，不调用模型 |
 

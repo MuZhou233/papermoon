@@ -1,125 +1,17 @@
-diff --git a/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.i18n.yaml b/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.i18n.yaml
-new file mode 100644
-index 0000000000..da81fde592
---- /dev/null
-+++ b/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.i18n.yaml
-@@ -0,0 +1,6 @@
-+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-+# side as of the last confirmed-consistent state. Both languages carry equal authority;
-+# after editing either side, bring the other along and re-record with:
-+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.md
-+2026-09-15-tool-argument-json-errors.md: dbd7646d721a24059cbc549e5892ece2eaa04047
-+2026-09-15-tool-argument-json-errors.zh.md: fda2db75936776f6c0fc3dc95b79fc4f52cdfe1a
-diff --git a/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.md b/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.md
-new file mode 100644
-index 0000000000..dbd7646d72
---- /dev/null
-+++ b/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.md
-@@ -0,0 +1,23 @@
-+# Agent Note: Tool argument JSON errors
-+
-+Status: implemented
-+
-+English | [中文](2026-09-15-tool-argument-json-errors.zh.md)
-+
-+## Problem
-+
-+Passing malformed model arguments through as a string hides the JSON parser failure behind an unrelated parameter-type error. The model cannot reliably distinguish invalid JSON from a valid JSON string rejected by an object schema.
-+
-+## Decision
-+
-+The Agent Loop parses each argument string once and retains any syntax error. The registry receives that failure through its existing argument-materialization path, records a normal tool error, and does not dispatch the tool. The diagnostic identifies invalid JSON and preserves the native parser reason, including positions when available. Raw arguments remain in the call record. Valid JSON and empty argument strings retain their existing validation behavior.
-+
-+## Alternatives considered
-+
-+**Pass the raw string to parameter validation.** This loses the syntax failure and can misidentify the required correction.
-+
-+**Repair malformed arguments automatically.** Repair would execute inferred input rather than the model’s recorded call.
-+
-+## Consequences
-+
-+The model receives the same error that history exposes and can submit a corrected call. No tool schema, help text, or Session event type changes. The native parser controls the detailed wording and location availability. Unit tests cover malformed and valid inputs, execution suppression, and the following model request; a keyless Session snapshot covers persisted errors and a corrected call.
-diff --git a/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.zh.md b/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.zh.md
-new file mode 100644
-index 0000000000..fda2db7593
---- /dev/null
-+++ b/.agents/notes/implemented/bug-fix/2026-09-15-tool-argument-json-errors.zh.md
-@@ -0,0 +1,23 @@
-+# Agent Note: 工具参数 JSON 错误
-+
-+Status: implemented
-+
-+[English](2026-09-15-tool-argument-json-errors.md) | 中文
-+
-+## 问题
-+
-+把格式错误的模型参数当作字符串继续传递，会让参数类型错误掩盖 JSON 解析失败。模型难以区分非法 JSON 和被对象 schema 拒绝的合法 JSON 字符串。
-+
-+## 决定
-+
-+Agent Loop 对每份参数字符串只解析一次，并保留语法错误。注册表通过现有参数物化路径接收错误，记录普通工具错误，不执行工具。诊断明确指出 JSON 无效，并保留原生解析器的原因及其能够报告的位置。调用记录保留原始参数。合法 JSON 与空参数字符串沿用现有校验行为。
-+
-+## 考虑过的替代方案
-+
-+**把原始字符串交给参数校验。** 这会丢失语法错误，可能误导模型修改参数。
-+
-+**自动修复格式错误的参数。** 这会执行推断出的输入，而非模型记录中的调用。
-+
-+## 后果
-+
-+模型收到的错误与历史展示一致，可以重新提交修正后的调用。工具 schema、帮助文本和 Session 事件类型均不改变。详细措辞与可提供的位置由原生解析器决定。单元测试覆盖非法和合法输入、阻止执行及后续模型请求；无需密钥的 Session 快照覆盖持久错误和修正后的调用。
-diff --git a/docs/architecture.i18n.yaml b/docs/architecture.i18n.yaml
-index b3f8ee78df..79f9642d56 100644
---- a/docs/architecture.i18n.yaml
-+++ b/docs/architecture.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write docs/architecture.md
--architecture.md: 6291abaa8dbe898a64b9e6f937b9a3c046dcf700
--architecture.zh.md: bdd1029f66acd430b7640ecbf184a51d7abd214f
-+architecture.md: 5d6c7c9a70af8cae0d08ffbb3a01b324d08150a9
-+architecture.zh.md: 304f1b06c4f3782a4614898d5e706eeea460f075
-diff --git a/docs/architecture.md b/docs/architecture.md
-index 6291abaa8d..5d6c7c9a70 100644
---- a/docs/architecture.md
-+++ b/docs/architecture.md
-@@ -108,6 +108,8 @@ Input reaches the driver through one inbox. Some messages wake it immediately; i
- 
- `agent/pre-step` decides the accepted input. Listeners may rewrite or reject claimed messages; a rejected or empty first claim closes a durable turn without a step. An enter decision may set `startsRequestSeries`: the loop logs a fresh `request/header` (reason `series`, or `change` with `startsSeries: true` when the envelope also changed). Wrapping listeners preserve that declaration with `{ ...decision, messages }`. After assembly and `step/start`, `agent/request` and `prepareCall()` resolve the actual route before the system prompt and accepted users are committed; cancellation during either async phase commits neither. The prepared call capability governs prompt admission, not the preceding `request/context`. Every attempt synchronously reconciles the same rendered assembly, appends users only on the first attempt, logs header/context as needed, and derives and freezes the request before streaming the bound call. Retries do not repeat assembly or `agent/pre-step`. Surface replacements after attachment start a new request series, including during the first resumed pre-step; unchanged resume continues the series. The first admitted step reserves the system head before user messages even for an empty prompt (no wire message). The prompt travels only as `system/message` history: an empty rendering clears all active system nodes, leaving no old prompt model-visible; capable routes can append non-empty updates after the cached prefix; incapable routes and new request series consolidate non-empty prompt text at the first system node, with logged empty replacements for non-empty later system nodes ([decision](../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.md); [decision rule](../packages/core/agent-loop/README.md#understand-the-implementation)).
- 
-+[Tool argument diagnostics](../packages/core/agent-loop/README.md#use-this-package) distinguish JSON syntax errors from parameter validation failures.
-+
- The loop sends immutable requests while keeping cancellation live. It reuses message-freeze provenance only for identities it has fully frozen; [agent-loop](../packages/core/agent-loop/README.md) owns the request construction rules.
- 
- Details: the [sequence diagram](agent-lifecycle.md), the [tool pipeline](tool-execution-pipeline.md), and [cancellation and error recovery](subsystems/core.md#the-agent-handle).
-diff --git a/docs/architecture.zh.md b/docs/architecture.zh.md
-index bdd1029f66..304f1b06c4 100644
---- a/docs/architecture.zh.md
-+++ b/docs/architecture.zh.md
-@@ -112,6 +112,8 @@ turn/end
- 
- `agent/pre-step` 决定接纳的输入。监听器可以改写或拒绝已领取消息；首次领取被拒绝或为空时，关闭不含步骤的持久轮次。enter 决策可设置 `startsRequestSeries`：循环记录新的 `request/header`（原因为 `series`，或在封装同时变化时为携带 `startsSeries: true` 的 `change`）。包装监听器通过 `{ ...decision, messages }` 保留该声明。组装与 `step/start` 之后，`agent/request` 和 `prepareCall()` 先解析实际路由，再提交系统提示词与已接纳用户消息；在任一异步阶段取消都不会提交这两者。提示词准入依据已准备调用的能力，而非先前的 `request/context`。每次尝试同步协调同一份已渲染组装结果、仅在首次尝试追加用户消息、按需记录 header/context、派生并冻结请求，再通过绑定调用发起流式请求。重试不重复组装或 `agent/pre-step`。附接后的 surface 替换开启新请求序列，包括恢复后的首次 pre-step 中发生的替换；未变化的恢复延续序列。首次接纳的步骤在用户消息之前预留系统头节点，即使提示词为空（不产生协议消息）。提示词仅通过 `system/message` 历史传递：空渲染文本清除所有生效的系统节点，模型不再看到旧提示词；具备能力的路由可在缓存前缀之后追加非空更新；不具备能力的路由与新请求序列将非空提示词文本归并到首个系统节点，并为非空的后续系统节点记录空内容替换（[决策](../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.zh.md)；[决策规则](../packages/core/agent-loop/README.zh.md#understand-the-implementation)）。
- 
-+[工具参数诊断](../packages/core/agent-loop/README.zh.md#use-this-package)区分 JSON 语法错误和参数校验失败。
-+
- 循环发送不可变请求，同时保留实时取消能力。只有已由该循环完整冻结的消息对象身份才能复用冻结证明；[agent-loop](../packages/core/agent-loop/README.zh.md)拥有请求构造规则。
- 
- 详情见[时序图](agent-lifecycle.zh.md)、[工具流水线](tool-execution-pipeline.zh.md)和[取消与错误恢复](subsystems/core.zh.md#the-agent-handle)。
 diff --git a/packages/core/agent-loop/README.i18n.yaml b/packages/core/agent-loop/README.i18n.yaml
-index 1aeee3321b..b27640ce3b 100644
+index 2936b69d34..c2f3f70e56 100644
 --- a/packages/core/agent-loop/README.i18n.yaml
 +++ b/packages/core/agent-loop/README.i18n.yaml
 @@ -2,5 +2,5 @@
  # side as of the last confirmed-consistent state. Both languages carry equal authority;
  # after editing either side, bring the other along and re-record with:
  #   pnpm run verify-translation-pairing --write packages/core/agent-loop/README.md
--README.md: dd0c010e77b207219616826ae718d62f30223844
--README.zh.md: f472da927acb7867c45dccfaed9acafb2648511b
-+README.md: 4fde8c60e16fe505759a9f4f7b34c0e21833b1e0
-+README.zh.md: be4776593642e8abf2cb7fdd4ede30e351da374c
+-README.md: cff0eb77b8464d49908bbd7b0e7a1b0658ed2f3c
+-README.zh.md: 94fb5406193300abc3077462407fdc8b1dd742a0
++README.md: b164894fa06f43451ef8fb3dd9042bb0a9a2dd17
++README.zh.md: de1762f4394e0437654b2aee39b0f5e42b081cdb
 diff --git a/packages/core/agent-loop/README.md b/packages/core/agent-loop/README.md
-index dd0c010e77..4fde8c60e1 100644
+index cff0eb77b8..b164894fa0 100644
 --- a/packages/core/agent-loop/README.md
 +++ b/packages/core/agent-loop/README.md
 @@ -72,6 +72,8 @@ Every inbox mutation commits one normalized `agent/inbox/spliced` event. The pro
@@ -131,8 +23,26 @@ index dd0c010e77..4fde8c60e1 100644
  Each step sends the session's derived history — with the latest non-empty `system/message` node as the effective prompt, or no system messages when the rendered prompt is empty — and its visible tool schemas; the model's tool calls run through the guarded tool pipeline and every accepted fact is appended to the session log before the next step derives from it. Parallel-safe calls may overlap up to `maxParallelToolCalls`; exclusive calls run alone as ordering barriers. Cancellation is cooperative: `agent.cancel()` aborts the current activity and, unless `keepInbox` is set, clears pending work; a cancelled stream finalizes the text already delivered to the user.
  
  -----
+@@ -143,6 +145,9 @@ The package-level contract is enough for most consumers; read these when you nee
+ -----
+ 
+ <a id="model-experience"></a>
++
++An entering pre-step may supply authored initial messages. The existing commit path places them after system messages and before accepted user inputs. Stable message IDs prevent duplicate insertion after retry or resume. Supplied assistant content creates no model attempt or usage.
++
+ ## Model Experience
+ 
+ ### Complete conversation request
+@@ -208,3 +213,7 @@ These limits define when the loop needs special care. They are current package c
+ None.
+ 
+ </details>
++
++History selection invalidates model-history and runtime-context projections. A selected path without a request header starts from the Agent's configured route. Authored-message deduplication follows selected history, so an initial prefix omitted by selection can be admitted again without changing its producer identity. No branch-specific Loop phase is used.
++
++Request-message providers use agent/request-messages after input and prompt admission and request-header logging. A provider records request/messages, confirms its own durability requirement, then returns that record's sequence. The Loop validates turn/step ownership, resolves and freezes messages through Session's request reader, and uses that same reader in its reconstruction invariant. No provider means ordinary selected history. The hook changes neither pre-step admission nor transcript selection; producer failures stop dispatch.
 diff --git a/packages/core/agent-loop/README.zh.md b/packages/core/agent-loop/README.zh.md
-index f472da927a..be47765936 100644
+index 94fb540619..de1762f439 100644
 --- a/packages/core/agent-loop/README.zh.md
 +++ b/packages/core/agent-loop/README.zh.md
 @@ -72,6 +72,8 @@ const handle = await ctx.agents.create({
@@ -144,6 +54,208 @@ index f472da927a..be47765936 100644
  每个步骤都会发送会话的派生历史——最新的非空 `system/message` 节点是有效提示词，渲染提示词为空时则没有系统消息——及其可见工具 schema；模型的工具调用经过受守卫的工具流水线，每个被接纳的事实都会在下一步据此派生之前追加到会话日志。并行安全调用最多可重叠 `maxParallelToolCalls` 个；独占调用单独运行并构成排序屏障。取消是协作式的：`agent.cancel()` 中止当前活动，并在未设置 `keepInbox` 时清除待处理工作；被取消的流会终结已送达用户的文本。
  
  -----
+@@ -143,6 +145,9 @@ const handle = await ctx.agents.create({
+ -----
+ 
+ <a id="model-experience"></a>
++
++进入步骤前可提供预置起始消息。既有提交路径将其放在系统消息之后、已接纳用户输入之前。稳定消息 ID 防止重试或恢复时重复插入。提供的 assistant 内容不产生模型调用或用量。
++
+ ## 模型体验
+ 
+ ### 完整对话请求
+@@ -208,3 +213,7 @@ const handle = await ctx.agents.create({
+ 无。
+ 
+ </details>
++
++历史选择使模型历史与运行上下文投影失效。选中的路径没有请求头时，使用 Agent 配置的路由。预置消息按选中的历史去重，被选择排除的起始前缀可以再次接纳，同时保留生产者身份。不增加分支专用的 Loop 阶段。
++
++请求消息提供者在输入、提示词及请求头入日志后使用 agent/request-messages。提供者记录 request/messages，确认自身所需的持久化，再返回该记录序号。Loop 校验轮次和步骤归属，通过 Session 的请求读取器解析并冻结消息；重建不变量也使用该读取器。没有提供者时沿用普通的已选历史。这个扩展点不改变 pre-step 接纳或对话历史选择，提供者失败会停止发送。
+diff --git a/packages/core/agent-loop/src/agent.ts b/packages/core/agent-loop/src/agent.ts
+index 06e1f51b57..418f8e1b0f 100644
+--- a/packages/core/agent-loop/src/agent.ts
++++ b/packages/core/agent-loop/src/agent.ts
+@@ -55,6 +55,7 @@ type PreparedStep =
+   | {
+     kind: 'enter'
+     messages: UserMessage[]
++    initialMessages?: readonly import('@deepseek-ai/dsh-session').SessionEventMap['context/message'][]
+     startsRequestSeries?: true
+     assembly: PromptAssembly
+   }
+@@ -371,12 +372,19 @@ export class ReactLoopAgent implements Agent {
+         this.session.append('system/message', { turn, step, message }, intent)
+       }
+       if (firstAttempt) {
++        for (const context of decision.initialMessages ?? []) {
++          // A resumed partial prefix retains each authored message identity.
++          const authoredIds = (await this.session.readHistory()).events.flatMap(event =>
++            event.type === 'context/message' ? [event.data.message.id] : [])
++          if (!authoredIds.includes(context.message.id))
++            this.session.append('context/message', context, { surfaceOp: 'append' })
++        }
+         for (const message of decision.messages) {
+           this.session.append('user/message', message, { surfaceOp: 'append' })
+         }
+       }
+       firstAttempt = false
+-      const request = this.buildRequest(config, preparedCall, assembly.tools, startsRequestSeries, signal)
++      const request = await this.buildRequest(config, preparedCall, assembly.tools, startsRequestSeries, signal, turn, step)
+       const live = new AssistantStreamAttempt(
+         this.session.id,
+         ++this.assistantAttemptCounter,
+@@ -518,9 +526,8 @@ export class ReactLoopAgent implements Agent {
+     const reasoningEffort = this.options.reasoningEffort ?? persistedReasoningEffort
+     const maxTokens = this.options.maxTokens
+     const seedConfig = deepFreeze(structuredClone(
+-      this.requestHeaderLogged
+-        // oxlint-disable-next-line typescript/no-non-null-assertion -- the instance logged the header it now folds
+-        ? requestProposal(persistedHeader!)
++      this.requestHeaderLogged && persistedHeader !== undefined
++        ? requestProposal(persistedHeader)
+         : {
+           ...route,
+           ...reasoningEffort === undefined ? {} : { reasoningEffort },
+@@ -550,13 +557,15 @@ export class ReactLoopAgent implements Agent {
+   }
+ 
+   /** Log the resolved envelope and derive a frozen request from the admitted surface. */
+-  private buildRequest(
++  private async buildRequest(
+     config: LlmCallConfig,
+     preparedCall: PreparedLlmCall | undefined,
+     tools: GenerateOptions['tools'] & object,
+     startsRequestSeries: boolean,
+     signal: AbortSignal,
+-  ): GenerateOptions {
++    turn: number,
++    step: number,
++  ): Promise<GenerateOptions> {
+     const { session } = this
+     const surfaceGeneration = session.surface.replaceGeneration
+     const header = canonicalHeader({
+@@ -600,7 +609,17 @@ export class ReactLoopAgent implements Agent {
+ 
+     // canonicalHeader is shallow; append logs a detached snapshot, not these local values.
+     deepFreeze(header)
+-    const boundaryMessages = session.deriveMessages()
++    const selected = await this.dispatch.waterfall('agent/request-messages', { turn, step, signal }, () => Promise.resolve(undefined))
++    signal.throwIfAborted()
++    if (selected !== undefined) {
++      // oxlint-disable-next-line typescript/no-deprecated -- Checks the newly logged dispatch selection.
++      const event = session.snapshotEvents()[selected]
++      if (event?.type !== 'request/messages' || event.data.turn !== turn || event.data.step !== step) throw new Error('request message selection does not belong to this step')
++    } else {
++      // oxlint-disable-next-line typescript/no-deprecated -- Explicitly end an earlier custom selection after its provider unloads.
++      if (session.snapshotEvents().some(event => event.type === 'request/messages')) session.append('request/messages', { version: 1, turn, step, messages: null })
++    }
++    const boundaryMessages = session.deriveRequestMessages(selected)
+     for (const message of boundaryMessages) {
+       if (this.frozenMessages.has(message)) continue
+       deepFreeze(message)
+diff --git a/packages/core/agent-loop/src/history-selection.ts b/packages/core/agent-loop/src/history-selection.ts
+new file mode 100644
+index 0000000000..c63122c417
+--- /dev/null
++++ b/packages/core/agent-loop/src/history-selection.ts
+@@ -0,0 +1,24 @@
++/** Host projection keeps selection identity available outside the loaded history window. */
++import { z } from 'zod'
++import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
++import { SessionSeq, type SessionHistorySelection } from '@deepseek-ai/dsh-session'
++declare module '@deepseek-ai/dsh-session-projection' {
++  interface SessionProjectionStateMap { historySelection: SessionHistorySelection | null }
++  interface SessionProjectionMap { historySelection: SessionHistorySelection | null }
++}
++const schema = z.object({
++  seq: z.number().int().nonnegative().transform(SessionSeq),
++  version: z.number().int().positive(),
++  ranges: z.array(z.object({
++    start: z.number().int().nonnegative().transform(SessionSeq),
++    end: z.number().int().nonnegative().transform(SessionSeq),
++  })),
++}).nullable()
++/** Whole selected-history reference carried by snapshots and live projection frames. */
++export const historySelectionProjection = {
++  key: 'historySelection', stateVersion: 1,
++  stateSchema: schema,
++  init: () => null,
++  apply: (state, event) => event.type === 'history/selected' ? { seq: event.seq, version: event.data.version, ranges: event.data.ranges } : state,
++  wire: { viewSchema: schema, view: state => state },
++} satisfies ProjectionDefinition<'historySelection', SessionHistorySelection | null>
+diff --git a/packages/core/agent-loop/src/index.ts b/packages/core/agent-loop/src/index.ts
+index 6c30f04135..58f7679b43 100644
+--- a/packages/core/agent-loop/src/index.ts
++++ b/packages/core/agent-loop/src/index.ts
+@@ -33,6 +33,7 @@ import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
+ import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
+ import type { SessionHandle, SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
+ import { ReactLoopAgent } from './agent.ts'
++import { historySelectionProjection } from './history-selection.ts'
+ import { DEFAULT_MAX_PARALLEL_TOOL_CALLS } from './constants.ts'
+ 
+ /** Fiber states that cannot own or serve a new lifecycle. */
+@@ -414,6 +415,7 @@ export class AgentLoop extends Service implements AgentFactory {
+     // Register only after every config validation above has passed, so a
+     // rejected constructor leaves no projection unit behind.
+     ctx.sessionProjections.register(turnBoundaryProjectionDefinition)
++    ctx.sessionProjections.register<'historySelection', import('@deepseek-ai/dsh-session').SessionHistorySelection | null>(historySelectionProjection)
+     this.ownership = new FactoryOwnership(ctx.fiber)
+     this.runtime = { ctx }
+     ctx.effect(() => () => this.ownership.dispose(), 'agentLoop.transactions()')
+diff --git a/packages/core/agent-loop/src/invariant.ts b/packages/core/agent-loop/src/invariant.ts
+index 3b1c62d081..bcab5ed334 100644
+--- a/packages/core/agent-loop/src/invariant.ts
++++ b/packages/core/agent-loop/src/invariant.ts
+@@ -37,7 +37,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
+     if (header === undefined) {
+       return fail('a loop-built request with no request/header event in its session log')
+     }
+-    const expected = session.deriveMessages()
++    const expected = session.deriveRequestMessages()
+     if (JSON.stringify(options.messages) !== JSON.stringify(expected)) {
+       fail(`llm request for session "${String(session.id)}" diverges from the dispatch-time durable derivation (log-reconstruction desync)`)
+     }
+diff --git a/packages/core/agent-loop/src/runtime-context.ts b/packages/core/agent-loop/src/runtime-context.ts
+index af9f3fa640..c98ad057c5 100644
+--- a/packages/core/agent-loop/src/runtime-context.ts
++++ b/packages/core/agent-loop/src/runtime-context.ts
+@@ -8,7 +8,7 @@
+ import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+ import type { ContextSnapshotSection, Message } from '@deepseek-ai/dsh-llm'
+ import type { Session, SessionEvent, SessionSeq, SurfaceIntent, SystemMessage, UserMessage } from '@deepseek-ai/dsh-session'
+-import { isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session'
++import { isReplacementSurfaceEvent, selectHistory } from '@deepseek-ai/dsh-session'
+ import type { Context } from '@deepseek-ai/cordis'
+ 
+ const SOURCE = '@deepseek-ai/dsh-system-prompt'
+@@ -46,7 +46,7 @@ export interface SystemPromptDecisionInput {
+ /** Committed events from the newest backward; the restore scans stop at the first match. */
+ function eventsNewestFirst(session: Session): readonly SessionEvent[] {
+   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
+-  return session.snapshotEvents().toReversed()
++  return selectHistory(session.snapshotEvents()).toReversed()
+ }
+ 
+ /**
+@@ -128,7 +128,15 @@ export class RuntimeContextProjection {
+ 
+     ctx.on('session/event', (subject, event) => {
+       if (subject !== session) return
+-      if (event.type === 'user/message' && isOwned(event.data)) {
++      if (event.type === 'history/selected') {
++        this.retained = undefined
++        const active = new Set(session.surface.nodes)
++        for (const previous of eventsNewestFirst(session)) {
++          if (previous.type !== 'user/message' || !isOwned(previous.data)) continue
++          this.retained ??= null
++          if (active.has(previous.seq)) { this.retained = { seq: previous.seq, text: textOf(previous.data) }; break }
++        }
++      } else if (event.type === 'user/message' && isOwned(event.data)) {
+         this.retained = { seq: event.seq, text: textOf(event.data) }
+       } else if (this.retained
+         && isReplacementSurfaceEvent(event)
 diff --git a/packages/core/agent-loop/src/tool-calls.ts b/packages/core/agent-loop/src/tool-calls.ts
 index e6aca31f56..53a35e4902 100644
 --- a/packages/core/agent-loop/src/tool-calls.ts
@@ -300,6 +412,79 @@ index 1fa24977b2..baba865277 100644
    })
  
    it('uses empty object when tool-call arguments are empty string', async () => {
+diff --git a/packages/core/agent-loop/tests/loop.spec.ts b/packages/core/agent-loop/tests/loop.spec.ts
+index fb98a37e31..fbab1377fd 100644
+--- a/packages/core/agent-loop/tests/loop.spec.ts
++++ b/packages/core/agent-loop/tests/loop.spec.ts
+@@ -1,6 +1,6 @@
+ import { describe, expect, it, vi } from 'vitest'
+ import { Context } from '@deepseek-ai/cordis'
+-import LlmRuntime, { createUserMessage, ToolCallId, LlmError, ReasoningEffortId, StreamChunk, expandAssistantStream } from '@deepseek-ai/dsh-llm'
++import LlmRuntime, { createMessage, createUserMessage, ToolCallId, LlmError, ReasoningEffortId, StreamChunk, expandAssistantStream } from '@deepseek-ai/dsh-llm'
+ import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
+ import SessionStore, { SessionId, TurnEndReason } from '@deepseek-ai/dsh-session'
+ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+@@ -60,6 +60,29 @@ function userTexts(agent: Agent): string[] {
+ }
+ 
+ describe('agent loop', () => {
++  it('records authored roles before real input once across consecutive requests', async () => {
++    const adapter = new MockAdapter([textResponse('first'), textResponse('second')])
++    const ctx = await harness(adapter, 'Literal context')
++    try {
++      const agent = await ctx.agentLoop.create(SessionId('authored-prefix'), { provider: 'mock', model: 'mock' })
++      const initialMessages = (['user', 'user', 'assistant', 'assistant'] as const).map((role, index) => ({
++        groupId: 'fixture', index, name: `Entry ${index}`,
++        message: createMessage({ role, content: [{ type: 'text' as const, text: index === 0 ? '' : `prefix ${index}` }], source: { kind: 'plugin' as const, plugin: 'fixture' } }),
++      }))
++      ctx.on('agent/pre-step', async (_payload, next) => {
++        const decision = await next()
++        return decision.kind === 'enter' ? { ...decision, initialMessages } : decision
++      })
++      send(agent, 'real input'); await agent.whenIdle()
++      send(agent, 'next input'); await agent.whenIdle()
++      expect(adapter.requests[0]?.messages.map(message => message.role)).toEqual(['system', 'user', 'user', 'assistant', 'assistant', 'user'])
++      const events = agent.session.snapshotEvents()
++      expect(events.filter(event => event.type === 'context/message').map(event => event.data)).toEqual(initialMessages)
++      expect(events.filter(event => event.type === 'assistant/message')).toHaveLength(2)
++      expect(events.filter(event => event.type === 'context/message' || event.type === 'user/message').map(event => event.type)).toEqual(['context/message', 'context/message', 'context/message', 'context/message', 'user/message', 'user/message'])
++    } finally { await ctx.fiber.dispose() }
++  })
++
+   it('publishes one dense live attempt and commits one v2 message with the exact embedded stream', async () => {
+     const ctx = await harness(new MockAdapter([textResponse('live')]))
+     const agent = await ctx.agentLoop.create(SessionId('live-assistant-attempt'), {
+@@ -1831,3 +1854,30 @@ describe('agent loop', () => {
+     expect(replayed.snapshotEvents().at(-1)?.type).toBe('session/end-seed')
+   })
+ })
++
++
++describe('authored initial context', () => {
++  it('keeps authored roles in request order without inventing a model attempt and deduplicates identities', async () => {
++    const adapter = new MockAdapter([textResponse('reply'), textResponse('again')])
++    const ctx = await harness(adapter)
++    try {
++      const agent = await ctx.agentLoop.create(SessionId('authored-context'), { provider: 'mock', model: 'mock' })
++      const initialMessages = ['user', 'assistant', 'assistant'].map((role, index) => ({
++        groupId: 'initial', index, name: `entry ${index}`,
++        message: createMessage({ role: role as 'user' | 'assistant', content: [{ type: 'text', text: `literal {{${index}}}` }], source: { kind: 'plugin', plugin: 'test-context' } }) as import('@deepseek-ai/dsh-session').SessionEventMap['context/message']['message'],
++      }))
++      agent.ctx.on('agent/pre-step', async (_payload, next) => {
++        const decision = await next()
++        return decision.kind === 'reject' ? decision : { ...decision, initialMessages }
++      })
++      send(agent, 'first'); await agent.whenIdle()
++      const messages = agent.session.deriveMessages()
++      expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/end' && event.data.reason.kind === 'error')).toEqual([])
++      expect(messages.map(message => message.role)).toEqual(['system', 'user', 'assistant', 'assistant', 'user', 'assistant'])
++      send(agent, 'second'); await agent.whenIdle()
++      expect(agent.session.snapshotEvents().filter(event => event.type === 'context/message')).toHaveLength(3)
++      expect(agent.session.snapshotEvents().filter(event => event.type === 'assistant/message')).toHaveLength(2)
++      expect(adapter.requests[0]?.messages.slice(1, 4).map(message => message.role)).toEqual(['user', 'assistant', 'assistant'])
++    } finally { await ctx.fiber.dispose() }
++  })
++})
 diff --git a/snapshots/session/tool-argument-json-errors/cordis.snapshot.yml b/snapshots/session/tool-argument-json-errors/cordis.snapshot.yml
 new file mode 100644
 index 0000000000..05b78edce2

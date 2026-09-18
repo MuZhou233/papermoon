@@ -4,7 +4,7 @@ PaperMoon is a DSH distribution for AI-driven interactive storytelling. Read [ar
 
 ## Ownership
 
-Rules follow the effective change: modifications applied inside the DSH submodule follow that checkout's instructions and delivery requirements. Main-repository files follow this file and its linked PaperMoon rules. DSH patch requirements do not extend to the whole parent commit. A patch's DSH Agent Note stays in the patch; do not duplicate its decision in a main-repository Note. See [patch maintenance](patches/README.md).
+Main-repository files follow this file and its linked PaperMoon rules. PaperMoon-carried DSH patches follow the checked-out DSH code and runtime constraints, with the documentation and delivery scope defined by [patch maintenance](patches/README.md). That scope replaces DSH's upstream-wide documentation and Note requirements for these patches. Patch decisions belong in the owning main-repository Agent Notes.
 
 Do not edit the managed DSH checkout without preserving intended changes in registered patches. Initialization resets that checkout. Keep runtime data and credentials outside it.
 
@@ -18,7 +18,7 @@ Update the owning documentation and tests with behavior. Every non-trivial main-
 
 Human-facing documentation is bilingual. Follow [documentation rules](docs/AGENTS.md). Derived checker code retains its [provenance](tooling/checks/README.md) and license. Do not import historical product files, prompts, or data formats into this repository.
 
-Before committing, follow the [pre-commit review](docs/testing.md#before-committing) and report checks actually performed. CI checks the complete main repository. Product experience remains a separate user-feedback judgment; main-repository delivery does not require live-model recordings, GIFs or per-file coverage quotas. DSH patches retain their own evidence requirements.
+Before committing, follow the [pre-commit review](docs/testing.md#before-committing) and report checks actually performed. CI checks the complete main repository. Product experience remains a separate user-feedback judgment; main-repository delivery does not require live-model recordings, GIFs or per-file coverage quotas. Select patch evidence under [testing and delivery](docs/testing.md#dsh-patches).
 
 Use explicit commands and CI; do not install a separate main-repository Git hook system. Never commit credentials, runtime data or generated dependency directories. Keep exactly one trailing newline in text files. Do not push unless requested.
 

@@ -21,6 +21,7 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | `pnpm check` | Main type, lint, tests, docs and Notes |
 | `pnpm check:docs` | Main documentation and checker provenance |
 | `pnpm check:notes` | Active Notes and immutable archives |
+| `pnpm check:patches:source` | Compare reconstructed patches with DSH source without running delivery checks |
 | `pnpm check:patches` | Reconstructed source plus declared DSH delivery checks |
 | `pnpm test:smoke` | Start a temporary Web process to verify the build without calling a model |
 

@@ -1,0 +1,518 @@
+diff --git a/packages/client/ui-conversation/README.i18n.yaml b/packages/client/ui-conversation/README.i18n.yaml
+index 71555a9632..27d2322902 100644
+--- a/packages/client/ui-conversation/README.i18n.yaml
++++ b/packages/client/ui-conversation/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-conversation/README.md
+-README.md: 8d68dfdb61943c7c45b38d9244134edecc86a593
+-README.zh.md: b1d548ba8fc9276a6864548802a45796e74c0c7a
++README.md: 615316bdfadf81b952d484236b6c4c677d7ee553
++README.zh.md: 4f6daead368531f3437ba06d6d2bc3a971a27d5c
+diff --git a/packages/client/ui-conversation/README.md b/packages/client/ui-conversation/README.md
+index 8d68dfdb61..615316bdfa 100644
+--- a/packages/client/ui-conversation/README.md
++++ b/packages/client/ui-conversation/README.md
+@@ -107,6 +107,11 @@ try {
+ The selector must be a pure function of the owner currency. Its non-null return is delivered to the component as `matched`; `PropsRuntime<'conversation.composer'>` supplies the standard Session and global props. Chain order remains ascending `priority`, then registration order, and the first non-null selector wins. The shell keeps the default composer mounted beneath a takeover. Request state, listeners, response encoding, and any request-specific child slots belong to the business package; they are not carried by `SessionSnapshot` or declared by this core package.
+ 
+ <a id="model-experience"></a>
++
++The Hero exposes a target-selector replacement with the directory selector as fallback, plus an adjacent options slot. Composer blocks are owner-scoped so one plugin cannot clear another plugin’s reason. Clearing a workspace target keeps an existing draft visible and read-only while the composer opens the target picker.
++
++UiConversation.inspect(target, entries) creates a readonly projection from an explicit event window using the registered target definitions. It does not mutate a Session binding, select history or dispatch model work.
++
+ ## Model Experience
+ 
+ None, as this package renders browser state and sends user-admitted inputs through Session Controller APIs without constructing model requests.
+@@ -133,3 +138,5 @@ None.
+ </details>
+ 
+ **Runtime invariant:** No companion is published. Conversation Definitions, target builders, and Views are already validated by their owning registries and the Slot ledger.
++
++Conversation assembly filters raw event windows through the durable historySelection projection before building Chat and Trajectory. Raw event windows remain available to audit consumers. A selection version change rebuilds the visible path; event coordinates remain raw. Composer blocks can restrict submission while leaving draft editing and cancellation available.
+diff --git a/packages/client/ui-conversation/README.zh.md b/packages/client/ui-conversation/README.zh.md
+index b1d548ba8f..4f6daead36 100644
+--- a/packages/client/ui-conversation/README.zh.md
++++ b/packages/client/ui-conversation/README.zh.md
+@@ -107,6 +107,11 @@ try {
+ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `matched` 传给组件；`PropsRuntime<'conversation.composer'>` 提供标准 Session 与 global props。Chain 顺序仍按 `priority` 升序，再按注册顺序；首个返回非 null 的 selector 获选。Shell 会在 takeover 下保持默认 composer 挂载。Request 状态、listener、response encoding 和任何 request-specific child slot 都属于业务 package，不进入 `SessionSnapshot`，也不由 core 包声明。
+ 
+ <a id="model-experience"></a>
++
++Hero 提供目标选择器替换位置，以文件夹选择器为默认显示，并提供相邻选项位置。输入阻止理由按贡献者区分，插件不能清除其他插件的理由。清除工作区选择后，已有输入保持可见并只读，点击输入框仍可打开目标选择器。
++
++UiConversation.inspect(target, entries) 使用已注册的目标定义，从明确的事件窗口生成只读投影，不修改 Session 绑定、不选择历史，也不触发模型执行。
++
+ ## 模型体验
+ 
+ 无，因为本包渲染浏览器状态，并通过 Session Controller API 发送用户确认提交的输入，而不构造模型请求。
+@@ -133,3 +138,5 @@ selector 必须是 owner currency 的纯函数。非 null 返回值作为 `match
+ </details>
+ 
+ **运行时不变式：** 不发布伴生入口。Conversation Definition、target builder 与 View 已由其所属注册表和 Slot ledger 校验。
++
++会话组装先按持久 historySelection 投影筛选原始事件窗口，再构建对话和轨迹。审计消费者仍可读取原始窗口。选择版本变化时重建可见路径，事件坐标仍指向原始日志。输入框阻止项可以只限制发送，同时保留草稿编辑和取消操作。
+diff --git a/packages/client/ui-conversation/src/client/apply.ts b/packages/client/ui-conversation/src/client/apply.ts
+index 95e6c5f3bc..afa7014159 100644
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -250,6 +250,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
+       'conversation.input.dock': { kind: 'list', scope: 'session' },
+       'conversation.hero.brand.mark': { kind: 'single', scope: 'root' },
+       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
++      'conversation.hero.target': { kind: 'single', scope: 'root' },
++      'conversation.hero.options': { kind: 'list', scope: 'root' },
+       'conversation.hero.agentPreset': { kind: 'single', scope: 'root' },
+     },
+     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+diff --git a/packages/client/ui-conversation/src/client/contract/composer-blocks.ts b/packages/client/ui-conversation/src/client/contract/composer-blocks.ts
+index bf25624b04..be2b0a4973 100644
+--- a/packages/client/ui-conversation/src/client/contract/composer-blocks.ts
++++ b/packages/client/ui-conversation/src/client/contract/composer-blocks.ts
+@@ -5,6 +5,8 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
+ export interface ComposerBlock {
+   /** Localized placeholder owned by the plugin that raised the block. */
+   readonly reason: string
++  /** Keep draft editing available while refusing submission. */
++  readonly submissionOnly?: boolean
+ }
+ 
+ /** The registry face other plugins reach through `ctx.conversation.blocks`. */
+@@ -13,8 +15,9 @@ export interface ComposerBlocks {
+    * Raise or clear this session's block.
+    * @param sessionId - Session whose composer is affected.
+    * @param block - Block to raise, or undefined to clear it.
++   * @param owner - Independent producer identity; omitted addresses the default producer.
+    */
+-  set(sessionId: SessionId, block: ComposerBlock | undefined): void
++  set(sessionId: SessionId, block: ComposerBlock | undefined, owner?: string): void
+   /**
+    * Resolve the observable block state for one Session.
+    * @param sessionId - Session to observe.
+diff --git a/packages/client/ui-conversation/src/client/contract/records.ts b/packages/client/ui-conversation/src/client/contract/records.ts
+index 0e61abe4b0..6852ed6546 100644
+--- a/packages/client/ui-conversation/src/client/contract/records.ts
++++ b/packages/client/ui-conversation/src/client/contract/records.ts
+@@ -60,6 +60,8 @@ export interface AssistantTiming {
+ /** A finalized assistant message or an interruption-frozen streaming prefix. */
+ export interface AssistantMessageNode {
+   kind: 'assistant'
++  /** Authored message provenance; absent on model-generated settlements. */
++  source?: unknown
+   seq: number
+   /**
+    * Stable identity carried from the `assistant/message` event. Absent only on
+diff --git a/packages/client/ui-conversation/src/client/contract/slots.ts b/packages/client/ui-conversation/src/client/contract/slots.ts
+index 795090f465..16841a2ad1 100644
+--- a/packages/client/ui-conversation/src/client/contract/slots.ts
++++ b/packages/client/ui-conversation/src/client/contract/slots.ts
+@@ -160,6 +160,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+     'conversation.hero.workspace': { kind: 'single'; scope: 'root'; owner: EmptyWorkspaceOwnerProps }
+     /** Brand mark shown before the blank-session headline. */
+     'conversation.hero.brand.mark': { kind: 'single'; scope: 'root'; owner: HeroBrandMarkOwnerProps }
++    /** Resource-specific target selector; the owner supplies the normal directory selector. */
++    'conversation.hero.target': { kind: 'single'; scope: 'root'; owner: { folderPicker: ReactNode; pickerOpen: boolean; setPickerOpen: (open: boolean) => void; selectWorkspace: (id: import('@deepseek-ai/dsh-api-workspace-controller/client').WorkspaceId) => Promise<void> } }
++    /** Additional preparation controls beside target and mode. */
++    'conversation.hero.options': { kind: 'list'; scope: 'root' }
+     /** Agent-preset control staged for a New Session. */
+     'conversation.hero.agentPreset': { kind: 'single'; scope: 'root'; owner: HeroAgentPresetOwnerProps }
+     /** Full-width entries above the composer card. */
+@@ -290,7 +294,7 @@ export interface ComposerBarOwnerProps {
+   /** Hero uses centered placement; composer uses the active bottom placement. */
+   variant: 'hero' | 'composer'
+   /** A feature-owned reason that makes message input inert while leaving model selection live. */
+-  blocked?: { readonly reason: string }
++  blocked?: ComposerBlock
+   /** Lock all message actions while preserving the resident composer surface. */
+   disabled?: boolean
+   /** Whether the shared Workspace picker is expanded. */
+@@ -372,7 +376,7 @@ export type ConversationSlotProps =
+     | 'conversation.input.dock'
+     | 'conversation.hero.brand.mark'
+     | 'conversation.hero.workspace'
+-    | 'conversation.hero.agentPreset'
++    | 'conversation.hero.agentPreset' | 'conversation.hero.target' | 'conversation.hero.options'
+   >
+   & InjectFace<ConversationInjected>
+   & PropsLocale<'conversation'>
+diff --git a/packages/client/ui-conversation/src/client/conversation/assembly.ts b/packages/client/ui-conversation/src/client/conversation/assembly.ts
+index a6d453c65b..147d623ee2 100644
+--- a/packages/client/ui-conversation/src/client/conversation/assembly.ts
++++ b/packages/client/ui-conversation/src/client/conversation/assembly.ts
+@@ -2,8 +2,9 @@
+ import { Service, type Context } from '@deepseek-ai/cordis'
+ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+ import type {
+-  ISessions, SessionBinding, SessionEventSource, SessionEventWindow,
++  ISessions, SessionBinding, SessionEventSource, SessionEventWindow, SessionEventLikeEntry,
+ } from '@deepseek-ai/dsh-api-session-controller/client'
++import { historyContains } from '@deepseek-ai/dsh-session/surface'
+ import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
+ import {
+   createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
+@@ -48,6 +49,7 @@ class BoundConversation implements ConversationBinding {
+   private readonly viewStore: ConversationViewSnapshotStore
+   private readonly targetSources = new Map<string, ObservableSnapshot<unknown>>()
+   private revision = -1
++  private historyVersion = 0
+   private frame: number | undefined
+   private disposeFeed: () => void = () => {}
+ 
+@@ -95,23 +97,27 @@ class BoundConversation implements ConversationBinding {
+ 
+   private replace(window: SessionEventWindow): void {
+     this.revision = window.revision
+-    this.publish(this.assembler.replaceWindow(window.entries, window.hasMore))
++    this.historyVersion = window.historySelection?.version ?? 0
++    const selection = window.historySelection
++    const entries = selection ? window.entries.filter(entry => entry.event.type !== 'history/selected' &&
++      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : window.entries
++    this.publish(this.assembler.replaceWindow(entries, window.hasMore))
+   }
+ 
+   private accept(window: SessionEventWindow): void {
+     if (window.revision === this.revision) return
+-    if (window.revision !== this.revision + 1 || window.change.kind === 'replace') {
++    if ((window.historySelection?.version ?? 0) !== this.historyVersion || window.revision !== this.revision + 1 || window.change.kind === 'replace') {
+       this.replace(window)
+       return
+     }
+     this.revision = window.revision
+     switch (window.change.kind) {
+       case 'prepend':
+-        this.publish(this.assembler.prepend(window.change.entries, window.hasMore))
++        this.publish(this.assembler.prepend(this.selectedEntries(window, window.change.entries), window.hasMore))
+         return
+       case 'append': {
+         let publication: ConversationPublication = 'none'
+-        for (const event of window.change.entries) {
++        for (const event of this.selectedEntries(window, window.change.entries)) {
+           const next = this.assembler.append(event)
+           if (next === 'immediate' || publication === 'none') publication = next
+         }
+@@ -127,6 +133,12 @@ class BoundConversation implements ConversationBinding {
+     }
+   }
+ 
++  private selectedEntries(window: SessionEventWindow, entries: SessionEventWindow['entries']): SessionEventWindow['entries'] {
++    const selection = window.historySelection
++    return selection ? entries.filter(entry => entry.event.type !== 'history/selected' &&
++      (entry.event.seq > selection.seq || historyContains(entry.event.seq, selection.ranges))) : entries
++  }
++
+   private publish(publication: ConversationPublication): void {
+     if (publication === 'none') return
+     if (publication === 'animation-frame' && typeof requestAnimationFrame === 'function') {
+@@ -212,6 +224,23 @@ export class UiConversation extends Service {
+     }, 'ui-conversation assembly')
+   }
+ 
++  /**
++   * Assemble a readonly event window without changing a Session binding.
++   * @param target - Registered target whose normal definitions render the window.
++   * @param entries - Original event identities and optional live frames.
++   * @returns isolated target snapshot, or undefined for an unregistered target.
++   */
++  inspect<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
++    target: Target,
++    entries: readonly SessionEventLikeEntry[],
++  ): ConversationViewSnapshotMap[Target] | undefined {
++    const assembler = new ConversationNodeAssembler(this.events, this.views)
++    assembler.replaceWindow(entries, false)
++    assembler.activateTarget(target)
++    assembler.flush()
++    return assembler.snapshot(target) as ConversationViewSnapshotMap[Target] | undefined
++  }
++
+   /**
+    * Resolve the Conversation binding for one Controller binding or Session id.
+    * @param source - Session binding or identity.
+diff --git a/packages/client/ui-conversation/src/client/input/blocks.ts b/packages/client/ui-conversation/src/client/input/blocks.ts
+index 692b808f15..9f7832bdef 100644
+--- a/packages/client/ui-conversation/src/client/input/blocks.ts
++++ b/packages/client/ui-conversation/src/client/input/blocks.ts
+@@ -20,11 +20,19 @@ import type { ComposerBlock, ComposerBlocks } from '../contract/composer-blocks.
+ export class ComposerBlockRegistry implements ComposerBlocks {
+   private readonly stores = new Map<SessionId, SnapshotStore<ComposerBlock | undefined>>()
+ 
++  private readonly owners = new Map<SessionId, Map<string, ComposerBlock>>()
++
+   /** @inheritdoc */
+-  set(sessionId: SessionId, block: ComposerBlock | undefined): void {
++  set(sessionId: SessionId, block: ComposerBlock | undefined, owner = 'default'): void {
++    const owners = this.owners.get(sessionId) ?? new Map<string, ComposerBlock>()
++    if (block === undefined) owners.delete(owner)
++    else owners.set(owner, block)
++    if (owners.size > 0) this.owners.set(sessionId, owners)
++    else this.owners.delete(sessionId)
++    block = [...owners.values()].find(value => !value.submissionOnly) ?? owners.values().next().value
+     const store = this.storeFor(sessionId)
+     const current = store.getSnapshot()
+-    if (current?.reason === block?.reason) return
++    if (current?.reason === block?.reason && current?.submissionOnly === block?.submissionOnly) return
+     store.set(block)
+   }
+ 
+@@ -39,6 +47,7 @@ export class ComposerBlockRegistry implements ComposerBlocks {
+ 
+   /** @inheritdoc */
+   forget(sessionId: SessionId): void {
++    this.owners.delete(sessionId)
+     this.stores.delete(sessionId)
+   }
+ }
+diff --git a/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx b/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx
+index dfb515bde6..1fa28c0284 100644
+--- a/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx
+@@ -290,29 +290,33 @@ export function ConversationRoot({
+           ? undefined
+           : workspaceLabel(cwd)))
+ 
++  const folderPicker = <>
++    <WorkspaceChip
++      buttonRef={pickerAnchor}
++      label={chipTitle}
++      menuOpen={pickerOpen}
++      onClick={() => { setPickerOpen(open => !open) }}
++      t={t}
++    />
++    {renderSlot('conversation.hero.workspace', {
++      open: pickerOpen,
++      anchorRef: pickerAnchor,
++      selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
++      onPick: (workspaceId) => {
++        setPickerOpen(false)
++        setPendingWorkspaceId(workspaceId)
++        void selectWorkspace(workspaceId).catch(() => {
++          setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
++        })
++      },
++      onClose: () => { setPickerOpen(false) },
++    })}
++  </>
+   const heroWorkspaceRow = (
+     <div className={css.heroWorkspaceRow}>
+-      <WorkspaceChip
+-        buttonRef={pickerAnchor}
+-        label={chipTitle}
+-        menuOpen={pickerOpen}
+-        onClick={() => { setPickerOpen(open => !open) }}
+-        t={t}
+-      />
+-      {renderSlot('conversation.hero.workspace', {
+-        open: pickerOpen,
+-        anchorRef: pickerAnchor,
+-        selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
+-        onPick: (workspaceId) => {
+-          setPickerOpen(false)
+-          setPendingWorkspaceId(workspaceId)
+-          void selectWorkspace(workspaceId).catch(() => {
+-            setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
+-          })
+-        },
+-        onClose: () => { setPickerOpen(false) },
+-      })}
++      {renderSlot('conversation.hero.target', { folderPicker, pickerOpen, setPickerOpen, selectWorkspace }, { fallback: folderPicker })}
+       {renderSlot('conversation.hero.agentPreset', {})}
++      {renderSlot('conversation.hero.options', {})}
+     </div>
+   )
+ 
+diff --git a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+index 6b7d83f3f6..a93701a472 100644
+--- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+@@ -125,7 +125,7 @@ export const InputBar = memo(function InputBar({
+   // inert no-workspace state, the machine faces absent (no session), or a
+   // parent-offline continuable child. An owner block also disables input;
+   // adjudicating and submitting render read-only so the draft stays visible.
+-  const disabled = removed || inert || !live || blocked !== undefined || parentOffline
++  const disabled = removed || inert || !live || (blocked !== undefined && !blocked.submissionOnly) || parentOffline
+   const locked = disabled
+   // The model seat is the ONE control a block leaves live: every block this
+   // contract has is cleared by choosing a model, so locking it too would leave
+@@ -141,7 +141,8 @@ export const InputBar = memo(function InputBar({
+   const editorDisabled = removed || (locked && !workspaceTrigger)
+   const editable = live && !locked && !machineBusy
+   const steeringAvailable = subagent === null || subagent.address.mode === 'continuable'
+-  const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && steeringAvailable
++  const submissionBlocked = blocked !== undefined
++  const canSteerQueue = !submissionBlocked && !locked && !machineBusy && !commandMenuOpen && empty && running && steeringAvailable
+     && input.queue.some(row => row.placement === 'queued')
+ 
+   useEffect(() => {
+@@ -265,11 +266,11 @@ export const InputBar = memo(function InputBar({
+   // The keymap handlers read live bar state through this ref so the editor
+   // registration survives re-renders without re-arming per keystroke.
+   const gate = useRef({
+-    locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
++    locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter, submissionBlocked,
+     intakeFiles, uploadsPending, showToast, t, canAcceptDrop,
+   })
+   gate.current = {
+-    locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
++    locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter, submissionBlocked,
+     intakeFiles, uploadsPending, showToast, t, canAcceptDrop,
+   }
+ 
+@@ -293,6 +294,7 @@ export const InputBar = memo(function InputBar({
+       canSubmit: () => !gate.current.locked && !gate.current.machineBusy,
+       submit: (accelerated) => {
+         const g = gate.current
++        if (g.submissionBlocked) return
+         // Empty-draft accelerated Enter acts on the queue instead of the
+         // (empty) draft: the machine rejects empty drafts, so the gesture
+         // steers every still-pending queued message into the running turn.
+@@ -353,7 +355,7 @@ export const InputBar = memo(function InputBar({
+   // exposes Stop independently.
+   const primaryStops = running && subagent === null && (empty || blocked !== undefined)
+   // Disabled native buttons may omit mouseleave; their tooltip must close from state.
+-  const primaryDisabled = primaryStops ? stop === undefined : empty || disabled || machineBusy || uploadsPending
++  const primaryDisabled = primaryStops ? stop === undefined : empty || disabled || submissionBlocked || machineBusy || uploadsPending
+   const interruptible = running && continuable
+   const primarySubmitMode = resolveSubmitMode(busyEnter, running, 'enter', steeringAvailable)
+   const plainMessageDraft = !empty && input?.phase === 'plain' && !draft.trimStart().startsWith('/')
+@@ -461,7 +463,7 @@ export const InputBar = memo(function InputBar({
+         <div ref={scrollRef} className={css.scroll} data-input-scroll>
+           <div className={css.grow}>
+             <ComposerContentEditable
+-              editor={workspaceTrigger ? null : editor}
++              editor={editor}
+               editable={editable}
+               className={clsx(css.input, editorDisabled && css.inputDisabled)}
+               data-phase={input?.phase ?? 'inert'}
+@@ -481,7 +483,7 @@ export const InputBar = memo(function InputBar({
+                 {placeholderText}
+               </div>
+             )}
+-            <DecoratorPortals editor={workspaceTrigger ? null : editor} />
++            <DecoratorPortals editor={editor} />
+           </div>
+         </div>
+         <div className={css.row}>
+diff --git a/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts b/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts
+new file mode 100644
+index 0000000000..c6b5f490fe
+--- /dev/null
++++ b/packages/client/ui-conversation/tests/composer-blocks.client.spec.ts
+@@ -0,0 +1,25 @@
++import { expect, it } from 'vitest'
++import { SessionId } from '@deepseek-ai/dsh-session/types'
++import { ComposerBlockRegistry } from '../src/client/input/blocks.ts'
++it('keeps independent blockers until each owner releases its own entry', () => {
++  const blocks = new ComposerBlockRegistry(), id = SessionId('fixture')
++  blocks.set(id, { reason: 'model' })
++  blocks.set(id, { reason: 'configuration' }, 'configuration')
++  blocks.set(id, undefined)
++  expect(blocks.storeFor(id).getSnapshot()).toEqual({ reason: 'configuration' })
++  blocks.set(id, undefined, 'configuration')
++  expect(blocks.storeFor(id).getSnapshot()).toBeUndefined()
++  blocks.set(id, { reason: 'again' }, 'configuration')
++  blocks.forget(id)
++  expect(blocks.storeFor(id).getSnapshot()).toBeUndefined()
++})
++
++it('preserves editing restrictions when another owner blocks only submission', () => {
++  const blocks = new ComposerBlockRegistry(), id = SessionId('run')
++  blocks.set(id, { reason: 'saving', submissionOnly: true }, 'run')
++  expect(blocks.storeFor(id).getSnapshot()).toEqual({ reason: 'saving', submissionOnly: true })
++  blocks.set(id, { reason: 'unconfigured' }, 'configuration')
++  expect(blocks.storeFor(id).getSnapshot()).toEqual({ reason: 'unconfigured' })
++  blocks.set(id, undefined, 'configuration')
++  expect(blocks.storeFor(id).getSnapshot()).toEqual({ reason: 'saving', submissionOnly: true })
++})
+diff --git a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
+index 2d3a003756..072e5f1679 100644
+--- a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
++++ b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
+@@ -140,6 +140,23 @@ async function bootRegistries(): Promise<{
+ }
+ 
+ describe('Conversation registries', () => {
++  it('replaces visible history on selection while retaining raw alternatives for later reads', async () => {
++    const { uiConversation, binding } = await bootRegistries()
++    uiConversation.binding(binding)
++    const replace = vi.spyOn(ConversationNodeAssembler.prototype, 'replaceWindow')
++    const source = binding.eventSource as MutableSessionEventSource
++    for (const seq of [0, 1]) source.append({ type: 'event', event: { seq: SessionSeq(seq), time: seq, type: 'turn/start', data: { turn: seq + 1 } } })
++    source.selectHistory({ seq: SessionSeq(2), version: 1, ranges: [{ start: SessionSeq(0), end: SessionSeq(0) }] })
++    expect(replace.mock.calls.at(-1)![0].map(entry => entry.event.seq)).toEqual([0])
++    expect(source.getSnapshot().entries.map(entry => entry.event.seq)).toEqual([0, 1])
++    source.append({ type: 'event', event: { seq: SessionSeq(3), time: 3, type: 'turn/start', data: { turn: 3 } } })
++    source.selectHistory({ seq: SessionSeq(4), version: 2, ranges: [{ start: SessionSeq(1), end: SessionSeq(1) }] })
++    expect(replace.mock.calls.at(-1)![0].map(entry => entry.event.seq)).toEqual([1])
++    expect(source.getSnapshot().entries.map(entry => entry.event.seq)).toEqual([0, 1, 3])
++    replace.mockRestore()
++    await binding.ctx.fiber.dispose()
++  })
++
+   it('publishes frame-paced updates after three animation frames and lets immediate updates preempt them', async () => {
+     let nextFrame = 0
+     const frames = new Map<number, FrameRequestCallback>()
+diff --git a/packages/client/ui-conversation/tests/input-bar.client.spec.tsx b/packages/client/ui-conversation/tests/input-bar.client.spec.tsx
+index 13266b1ca2..04d0a691d7 100644
+--- a/packages/client/ui-conversation/tests/input-bar.client.spec.tsx
++++ b/packages/client/ui-conversation/tests/input-bar.client.spec.tsx
+@@ -75,7 +75,7 @@ interface BenchOptions {
+   subagent?: Exclude<SessionSnapshot['subagent'], null>
+   disabled?: boolean
+   inert?: boolean
+-  blocked?: { readonly reason: string }
++  blocked?: { readonly reason: string; readonly submissionOnly?: true }
+   workspacePickerOpen?: boolean
+   onRequestWorkspace?: () => void
+   promptError?: SessionSnapshot['promptError']
+@@ -918,6 +918,16 @@ describe('running and lock semantics', () => {
+     expect(sink).not.toHaveBeenCalled()
+   })
+ 
++  it('submission-only blocking preserves editing and Stop but rejects Enter and steering', () => {
++    const { textarea, sink, stop, button } = bench({ running: true, draft: 'Next input', blocked: { reason: 'Finishing', submissionOnly: true } })
++    expect(textarea.getAttribute('contenteditable')).toBe('true')
++    fireEvent.keyDown(textarea, { key: 'Enter' })
++    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
++    expect(sink).not.toHaveBeenCalled()
++    fireEvent.click(button)
++    expect(stop).toHaveBeenCalledOnce()
++  })
++
+   it('running plain Enter follows the busy-state Steer preference', () => {
+     const { textarea, sink } = bench({ running: true, busyEnter: 'steer', draft: '直接插话' })
+     fireEvent.keyDown(textarea, { key: 'Enter' })
+@@ -1215,6 +1225,21 @@ describe('running and lock semantics', () => {
+     expect(custom.placeholder).toBe('Custom placeholder')
+   })
+ 
++  it('keeps an existing draft visible and readonly while the workspace target is cleared', () => {
++    const { view, props, shell, textarea } = bench()
++    writeDraft(shell, 'Unsent instruction')
++    const onRequestWorkspace = vi.fn()
++    view.rerender(<InputBar {...props} disabled onRequestWorkspace={onRequestWorkspace} />)
++    expect(textarea.textContent).toBe('Unsent instruction')
++    expect(editableOf(textarea)).toBe(false)
++    fireEvent.click(textarea)
++    expect(onRequestWorkspace).toHaveBeenCalledOnce()
++    view.rerender(<InputBar {...props} />)
++    expect(textarea.textContent).toBe('Unsent instruction')
++    expect(shell.snapshot.draft).toBe('Unsent instruction')
++    expect(editableOf(textarea)).toBe(true)
++  })
++
+   it('the inert textarea opens the Workspace picker by pointer or keyboard', () => {
+     const onRequestWorkspace = vi.fn()
+     const { view, textarea } = bench({
+diff --git a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
+index 4ef71e2a10..9c2cad3151 100644
+--- a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
++++ b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
+@@ -337,6 +337,7 @@ function panelProps(data: WorkflowRunChatData, sessions = listState(), openSessi
+     inspectCall: () => {},
+     forkAt: () => {},
+     loadImage: () => Promise.reject(new Error('not used')),
++    renderUserActions: () => null,
+     renderMessageImages: () => null,
+     fileMentions: () => undefined,
+     openSession,

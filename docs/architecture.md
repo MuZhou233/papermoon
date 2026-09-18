@@ -8,7 +8,7 @@ DSH provides the general agent runtime and application infrastructure. PaperMoon
 
 ## Responsibilities
 
-The main repository maintains plugins, tooling, documentation, dependencies and CI. The Gitlink at `dsh/` pins an official DSH commit; the submodule is not a package in the main workspace. Changes applied to DSH are stored as patches and follow the submodule’s delivery standards. The tools that manage those patches follow main-repository standards. When a change affects both repositories, validate each part under its own rules.
+The main repository maintains plugins, tooling, documentation, dependencies and CI. The Gitlink at `dsh/` pins an official DSH commit; the submodule is not a package in the main workspace. Changes applied to DSH are stored as patches and retain its code and runtime constraints within PaperMoon's [patch maintenance scope](../patches/README.md). The tools that manage those patches follow main-repository standards. Validate each part with evidence appropriate to its effects.
 
 The main rules are self-contained. Consuming a DSH interface does not import its package structure, runtime design rules, SDK requirements or organization workflows into main-repository policy. The [maintenance decision](../.agents/notes/implemented/process/2026-09-11-independent-maintenance.md) records this choice.
 

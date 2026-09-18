@@ -23,3 +23,5 @@ Upgrades explicitly update the Gitlink and patch evidence. Initialization discar
 The [manual-editor decision](2026-09-12-manual-script-editor.md) adds product composition to root startup while retaining an original-Web command; the submodule and process-ownership decisions here still apply.
 
 DSH checks retain setup’s CI package-manager environment. This keeps the submodule dependency layout stable when the parent is invoked interactively.
+
+The [patch-maintenance decision](2026-09-18-patch-maintenance.md) defines responsibility-owned differences and when to consider promoting a patch to a plugin; this Note's pinned-source and runtime-data decisions remain in force.

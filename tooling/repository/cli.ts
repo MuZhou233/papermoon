@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { constants } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { rebuild, checkPatches, submodule } from './patches.ts'
+import { rebuild, checkPatches, submodule, verifyTree } from './patches.ts'
 import { pnpm, runProcess, ProcessFailure } from './process.ts'
 
 export const repositoryRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)))
@@ -20,7 +20,7 @@ export async function main(args: string[], root = repositoryRoot, signal?: Abort
   const [command, ...raw] = args
   const rest = raw[0] === '--' ? raw.slice(1) : raw
   if (rest.includes('--help') && command !== 'start' && command !== 'start-dsh') {
-    console.log('PaperMoon: setup | build | start [Web options] | start-dsh [Web options] | check\nsetup discards unexported DSH source changes, restores the Gitlink and applies patches. Ignored configuration and main-repository data are preserved.')
+    console.log('PaperMoon: setup | build | start [Web options] | start-dsh [Web options] | check-source | check\nsetup discards unexported DSH source changes, restores the Gitlink and applies patches. Ignored configuration and main-repository data are preserved. check-source compares reconstructed source; check also runs registered DSH checks.')
     return
   }
   if (command !== 'start' && command !== 'start-dsh' && rest.length) throw new Error('unexpected arguments')
@@ -46,7 +46,12 @@ export async function main(args: string[], root = repositoryRoot, signal?: Abort
       break
     }
     case 'check': await checkPatches(root, signal); break
-    default: throw new Error('usage: setup | build | start [Web options] | start-dsh [Web options] | check')
+    case 'check-source':
+      signal?.throwIfAborted()
+      verifyTree(root)
+      console.log('PaperMoon patches: reconstructed source matches DSH; delivery checks were not run')
+      break
+    default: throw new Error('usage: setup | build | start [Web options] | start-dsh [Web options] | check-source | check')
   }
 }
 

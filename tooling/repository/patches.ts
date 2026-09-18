@@ -15,17 +15,26 @@ export function git(root: string, args: string[]): string {
   return result.stdout
 }
 
+/** Discover artifacts at every depth; the series alone determines application order. */
+function patchFiles(root: string, directory = 'patches'): string[] {
+  return readdirSync(ownedPath(root, directory), { withFileTypes: true }).flatMap(entry => {
+    const path = `${directory}/${entry.name}`
+    ownedPath(root, path)
+    return entry.isDirectory() ? patchFiles(root, path) : path.endsWith('.patch') ? [path.slice('patches/'.length)] : []
+  })
+}
+
 export function readSeries(root: string): PatchSeries {
   const value = object(JSON.parse(readFileSync(ownedPath(root, 'patches/series.json'), 'utf8')), 'patch series')
   if (value.version !== 1 || Object.keys(value).sort().join(',') !== 'checks,patches,version') throw new Error('unsupported patch series format')
   const patches = strings(value.patches, 'patches')
   if (new Set(patches).size !== patches.length) throw new Error('duplicate patch')
   for (const file of patches) {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.patch$/.test(file)) throw new Error(`invalid patch filename: ${file}`)
+    if (!/^(?:[a-zA-Z0-9][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9][a-zA-Z0-9._-]*\.patch$/.test(file)) throw new Error(`invalid patch path: ${file}`)
     if (!lstatSync(ownedPath(root, `patches/${file}`)).isFile()) throw new Error(`patch is not a regular file: ${file}`)
   }
-  for (const file of readdirSync(join(root, 'patches'))) {
-    if (file.endsWith('.patch') && !patches.includes(file)) throw new Error(`unregistered patch: ${file}`)
+  for (const file of patchFiles(root)) {
+    if (!patches.includes(file)) throw new Error(`unregistered patch: ${file}`)
   }
   if (!Array.isArray(value.checks)) throw new Error('checks must be an array')
   const checks = value.checks.map(raw => {
@@ -34,6 +43,18 @@ export function readSeries(root: string): PatchSeries {
     return { script: entry.script, args: strings(entry.args, 'check args') }
   })
   if (patches.length > 0 && checks.length === 0) throw new Error('nonempty patch series requires DSH delivery checks')
+  const owners = new Map<string, string>()
+  for (const patch of patches) {
+    const path = ownedPath(root, `patches/${patch}`)
+    // Both directions include rename sources as well as destinations; -z preserves literal paths.
+    const records = git(root, ['apply', '--numstat', '-z', path]) + git(root, ['apply', '--reverse', '--numstat', '-z', path])
+    for (const record of records.split('\0').filter(Boolean)) {
+      const file = record.replace(/^[^\t]*\t[^\t]*\t/, '')
+      const owner = owners.get(file)
+      if (owner && owner !== patch) throw new Error(`duplicate patch ownership: ${file} in ${owner} and ${patch}`)
+      owners.set(file, patch)
+    }
+  }
   return { patches, checks }
 }
 
