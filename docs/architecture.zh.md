@@ -8,7 +8,7 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 职责
 
-Playbook 指可复用的创作内容，定义背景、开场和互动机制；演绎记录从这些内容开始的一次互动。Story 留给计划中的章节式剧情模式。剧情模式插件将维护专用 UI、引导和预置 Playbook，其他包提供共用的编辑、编译与运行机制。[章节文档](story-mode/README.zh.md)记录产品需求，剧情模式插件尚未实现。[命名决定](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.zh.md)说明这项边界及不兼容的格式调整。
+Playbook 指可复用的创作内容，定义背景、开场和互动机制；演绎记录从这些内容开始的一次互动。Story 留给计划中的章节式故事模式（Story Mode）。故事模式插件将维护章节定义、进度编排、专用 UI、引导及包含 Playbook 在内的预置内容。其他包提供共用的模型配置、请求执行、会话持久化、编辑、编译与运行机制。[章节文档](story-mode/README.zh.md)记录产品需求，包括共用交互约束和第零章；故事模式插件尚未实现。[命名决定](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.zh.md)说明这项边界及不兼容的格式调整。
 
 主仓库维护插件、工具、文档、依赖和 CI。`dsh/` 的 Gitlink 固定 DSH 官方提交，子模块不作为主仓库 workspace 中的包。作用于 DSH 的修改保存为补丁，在 PaperMoon 的[补丁维护范围](../patches/README.zh.md)内保留 DSH 的代码和运行时约束；管理补丁的工具按主仓库标准交付。根据各部分的实际影响选择验证证据。
 
