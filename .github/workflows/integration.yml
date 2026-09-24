@@ -3,29 +3,29 @@ on:
   pull_request:
     paths:
       - dsh
-      - plugins/story-storage/src/**
-      - plugins/story-storage/integration/**
-      - plugins/story-storage/tsconfig.build.json
-      - plugins/story-storage/package.json
-      - plugins/story-core/src/**
-      - plugins/story-core/integration/**
-      - plugins/story-core/tsconfig.build.json
-      - plugins/story-core/package.json
+      - plugins/playbook-storage/src/**
+      - plugins/playbook-storage/integration/**
+      - plugins/playbook-storage/tsconfig.build.json
+      - plugins/playbook-storage/package.json
+      - plugins/playbook-core/src/**
+      - plugins/playbook-core/integration/**
+      - plugins/playbook-core/tsconfig.build.json
+      - plugins/playbook-core/package.json
       - plugins/writer-sessions/**
       - plugins/performances/**
-      - plugins/story-workspaces/**
-      - plugins/story-compiler/**
+      - plugins/playbook-workspaces/**
+      - plugins/playbook-compiler/**
       - plugins/writers/src/**
       - plugins/writers/tsconfig.build.json
       - plugins/writers/package.json
-      - plugins/story-tools/src/**
-      - plugins/story-tools/integration/**
-      - plugins/story-tools/tsconfig.build.json
-      - plugins/story-tools/package.json
-      - plugins/story-editor/src/**
-      - plugins/story-editor/e2e/**
-      - plugins/story-editor/playwright.config.ts
-      - plugins/story-editor/package.json
+      - plugins/playbook-tools/src/**
+      - plugins/playbook-tools/integration/**
+      - plugins/playbook-tools/tsconfig.build.json
+      - plugins/playbook-tools/package.json
+      - plugins/playbook-editor/src/**
+      - plugins/playbook-editor/e2e/**
+      - plugins/playbook-editor/playwright.config.ts
+      - plugins/playbook-editor/package.json
       - packages/ui/src/**
       - packages/ui/package.json
       - profiles/**
@@ -45,29 +45,29 @@ on:
     branches: [main]
     paths:
       - dsh
-      - plugins/story-storage/src/**
-      - plugins/story-storage/integration/**
-      - plugins/story-storage/tsconfig.build.json
-      - plugins/story-storage/package.json
-      - plugins/story-core/src/**
-      - plugins/story-core/integration/**
-      - plugins/story-core/tsconfig.build.json
-      - plugins/story-core/package.json
+      - plugins/playbook-storage/src/**
+      - plugins/playbook-storage/integration/**
+      - plugins/playbook-storage/tsconfig.build.json
+      - plugins/playbook-storage/package.json
+      - plugins/playbook-core/src/**
+      - plugins/playbook-core/integration/**
+      - plugins/playbook-core/tsconfig.build.json
+      - plugins/playbook-core/package.json
       - plugins/writer-sessions/**
       - plugins/performances/**
-      - plugins/story-workspaces/**
-      - plugins/story-compiler/**
+      - plugins/playbook-workspaces/**
+      - plugins/playbook-compiler/**
       - plugins/writers/src/**
       - plugins/writers/tsconfig.build.json
       - plugins/writers/package.json
-      - plugins/story-tools/src/**
-      - plugins/story-tools/integration/**
-      - plugins/story-tools/tsconfig.build.json
-      - plugins/story-tools/package.json
-      - plugins/story-editor/src/**
-      - plugins/story-editor/e2e/**
-      - plugins/story-editor/playwright.config.ts
-      - plugins/story-editor/package.json
+      - plugins/playbook-tools/src/**
+      - plugins/playbook-tools/integration/**
+      - plugins/playbook-tools/tsconfig.build.json
+      - plugins/playbook-tools/package.json
+      - plugins/playbook-editor/src/**
+      - plugins/playbook-editor/e2e/**
+      - plugins/playbook-editor/playwright.config.ts
+      - plugins/playbook-editor/package.json
       - packages/ui/src/**
       - packages/ui/package.json
       - profiles/**

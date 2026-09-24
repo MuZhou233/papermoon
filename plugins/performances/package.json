@@ -19,9 +19,9 @@
     }
   },
   "dependencies": {
-    "@papermoon/story-core": "workspace:*",
-    "@papermoon/story-compiler": "workspace:*",
-    "@papermoon/story-workspaces": "workspace:*",
+    "@papermoon/playbook-core": "workspace:*",
+    "@papermoon/playbook-compiler": "workspace:*",
+    "@papermoon/playbook-workspaces": "workspace:*",
     "@papermoon/ui": "workspace:*",
     "zod": "4.1.5"
   },

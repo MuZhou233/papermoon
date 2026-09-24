@@ -1,6 +1,6 @@
 /** Saved writer definitions and literal, role-preserving context resolution. */
 import { z } from 'zod'
-import { encodeJson } from '@papermoon/story-storage/value'
+import { encodeJson } from '@papermoon/playbook-storage/value'
 export const DEFAULT_WRITER_PROMPT = '你是 PaperMoon 的编剧助手。'
 const jsonObject = z.record(z.string(), z.json())
 export const definitionSchema = z.strictObject({

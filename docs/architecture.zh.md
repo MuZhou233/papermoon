@@ -8,6 +8,8 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 职责
 
+Playbook 指可复用的创作内容，定义背景、开场和互动机制；演绎记录从这些内容开始的一次互动。Story 留给计划中的章节式剧情模式。剧情模式插件将维护专用 UI、引导和预置 Playbook，其他包提供共用的编辑、编译与运行机制。[章节文档](story-mode/README.zh.md)记录产品需求，剧情模式插件尚未实现。[命名决定](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.zh.md)说明这项边界及不兼容的格式调整。
+
 主仓库维护插件、工具、文档、依赖和 CI。`dsh/` 的 Gitlink 固定 DSH 官方提交，子模块不作为主仓库 workspace 中的包。作用于 DSH 的修改保存为补丁，在 PaperMoon 的[补丁维护范围](../patches/README.zh.md)内保留 DSH 的代码和运行时约束；管理补丁的工具按主仓库标准交付。根据各部分的实际影响选择验证证据。
 
 主仓库独立规定自己的维护规则。使用 DSH 接口不会将其包结构、运行时设计规则、SDK 要求或组织工作流引入主库规范。[维护决策](../.agents/notes/implemented/process/2026-09-11-independent-maintenance.zh.md)记录了这一选择。
@@ -16,13 +18,13 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，在标准 Web profile 上加载 PaperMoon 组合配置。子模块内的依赖安装、构建和登记的检查使用 `CI=true`，保持 DSH 的自动化安装行为和依赖布局。启动继承调用方环境。
 
-组合配置加入人工剧本编辑器、编剧管理、编剧会话和文本演绎，同时保留 DSH 的配置、认证、普通对话和设置。启动器提供独立的默认数据目录，也保留原版 Web 命令用于对照。[开发文档](development.zh.md)说明命令接口。
+组合配置加入人工 Playbook 编辑器、编剧管理、编剧会话和文本演绎，同时保留 DSH 的配置、认证、普通对话和设置。启动器提供独立的默认数据目录，也保留原版 Web 命令用于对照。[开发文档](development.zh.md)说明命令接口。
 
-## 剧本数据
+## Playbook 数据
 
-[存储模块](../plugins/story-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH。PaperMoon 组合配置挂载该插件，原版 Web 配置不挂载。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-script-storage.zh.md)记录归属和事务选择。
+[存储模块](../plugins/playbook-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH。PaperMoon 组合配置挂载该插件，原版 Web 配置不挂载。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-playbook-storage.zh.md)记录归属和事务选择。
 
-[逻辑核心](../plugins/story-core/README.zh.md)维护程序与多语言文案结构、纯内容编辑和业务 KV 编码。仓库入口通过存储编排操作，Cordis 入口注册内部服务。编译、会话策略及面向用户和模型的接口由模块之外负责。[核心决策](../.agents/notes/implemented/architecture/2026-09-12-script-core.zh.md)记录这一划分。
+[逻辑核心](../plugins/playbook-core/README.zh.md)维护程序与多语言文案结构、纯内容编辑和业务 KV 编码。仓库入口通过存储编排操作，Cordis 入口注册内部服务。编译、会话策略及面向用户和模型的接口由模块之外负责。[核心决策](../.agents/notes/implemented/architecture/2026-09-12-playbook-core.zh.md)记录这一划分。
 
 ## 维护工具
 
@@ -30,25 +32,25 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 人工创作
 
-[编辑器插件](../plugins/story-editor/README.zh.md)维护面向用户的操作和页面。[UI 库](../packages/ui/README.zh.md)维护注明来源的组件副本与编辑控件，仅复用 DSH 的主题和宿主接口。[界面设计决定](../.agents/notes/implemented/architecture/2026-09-12-manual-script-editor.zh.md)记录接入方式和本地缓冲区设计。
+[编辑器插件](../plugins/playbook-editor/README.zh.md)维护面向用户的操作和页面。[UI 库](../packages/ui/README.zh.md)维护注明来源的组件副本与编辑控件，仅复用 DSH 的主题和宿主接口。[界面设计决定](../.agents/notes/implemented/architecture/2026-09-12-manual-playbook-editor.zh.md)记录接入方式和本地缓冲区设计。
 
 ## 编剧配置与工具
 
-[编剧管理](../plugins/writers/README.zh.md)在独立数据库中维护提示词配置，并提供纯起始上下文解析。[剧本工具](../plugins/story-tools/README.zh.md)维护逻辑核心之上的模型操作，注册到调用方提供的 DSH scope。管理页展示同一份工具目录，不创建会话或调用模型。[设计记录](../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.zh.md)说明这些职责。
+[编剧管理](../plugins/writers/README.zh.md)在独立数据库中维护提示词配置，并提供纯起始上下文解析。[Playbook 工具](../plugins/playbook-tools/README.zh.md)维护逻辑核心之上的模型操作，注册到调用方提供的 DSH scope。管理页展示同一份工具目录，不创建会话或调用模型。[设计记录](../.agents/notes/implemented/architecture/2026-09-12-writer-definitions-and-tools.zh.md)说明这些职责。
 
 ## 编剧会话
 
-[会话插件](../plugins/writer-sessions/README.zh.md)维护编剧配置、已固定上下文和读取保护。剧本目标登记由[共用工作区提供者](../plugins/story-workspaces/README.zh.md)负责。通用 DSH 能力通过补丁维护，[决定记录](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.zh.md)说明职责与替代方案。
+[会话插件](../plugins/writer-sessions/README.zh.md)维护编剧配置、已固定上下文和读取保护。Playbook 目标登记由[共用工作区提供者](../plugins/playbook-workspaces/README.zh.md)负责。通用 DSH 能力通过补丁维护，[决定记录](../.agents/notes/implemented/architecture/2026-09-12-writer-sessions.zh.md)说明职责与替代方案。
 
 ## 编译与初始化
 
-[编译器](../plugins/story-compiler/README.zh.md)接收确定内容与明确配置，通过独立入口初始化冻结的起始文本并执行函数。服务读取仓库快照，管理独立产物文件。编辑器与作用域内的工具共用该服务，存储与逻辑核心不反向依赖它。[决定记录](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)说明 CommonJS 与产物归属。
+[编译器](../plugins/playbook-compiler/README.zh.md)接收确定内容与明确配置，通过独立入口初始化冻结的起始文本并执行函数。服务读取仓库快照，管理独立产物文件。编辑器与作用域内的工具共用该服务，存储与逻辑核心不反向依赖它。[决定记录](../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)说明 CommonJS 与产物归属。
 
 ## 修订提交与演绎
 
-[编译服务](../plugins/story-compiler/README.zh.md#提交与冻结修订版本)负责在修订事务前自动编译。存储保存通用不可变附件，核心只传递附件。独立修订读取器与文本运行时初始化[演绎会话](../plugins/performances/README.zh.md)，不执行编译或访问预览缓存。会话保存完整产物副本，源剧本删除后仍可继续。[共用剧本工作区](../plugins/story-workspaces/README.zh.md)通过稳定提供者组织编剧与主持人会话。
+[编译服务](../plugins/playbook-compiler/README.zh.md#提交与冻结修订版本)负责在修订事务前自动编译。存储保存通用不可变附件，核心只传递附件。独立修订读取器与文本运行时初始化[演绎会话](../plugins/performances/README.zh.md)，不执行编译或访问预览缓存。会话保存完整产物副本，源 Playbook 删除后仍可继续。[共用 Playbook 工作区](../plugins/playbook-workspaces/README.zh.md)通过稳定提供者组织编剧与主持人会话。
 
-函数声明、冻结源码与调用由[编译器包](../plugins/story-compiler/README.zh.md)维护。[演绎插件](../plugins/performances/README.zh.md)串行执行调用，将完整动作持久保存到 Session 日志。函数状态不会隐式进入存储 KV 或模型上下文。
+函数声明、冻结源码与调用由[编译器包](../plugins/playbook-compiler/README.zh.md)维护。[演绎插件](../plugins/performances/README.zh.md)串行执行调用，将完整动作持久保存到 Session 日志。函数状态不会隐式进入存储 KV 或模型上下文。
 
 世界线节点及当前路径状态由[演绎插件](../plugins/performances/README.zh.md#世界线)维护。DSH 提供通用的历史选择记录和请求重建。两者均从原始 Session 日志派生，上下文组装不定义历史树。
 

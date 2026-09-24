@@ -1,6 +1,6 @@
 /** Client registrations depend on public services and slots, never DSH component implementations. */
 import { Runtime, type ClientHost } from './runtime.ts'
-import { ScriptPicker, WriterPicker } from './controls.tsx'
+import { PlaybookPicker, WriterPicker } from './controls.tsx'
 import { contextDefinition, ContextGroup } from './context.tsx'
 import { en, zh } from './locales.ts'
 import './style.css'
@@ -17,7 +17,7 @@ export function apply(ctx: Host): void {
     runtime.observe()
     return () => { sessions(); modes(); window.removeEventListener('focus', focus); runtime.dispose() }
   }, 'papermoon.writer-session-client')
-  for (const [name, component] of [['conversation.hero.target', ScriptPicker], ['conversation.hero.options', WriterPicker]] as const)
+  for (const [name, component] of [['conversation.hero.target', PlaybookPicker], ['conversation.hero.options', WriterPicker]] as const)
     ctx.slots.inject(name, () => ctx.slots.register({ name, id: 'papermoon-writer', locale: 'papermoon-writer-sessions', inject: () => ({ runtime }) }, component))
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({ name: 'conversation.session.header.actions', id: 'papermoon-writer', locale: 'papermoon-writer-sessions', inject: () => ({ runtime, active: true }) }, WriterPicker))
   ctx.effect(() => ctx.uiConversation.events.register(contextDefinition), 'papermoon.writer-context-nodes')

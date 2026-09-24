@@ -1,0 +1,71 @@
+/** Exact routes use DSH's existing authenticated API carrier. */
+import type { PlaybookRepository } from '@papermoon/playbook-core/repository'
+import type { CompilationService } from '@papermoon/playbook-compiler/service'
+import { z } from 'zod'
+import { dispatcher } from './service.ts'
+import { schemas } from './protocol.ts'
+export const name = 'papermoon-playbook-editor'
+export const inject = ['papermoonPlaybookCore', 'papermoonPlaybookCompiler', 'connection']
+export interface EditorHost {
+  get(key: string): unknown
+  effect(body: () => () => void | Promise<void>, label?: string): unknown
+  connection: {
+    fetch: {
+      register(route: {
+        path: string
+        methods: readonly 'POST'[]
+        requestBody: 'buffered'
+        fetch: (request: Request) => Promise<Response>
+      }): () => Promise<void>
+    }
+  }
+}
+const envelope = z.strictObject({
+  type: z.literal('client-request'),
+  rpcId: z.string().min(1),
+  method: z.string(),
+  payload: z.unknown(),
+})
+export function apply(ctx: EditorHost): void {
+  const dispatch = dispatcher(
+    ctx.get('papermoonPlaybookCore') as PlaybookRepository,
+    (error) => console.error('[PaperMoon editor]', error),
+    ctx.get('papermoonPlaybookCompiler') as CompilationService,
+  )
+  for (const method of Object.keys(schemas))
+    ctx.effect(
+      () =>
+        ctx.connection.fetch.register({
+          path: '/api/papermoon/' + method,
+          methods: ['POST'],
+          requestBody: 'buffered',
+          async fetch(request) {
+            if (
+              request.headers.get('content-type')?.split(';')[0]?.trim() !==
+              'application/json'
+            )
+              return new Response('unsupported media type', { status: 415 })
+            let raw: unknown
+            try {
+              raw = await request.json()
+            } catch {
+              return new Response('invalid JSON', { status: 400 })
+            }
+            const parsed = envelope.safeParse(raw)
+            if (!parsed.success || parsed.data.method !== 'papermoon/' + method)
+              return new Response('invalid RPC envelope', { status: 400 })
+            const result = await dispatch(
+              method,
+              parsed.data.payload,
+              request.signal,
+            )
+            return Response.json({
+              type: 'server-response',
+              rpcId: parsed.data.rpcId,
+              result,
+            })
+          },
+        }),
+      'papermoon.editor.' + method,
+    )
+}

@@ -1,17 +1,17 @@
 import { executionPosition, inspectExecution } from '../src/inspection.ts'
 import { afterEach, beforeAll, expect, test } from 'vitest'
-import { applyOperations, createContent } from '@papermoon/story-core'
-import { compile } from '@papermoon/story-compiler'
-import { StoryRuntime } from '@papermoon/story-compiler/execution'
-import { digest } from '@papermoon/story-compiler/runtime'
-import type { Artifact } from '@papermoon/story-compiler/types'
-import type { Agent, InputMessage, LogRecord } from '../../story-workspaces/src/host.ts'
+import { applyOperations, createContent } from '@papermoon/playbook-core'
+import { compile } from '@papermoon/playbook-compiler'
+import { PlaybookRuntime } from '@papermoon/playbook-compiler/execution'
+import { digest } from '@papermoon/playbook-compiler/runtime'
+import type { Artifact } from '@papermoon/playbook-compiler/types'
+import type { Agent, InputMessage, LogRecord } from '../../playbook-workspaces/src/host.ts'
 import type { FrozenPerformance } from '../src/model.ts'
 import { PerformanceActions, projectActions } from '../src/actions.ts'
 import { Worldlines, activeRecords } from '../src/worldlines.ts'
 let artifact: Artifact
 beforeAll(async () => {
-  const result = await compile(applyOperations(createContent({ defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'story.js', source: `function factory({state}) {
+  const result = await compile(applyOperations(createContent({ defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source: `function factory({state}) {
 /** Increase a counter.
  * @param {number} amount Increment.
  * @returns {number} Counter.
@@ -25,14 +25,14 @@ const cleanup: (() => Promise<void>)[] = []
 afterEach(async () => { for (const close of cleanup.splice(0)) await close() })
 function fixture(seed: readonly LogRecord[] = [], flush = async () => true) {
   const events = structuredClone([...seed]), sent: InputMessage[] = []
-  const payload = { version: 3 as const, originSessionId: 's', scriptId: 'story', revisionId: 'r', ordinal: 1, scriptName: 'S', projectName: 'P', description: '', attachmentKey: 'opening/0', artifact }
+  const payload = { originSessionId: 's', playbookId: 'playbook', revisionId: 'r', ordinal: 1, playbookName: 'S', projectName: 'P', description: '', attachmentKey: 'opening/0', artifact }
   const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
   const agent = { id: 's', status: 'idle', inbox: { nextTurn: [], nextStep: [], clear() {} },
     session: { snapshotEvents: () => events, append(type: string, data: unknown, intent?: object) {
       const event = { seq: events.length, time: events.length, type, data: structuredClone(data), ...intent }; events.push(event); return event
     } }, followup(input: InputMessage) { sent.push(input) }, async whenIdle() {}, async runMaintenance<T>(fn: (signal: AbortSignal) => Promise<T>) { return fn(new AbortController().signal) },
   } as unknown as Agent
-  const runtime = new StoryRuntime(), actions = new PerformanceActions(agent, fixed, runtime, flush), lines = new Worldlines(agent, fixed, flush, actions, async (content, operation) => {
+  const runtime = new PlaybookRuntime(), actions = new PerformanceActions(agent, fixed, runtime, flush), lines = new Worldlines(agent, fixed, flush, actions, async (content, operation) => {
     if (!content.some(part => part && typeof part === 'object' && 'type' in part && (part.type !== 'text' || ('text' in part && String(part.text).trim())))) throw new Error('empty prompt')
     const input = await lines.admit({ id: crypto.randomUUID(), role: 'user', content, source: { kind: 'user', rpcId: operation.operationId, admission: { historyVersion: operation.expectedVersion, 'papermoon.worldline': operation } } })
     if (input) agent.followup(input)
@@ -94,11 +94,10 @@ test('recovers an interrupted execution from committed records without running a
   expect(reopened.state()).toEqual({ count: 4 })
   const length = reopened.events.length; await reopened.lines.settle(); expect(reopened.events).toHaveLength(length)
 })
-test('blocks after unconfirmed persistence and retains old performances as read-only', async () => {
+test('blocks after unconfirmed persistence', async () => {
   const f = fixture([], async () => { throw new Error('disk') })
   await expect(f.lines.initialize()).rejects.toMatchObject({ code: 'worldline-save-failed' })
   await expect(f.admit('blocked')).rejects.toMatchObject({ code: 'worldline-save-failed' })
-  const old = fixture(); await expect(old.admit('old')).rejects.toMatchObject({ code: 'worldline-legacy' })
 })
 
 test('deduplicates an admitted input even when the process stopped before enqueue', async () => {

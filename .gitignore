@@ -6,6 +6,7 @@ node_modules/
 coverage/
 *.tsbuildinfo
 .DS_Store
+.idea/
 tmp/
 test-results/
 playwright-report/

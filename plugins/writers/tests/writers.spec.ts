@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'vitest'
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { DatabaseSync } from 'node:sqlite'
@@ -108,8 +108,8 @@ test('two connections reject stale changes without overwriting the saved definit
     lock.exec('ROLLBACK')
   }
 })
-test('malformed settings and unsupported database formats are rejected', () => {
-  const { repository, path } = fixture()
+test('malformed settings are rejected', () => {
+  const { repository } = fixture()
   expect(() =>
     repository.create({
       ...definition(),
@@ -122,13 +122,6 @@ test('malformed settings and unsupported database formats are rejected', () => {
   expect(() =>
     repository.create({ ...definition(), metadata: { bad: Infinity } }),
   ).toThrow()
-  repository.close()
-  const db = new DatabaseSync(path)
-  db.exec('PRAGMA user_version=1')
-  db.close()
-  const before = readFileSync(path)
-  expect(() => new WriterRepository({ path })).toThrow(/format/)
-  expect(readFileSync(path)).toEqual(before)
 })
 test('stored body identity mismatches are not repaired', () => {
   const { repository, path } = fixture(),

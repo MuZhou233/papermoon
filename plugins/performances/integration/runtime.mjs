@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { StoryStorage } from '../../story-storage/lib/index.js'
-import { StoryRepository } from '../../story-core/lib/repository.js'
-import { CompilationService, ArtifactStore } from '../../story-compiler/lib/service.js'
+import { PlaybookStorage } from '../../playbook-storage/lib/index.js'
+import { PlaybookRepository } from '../../playbook-core/lib/repository.js'
+import { CompilationService, ArtifactStore } from '../../playbook-compiler/lib/service.js'
 import { Performances, PRESET } from '../lib/index.js'
 const base = new URL('../../../dsh/', import.meta.url)
 const moduleAt = path => import(new URL(path + '/lib/index.js', base).href)
@@ -18,7 +18,7 @@ const { default: Agents } = await moduleAt('packages/core/agent')
 const { default: Loop } = await moduleAt('packages/core/agent-loop')
 const { default: Projections } = await moduleAt('packages/session/session-projection')
 const directory = mkdtempSync(join(tmpdir(), 'papermoon-functions-runtime-')), root = new Context()
-const storage = new StoryStorage({ path: join(directory, 'story.sqlite') }), core = new StoryRepository(storage)
+const storage = new PlaybookStorage({ path: join(directory, 'playbook.sqlite') }), core = new PlaybookRepository(storage)
 const compiler = new CompilationService(core, new ArtifactStore(join(directory, 'compiled')))
 let service
 try {
@@ -44,7 +44,7 @@ try {
   root.llm.registerAdapter(['deterministic'], new Adapter())
   let flushes = 0
   root.on('session/flush', session => { writeFileSync(join(directory, session.id + '.json'), JSON.stringify(session.snapshotEvents())); flushes++ })
-  const project = core.createProject({ name: 'Functions' }), script = core.createScript({ projectId: project.id, name: 'Counter', defaultLanguage: 'en' })
+  const project = core.createProject({ name: 'Functions' }), playbook = core.createPlaybook({ projectId: project.id, name: 'Counter', defaultLanguage: 'en' })
   const source = `let moduleCount=0;
 function create({state}) { let local=0;
 /** Increase the count.
@@ -54,8 +54,8 @@ function create({state}) { let local=0;
 return function increment(amount) { moduleCount++; local++; state.count += amount; state.secretCounter += moduleCount + local; return state.count; }
 }
 module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initial:{count:0,secretCounter:0},schema:{type:'object',properties:{count:{type:'number'},secretCounter:{type:'number'}},required:['count','secretCounter'],additionalProperties:false}},functions:[create]};`
-  core.editDraft({ scriptId: script.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'story.js', source }] })
-  const revision = await compiler.submit({ scriptId: script.id, expectedSequence: 1, description: 'Functions' })
+  core.editDraft({ playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'playbook.js', source }] })
+  const revision = await compiler.submit({ playbookId: playbook.id, expectedSequence: 1, description: 'Functions' })
   assert.equal(revision.committed, true); await compiler.close()
   const host = { agents: root.agents, sessions: root.sessions, sessionController: {
     submitUserInput: async request => {
@@ -70,13 +70,13 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
     create: async ({sessionId}) => {
       const existing = root.agents.get(SessionId(sessionId)); if (existing) return {sessionId}
       const agent = await root.agentLoop.create(SessionId(sessionId), { provider: 'deterministic', model: 'test' }, { cwd: directory })
-      agent.session.append('agent-preset/selected', { agentPreset: PRESET }); service.prepare(agent, script.id); return { sessionId }
+      agent.session.append('agent-preset/selected', { agentPreset: PRESET }); service.prepare(agent, playbook.id); return { sessionId }
     },
   } }
-  service = new Performances(host, core, { workspace: async () => ({ id: 'script-workspace' }) })
+  service = new Performances(host, core, { workspace: async () => ({ id: 'playbook-workspace' }) })
   root.on('session/event', (session, event) => service.observe(session, event))
-  await service.start({ sessionId: 'one', scriptId: script.id, revisionId: revision.revision.id, key: 'opening/0' })
-  await service.start({ sessionId: 'two', scriptId: script.id, revisionId: revision.revision.id, key: 'opening/0' })
+  await service.start({ sessionId: 'one', playbookId: playbook.id, revisionId: revision.revision.id, key: 'opening/0' })
+  await service.start({ sessionId: 'two', playbookId: playbook.id, revisionId: revision.revision.id, key: 'opening/0' })
   const first = root.agents.get(SessionId('one')), second = root.agents.get(SessionId('two'))
   const send = async agent => {
     const view = await service.view(agent.id)
@@ -169,7 +169,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
     for (const event of events) restored.decodeRow(sessionFormatCatalog.encodeCurrentEvent(event))
     assert.deepEqual(restored.finish().events, events)
   }
-  const contextual = core.createScript({projectId:project.id,name:'Context window',defaultLanguage:'en'})
+  const contextual = core.createPlaybook({projectId:project.id,name:'Context window',defaultLanguage:'en'})
   const composedSource = source.replace('functions:[create]', `functions:[create],composeContext({opening,history,input,state}) {
     if (history.some(n=>n.blocks.some(b=>'content' in b))) throw new Error('history body leaked');
     return {systemPrompt:opening.systemPrompt,messages:[
@@ -177,14 +177,14 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
       {ref:input.id},{role:'assistant',name:'Tail',content:'state='+state.count+';nodes='+history.length}
     ]};
   }`)
-  core.editDraft({scriptId:contextual.id,expectedSequence:0,operations:[{kind:'create-file',path:'story.js',source:composedSource}]})
+  core.editDraft({playbookId:contextual.id,expectedSequence:0,operations:[{kind:'create-file',path:'playbook.js',source:composedSource}]})
   const contextualCompiler=new CompilationService(core,new ArtifactStore(join(directory,'context-compiled')))
-  const contextualRevision=await contextualCompiler.submit({scriptId:contextual.id,expectedSequence:1,description:'Composition'})
+  const contextualRevision=await contextualCompiler.submit({playbookId:contextual.id,expectedSequence:1,description:'Composition'})
   await contextualCompiler.close(); assert.equal(contextualRevision.committed,true)
-  // Create directly because this harness's create callback intentionally owns the original script.
+  // Create directly because this harness's create callback intentionally owns the original playbook.
   const contextualAgent=await root.agentLoop.create(SessionId('contextual'),{provider:'deterministic',model:'test'},{cwd:directory})
   contextualAgent.session.append('agent-preset/selected',{agentPreset:PRESET}); service.prepare(contextualAgent,contextual.id)
-  await service.start({sessionId:'contextual',scriptId:contextual.id,revisionId:contextualRevision.revision.id,key:'opening/0'})
+  await service.start({sessionId:'contextual',playbookId:contextual.id,revisionId:contextualRevision.revision.id,key:'opening/0'})
   const contextStart=requests.length
   await send(contextualAgent);await contextualAgent.whenIdle()
   const contextFirst=requests.slice(contextStart)

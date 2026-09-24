@@ -6,7 +6,7 @@ English | [中文](2026-09-18-dual-trajectory.zh.md)
 
 ## Problem
 
-One player input can require several model requests and tool steps. A request-centered page makes these look like separate story outcomes. Chronological event sorting also changes the order of script-composed historical references.
+One player input can require several model requests and tool steps. A request-centered page makes these look like separate story outcomes. Chronological event sorting also changes the order of playbook-composed historical references.
 
 ## Decision
 
@@ -20,7 +20,7 @@ The DSH extension uses an effect-scoped readonly source registry and navigation 
 
 Fabricating sequence numbers or timestamps would obscure source identity. Mutating the active Conversation binding would couple inspection to Chat and execution. A separate renderer would also lose shared attachment handling and presentation policy.
 
-Keeping separate worldline and request pages makes users switch between two navigation schemes. Replacing DSH’s ledger with a text preview loses tool, reasoning and request inspection. Sorting composed references by their source sequence changes the script’s order. Selecting runtime history merely to inspect it can change the next generated outcome.
+Keeping separate worldline and request pages makes users switch between two navigation schemes. Replacing DSH’s ledger with a text preview loses tool, reasoning and request inspection. Sorting composed references by their source sequence changes the playbook’s order. Selecting runtime history merely to inspect it can change the next generated outcome.
 
 ## Consequences
 

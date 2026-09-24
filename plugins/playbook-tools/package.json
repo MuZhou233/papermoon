@@ -1,0 +1,18 @@
+{
+  "name": "@papermoon/playbook-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./lib/index.js",
+    "./catalog": "./lib/catalog.js",
+    "./plugin": "./lib/plugin.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@papermoon/playbook-core": "workspace:*",
+    "@papermoon/playbook-storage": "workspace:*",
+    "zod": "4.1.5",
+    "@papermoon/playbook-compiler": "workspace:*"
+  }
+}

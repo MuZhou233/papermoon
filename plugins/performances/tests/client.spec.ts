@@ -20,7 +20,7 @@ test('refreshes action commits without list activity, follows the selected sessi
   const a = store<Value<EventStore>>({ change: { kind: 'replace', entries: [] } }), b = store<Value<EventStore>>({ change: { kind: 'replace', entries: [] } })
   const status = store({ running: false }), block = vi.fn()
   let count = 0
-  const call = vi.fn(async () => ({ ok: true as const, value: { fixed: {}, worldline: { legacy: false, pending: undefined }, runtime: { state: { count }, actions: [] } } }))
+  const call = vi.fn(async () => ({ ok: true as const, value: { fixed: {}, worldline: { pending: undefined }, runtime: { state: { count }, actions: [] } } }))
   const host: ClientHost = {
     trajectoryInspection: {register:()=>()=>{}},
     chatPresentation: { preserveReplies: () => () => {} },

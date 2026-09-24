@@ -1,8 +1,8 @@
 /** Per-worldline input assembly; continued requests cite the fixed base and actual execution. */
-import { canonical, digest } from '@papermoon/story-compiler/runtime'
-import type { StoryRuntime } from '@papermoon/story-compiler/execution'
-import type { CompositionInput, CompositionPlan, JsonValue, Diagnostic } from '@papermoon/story-compiler/types'
-import type { Agent, LogRecord, RequestMessage, RequestPart } from '../../story-workspaces/src/host.ts'
+import { canonical, digest } from '@papermoon/playbook-compiler/runtime'
+import type { PlaybookRuntime } from '@papermoon/playbook-compiler/execution'
+import type { CompositionInput, CompositionPlan, JsonValue, Diagnostic } from '@papermoon/playbook-compiler/types'
+import type { Agent, LogRecord, RequestMessage, RequestPart } from '../../playbook-workspaces/src/host.ts'
 import { projectActions } from './actions.ts'
 import { openingMessages, type FrozenPerformance } from './model.ts'
 import { pathTo, pathRanges, recordsFor, worldlineState, activeRecords } from './worldlines.ts'
@@ -10,9 +10,10 @@ export const CONTEXT_NAMESPACE = 'papermoon.context'
 export const CONTEXT_ERROR = 'papermoon.context.error'
 export interface ContextOrigin { kind: 'history' | 'opening' | 'input' | 'authored' | 'continuation' | 'plugin'; ref?: string; nodeId?: string; eventSeq?: number; name?: string; hash?: string }
 export interface ContextMetadata {
-  namespace: typeof CONTEXT_NAMESPACE; version: 1; runId: string; parentId: string; artifactId: string; inputId: string; stateHead: string
+  namespace: typeof CONTEXT_NAMESPACE; runId: string; parentId: string; artifactId: string; inputId: string; stateHead: string
   origins: ContextOrigin[]; plan?: CompositionPlan; checksum: string
 }
+/** The outer version belongs to DSH's request/messages protocol. */
 export interface RequestRecord { version: 1; turn: number; step: number; base?: number; messages: RequestPart[]; metadata: ContextMetadata }
 export class ContextError extends Error { constructor(readonly code: string, message: string, readonly diagnostics?: Diagnostic[]) { super(message); this.name = 'ContextError' } }
 function fail(message: string): never { throw new ContextError('context-record-invalid', message) }
@@ -44,7 +45,7 @@ function blocks(events: readonly LogRecord[], nodeId: string, excluded: Readonly
   for (const event of messages) if (event.type === 'tool/result' && !consumed.has(event.seq!)) fail('history tool result has no paired assistant')
   return result
 }
-/** Build the small script input and retain source bodies only in the host. */
+/** Build the small playbook input and retain source bodies only in the host. */
 export function compositionSources(events: readonly LogRecord[], fixed: FrozenPerformance) {
   const tree = worldlineState(events, fixed), run = tree.pending
   if (!run) fail('composition requires an admitted worldline execution')
@@ -75,13 +76,13 @@ export function contextRecord(event: LogRecord): RequestRecord | undefined {
   const value = event.data as RequestRecord
   if (value.metadata?.namespace !== CONTEXT_NAMESPACE) return undefined
   const { checksum, ...metadata } = value.metadata
-  if (value.version !== 1 || metadata.version !== 1 || !Array.isArray(value.messages) || !Array.isArray(metadata.origins) || metadata.origins.length !== value.messages.length || digest({base:value.base ?? null,messages:value.messages,metadata}) !== checksum) fail('request composition checksum does not match')
+  if (!Array.isArray(value.messages) || !Array.isArray(metadata.origins) || metadata.origins.length !== value.messages.length || digest({base:value.base ?? null,messages:value.messages,metadata}) !== checksum) fail('request composition checksum does not match')
   return value
 }
 /** Owns first-round composition and blocks further requests after uncertain persistence. */
 export class PerformanceContext {
   private blocked = false
-  constructor(private readonly agent: Agent, private readonly fixed: FrozenPerformance, private readonly execution: StoryRuntime, private readonly flush: () => Promise<boolean>) {}
+  constructor(private readonly agent: Agent, private readonly fixed: FrozenPerformance, private readonly execution: PlaybookRuntime, private readonly flush: () => Promise<boolean>) {}
   assertAvailable() { if (this.blocked) throw new ContextError('context-save-failed', 'context persistence is unconfirmed; reopen the session before continuing') }
   async request(turn: number, step: number, signal: AbortSignal): Promise<number> {
     if (this.blocked) throw new ContextError('context-save-failed', 'context persistence is unconfirmed; reopen the session before continuing')
@@ -121,7 +122,7 @@ export class PerformanceContext {
       }
       signal.throwIfAborted()
       origins = origins.map((origin,index) => ({...origin,hash:digest('message' in parts[index]! ? (parts[index] as {message:RequestMessage}).message : eventMessage(events[(parts[index] as {eventSeq:number}).eventSeq]!)!)}))
-      const metadata = {namespace:CONTEXT_NAMESPACE as typeof CONTEXT_NAMESPACE,version:1 as const,runId:run.id,parentId:run.parent,artifactId:this.fixed.artifact.id,inputId:run.input.id,stateHead,origins,...(plan ? {plan} : {})}
+      const metadata = {namespace:CONTEXT_NAMESPACE as typeof CONTEXT_NAMESPACE,runId:run.id,parentId:run.parent,artifactId:this.fixed.artifact.id,inputId:run.input.id,stateHead,origins,...(plan ? {plan} : {})}
       const base = existing?.seq
       const data: RequestRecord = {version:1,turn,step,...(base === undefined ? {} : {base}),messages:parts,metadata:{...metadata,checksum:digest({base:base ?? null,messages:parts,metadata})}}
       const expanded = [...(existing ? this.agent.session.deriveRequestMessages(existing.seq) : []), ...parts.map(part => 'message' in part ? part.message : eventMessage(events[part.eventSeq]!)!)]
@@ -133,7 +134,7 @@ export class PerformanceContext {
       return seq
     } catch (error) {
       if (!this.blocked) {
-        this.agent.session.append('session/configuration', {key:CONTEXT_ERROR,value:{version:1,runId:run.id,parentId:run.parent,...(error instanceof ContextError ? {code:error.code,...(error.diagnostics ? {diagnostics:error.diagnostics}:{})} : {}),message:error instanceof Error ? error.message : String(error)}})
+        this.agent.session.append('session/configuration', {key:CONTEXT_ERROR,value:{runId:run.id,parentId:run.parent,...(error instanceof ContextError ? {code:error.code,...(error.diagnostics ? {diagnostics:error.diagnostics}:{})} : {}),message:error instanceof Error ? error.message : String(error)}})
         try { if (!await this.flush()) this.blocked = true } catch { this.blocked = true } // The original request error remains the caller's failure.
       }
       throw error

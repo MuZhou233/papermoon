@@ -18,9 +18,9 @@ export function apply(ctx) {
         yield { type: 'block-start', index: 2, blockType: 'tool-call' }
         yield { type: 'block-end', index: 2, block: { type: 'tool-call', id: ToolCallId('fixture-increment'), name: 'increment', arguments: '{"amount":3}' } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
-      } else if (!hasResult && options.tools?.some(tool => tool.name === 'story_status')) {
+      } else if (!hasResult && options.tools?.some(tool => tool.name === 'playbook_status')) {
         yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('fixture-status'), name: 'story_status', arguments: '{}' } }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('fixture-status'), name: 'playbook_status', arguments: '{}' } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
       } else {
         yield { type: 'block-start', index: 0, blockType: 'reasoning' }

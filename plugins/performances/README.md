@@ -2,12 +2,12 @@
 
 English | [中文](README.zh.md)
 
-This plugin starts moderator conversations from complete frozen revision artifacts. It uses the [revision reader and executor](../story-compiler/README.md) and [shared script workspaces](../story-workspaces/README.md). Starting a performance initializes its context without compiling or requesting a model response.
+This plugin starts moderator conversations from complete frozen revision artifacts. It uses the [revision reader and executor](../playbook-compiler/README.md) and [shared playbook workspaces](../playbook-workspaces/README.md). Starting a performance initializes its context without compiling or requesting a model response.
 ## Starting and continuing
 
 The overview, revision page and performance mode share one start dialog. It selects the greatest revision ordinal unless a historical revision is specified, then selects the first frozen target by default. A newer revision without artifacts disables starting rather than selecting an older one. Model choices and defaults come from DSH.
 
-Initialization format 3 records source identities, names, description, attachment identity, the full artifact and a checksum. Stable session identity makes retries idempotent, including after source deletion. Pending or malformed initialization rejects input. Mode, revision and artifact remain fixed. Formats 1 and 2 are unsupported and are not migrated or recompiled.
+Initialization records source identities, names, description, attachment identity, the full artifact and a checksum. Stable session identity makes retries idempotent, including after source deletion. Pending or malformed initialization rejects input. Mode, revision and artifact remain fixed.
 
 Authored assistant text appears as opening prose; authored user text appears as background. System text is inspectable. Names and producer labels do not enter message bodies. The first real user input starts the model. DSH logs the original roles, order and content without inventing model attempts or usage. Stable message identities prevent duplicate openings after reload or Fork.
 
@@ -25,13 +25,13 @@ Fork inherits the selected log prefix's state and then advances independently. D
 
 ## Interfaces and inspection
 
-Authenticated routes under /api/papermoon-performances expose scripts, models, choices, state and start. Performances provides the same internal operations. Session configuration holds initialization, committed actions and failed-delivery markers; these records do not automatically enter model history. Model history contains authored messages and the ordinary tool receipts.
+Authenticated routes under /api/papermoon-performances expose playbooks, models, choices, state and start. Performances provides the same internal operations. Session configuration holds initialization, committed actions and failed-delivery markers; these records do not automatically enter model history. Model history contains authored messages and the ordinary tool receipts.
 
 The header source menu offers readonly current state and action inspection. Committed actions also appear in trajectory. Compiler and revision previews show initial state and generated function declarations. The UI uses PaperMoon components and DSH theme variables; parameters and returns retain the standard DSH tool presentation.
 
 State inspection follows the current session’s action events, refreshes when a commit arrives or history reloads, and releases its subscription when the session changes or the plugin unloads.
 
-The composition contains no coding guidance, automatic compaction or result-file clipping. Explicitly mounted plugins retain their ordinary logged contributions. Closing cancels and drains function calls, unregisters tools and releases prompt contributions. Shared script workspaces retain writer and moderator conversations together.
+The composition contains no coding guidance, automatic compaction or result-file clipping. Explicitly mounted plugins retain their ordinary logged contributions. Closing cancels and drains function calls, unregisters tools and releases prompt contributions. Shared playbook workspaces retain writer and moderator conversations together.
 
 ## Verification
 
@@ -47,15 +47,15 @@ Continue from here selects exactly one node; the next send creates its child. Re
 
 Operation IDs deduplicate durable intentions, while selection versions reject stale windows. Sending and switching share Agent maintenance with admission. During generation, the composer remains editable but rejects sending, queueing and steering. Pending execution appears as a status, not a mutable tree node. Completion waits for tool receipt recovery and persistence before sealing the node and selecting it in one record. Unfinished restored executions seal as interrupted; functions never replay. Accepted input that never entered a model step retains its user source in a context/message record and appears with an interruption indicator, without a fabricated reply. Missing receipts or uncertain persistence block further operations.
 
-The required history/selected event carries versioned PaperMoon node and selection facts. Chat, prompt reconstruction and action state read the selected ancestry plus the live execution; trajectory reads its separate inspection position. Raw logs and usage retain every execution. Existing performances without worldline facts remain readable but cannot continue. No historical tree is inferred; story content, artifacts and revision attachments retain their formats.
+The required history/selected event carries PaperMoon node and selection facts. Chat, prompt reconstruction and action state read the selected ancestry plus the live execution; trajectory reads its separate inspection position. Raw logs and usage retain every execution. Each initialized performance has a worldline root; reads and actions require its selected path.
 
 The tree route pages immutable summaries by offset and limit (at most 100); node returns a full node, sibling summaries, ancestor records and state. Sibling summaries include results outside the active path. Operation accepts select, candidate, edit or reroll with an operationId and expectedVersion; edit also requires the replacement text. State includes the current path and nodes needed by its action controls. Reads do not change the selection. These routes share the existing authenticated API.
 
-Worldline history, context assembly and actual requests have separate identities. The default composition uses complete selected history; scripts can supply their own composition. Recorded requests reconstruct their original inputs after later switches. Summarization is not provided. [The decision](../../.agents/notes/implemented/architecture/2026-09-16-worldlines.md) records the ownership and alternatives.
+Worldline history, context assembly and actual requests have separate identities. The default composition uses complete selected history; playbooks can supply their own composition. Recorded requests reconstruct their original inputs after later switches. Summarization is not provided. [The decision](../../.agents/notes/implemented/architecture/2026-09-16-worldlines.md) records the ownership and alternatives.
 
 ## Actual context
 
-Each worldline execution fixes its parent state and input before composing context. The [script API](../story-compiler/api.md#context-composition) controls reference order and authored prompts. Request-local records preserve the plan, artifact and run identities, state position, source hashes and ordered references. Continuations cite the first record plus their execution-message references. Persistence must confirm the record before model dispatch. Uncertain persistence blocks sending and switching until the actor is reopened from durable data.
+Each worldline execution fixes its parent state and input before composing context. The [playbook API](../playbook-compiler/api.md#context-composition) controls reference order and authored prompts. Request-local records preserve the plan, artifact and run identities, state position, source hashes and ordered references. Continuations cite the first record plus their execution-message references. Persistence must confirm the record before model dispatch. Uncertain persistence blocks sending and switching until the actor is reopened from durable data.
 
 Trajectory has Original context and Rewritten context modes. Original context shows frozen opening messages followed by the ancestor path through the inspected node. Rewritten context shows that execution’s saved base once, in composition order, followed by every model step, tool result and outcome in that execution. Historical references retain their source identities and do not add timing or usage. Record details retain request inspection, attachments, reasoning, tools and copy controls. A source link changes inspection only.
 

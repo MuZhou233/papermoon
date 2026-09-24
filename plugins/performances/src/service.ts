@@ -1,16 +1,16 @@
 /** Initializes sessions from immutable revision attachments. No compiler or artifact-cache imports. */
 import { z } from 'zod'
-import type { RevisionId, ScriptId } from '@papermoon/story-core'
-import type { StoryRepository } from '@papermoon/story-core/repository'
-import { RevisionArtifacts } from '@papermoon/story-compiler/revisions'
-import { StoryRuntime } from '@papermoon/story-compiler/execution'
+import type { RevisionId, PlaybookId } from '@papermoon/playbook-core'
+import type { PlaybookRepository } from '@papermoon/playbook-core/repository'
+import { RevisionArtifacts } from '@papermoon/playbook-compiler/revisions'
+import { PlaybookRuntime } from '@papermoon/playbook-compiler/execution'
 import { PerformanceActions, projectActions } from './actions.ts'
-import { digest } from '@papermoon/story-compiler/runtime'
-import type { Host, Agent, Dispose, InputMessage } from '../../story-workspaces/src/host.ts'
-import type { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
+import { digest } from '@papermoon/playbook-compiler/runtime'
+import type { Host, Agent, Dispose, InputMessage } from '../../playbook-workspaces/src/host.ts'
+import type { PlaybookWorkspaces } from '../../playbook-workspaces/src/index.ts'
 import { inspectExecution, executionPosition, type InspectionCursor, type InspectionMode } from './inspection.ts'
 import { PerformanceContext, contextRecord } from './composition.ts'
-import { configureLiteralPrompt } from '../../story-workspaces/src/prompt.ts'
+import { configureLiteralPrompt } from '../../playbook-workspaces/src/prompt.ts'
 import { performanceState, openingMessages, type FrozenPerformance } from './model.ts'
 import { Worldlines, activeRecords, pathTo, pathRanges, recordsFor, type WorldOperation } from './worldlines.ts'
 import { PRESET, CONFIG_KEY, PREPARATION_KEY } from './constants.ts'
@@ -26,29 +26,29 @@ export interface PerformanceHost extends Host {
   }
 }
 const id = z.string().min(1)
-export const startSchema = z.strictObject({ sessionId: id, scriptId: id, revisionId: id, key: id,
+export const startSchema = z.strictObject({ sessionId: id, playbookId: id, revisionId: id, key: id,
   model: z.strictObject({ provider: id, model: id, reasoningEffort: id.optional() }).optional() })
 export class Performances {
   private readonly runtimes = new Map<Agent, Dispose>()
   private readonly contextsByAgent = new Map<Agent, PerformanceContext>()
   private readonly actions = new Map<Agent, PerformanceActions>()
   private readonly lines = new Map<Agent, Worldlines>()
-  private readonly execution = new StoryRuntime()
+  private readonly execution = new PlaybookRuntime()
   private readonly starts = new Map<string, { identity: string; task: Promise<{ sessionId: string; fixed: FrozenPerformance }> }>()
   private closed = false
   readonly artifacts: RevisionArtifacts
-  constructor(private readonly host: PerformanceHost, private readonly core: StoryRepository, readonly workspaces: StoryWorkspaces) { this.artifacts = new RevisionArtifacts(core) }
-  choices(scriptId: string, revisionId?: string) {
-    const script = this.core.getScript(scriptId as ScriptId), project = this.core.getProject(script.projectId)
-    const entry = revisionId ? this.core.getHistoryEntry(script.id, revisionId as RevisionId) : this.core.listRevisions(script.id, { limit: 1, descending: true }).items[0]
-    if (!entry) return { script, project, entry: null, compilation: null }
-    return { script, project, entry, compilation: this.artifacts.describe(script.id, entry.revision.id) }
+  constructor(private readonly host: PerformanceHost, private readonly core: PlaybookRepository, readonly workspaces: PlaybookWorkspaces) { this.artifacts = new RevisionArtifacts(core) }
+  choices(playbookId: string, revisionId?: string) {
+    const playbook = this.core.getPlaybook(playbookId as PlaybookId), project = this.core.getProject(playbook.projectId)
+    const entry = revisionId ? this.core.getHistoryEntry(playbook.id, revisionId as RevisionId) : this.core.listRevisions(playbook.id, { limit: 1, descending: true }).items[0]
+    if (!entry) return { playbook, project, entry: null, compilation: null }
+    return { playbook, project, entry, compilation: this.artifacts.describe(playbook.id, entry.revision.id) }
   }
-  prepare(agent: Agent, scriptId: string) {
+  prepare(agent: Agent, playbookId: string) {
     const state = performanceState(agent.session)
-    if (state.fixed) { if (state.fixed.scriptId !== scriptId) throw new Error('performance script is fixed'); return }
-    this.core.getScript(scriptId as ScriptId)
-    if (state.scriptId !== scriptId) agent.session.append('session/configuration', { key: PREPARATION_KEY, value: { scriptId } })
+    if (state.fixed) { if (state.fixed.playbookId !== playbookId) throw new Error('performance playbook is fixed'); return }
+    this.core.getPlaybook(playbookId as PlaybookId)
+    if (state.playbookId !== playbookId) agent.session.append('session/configuration', { key: PREPARATION_KEY, value: { playbookId } })
     this.attach(agent)
   }
   async view(sessionId: string) {
@@ -61,9 +61,9 @@ export class Performances {
     const path = tree?.selected ? pathTo(tree.nodes, tree.selected).map(node => node.id) : []
     const parents = new Set(path)
     let sourceMissing = false
-    if (state.fixed) try { this.core.getScript(state.fixed.scriptId as ScriptId) } catch (error) { if (error && typeof error === 'object' && 'code' in error && error.code === 'not-found') sourceMissing = true; else throw error }
+    if (state.fixed) try { this.core.getPlaybook(state.fixed.playbookId as PlaybookId) } catch (error) { if (error && typeof error === 'object' && 'code' in error && error.code === 'not-found') sourceMissing = true; else throw error }
     return { ...state, sourceMissing, ...(state.fixed ? { runtime: projectActions(activeRecords(result.agent.session.snapshotEvents(), state.fixed), state.fixed) } : {}),
-      worldline: tree ? { legacy: tree.legacy, version: tree.version, selected: tree.selected, pending: tree.pending,
+      worldline: tree ? { version: tree.version, selected: tree.selected, pending: tree.pending,
         path, count: tree.nodes.size,
         nodes: [...tree.nodes.values()].filter(node => {
           return parents.has(node.id) || (node.parent !== null && parents.has(node.parent))
@@ -86,7 +86,7 @@ export class Performances {
       lane: lanes.get(node.id)!, parentLane: node.parent ? lanes.get(node.parent)! : null, parentOrdinal: node.parent ? tree.nodes.get(node.parent)!.ordinal : null,
     })) }
   }
-  /** Read a fixed execution without changing the active history or re-running the script. */
+  /** Read a fixed execution without changing the active history or re-running the playbook. */
   async inspection(sessionId: string, nodeId: string, mode: InspectionMode, cursor?: InspectionCursor, limit = 200) {
     const result = await this.host.sessionController.resolveAgent(sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
@@ -134,7 +134,7 @@ export class Performances {
     const siblings = [...tree.nodes.values()].filter(item => item.parent === node.parent).map(({ id, ordinal, outcome }) => ({ id, ordinal, outcome }))
     return { node, siblings, events, runtime: projectActions(events, fixed), version: tree.version }
   }
-  observe(session: Agent['session'], event: import('../../story-workspaces/src/host.ts').LogRecord) {
+  observe(session: Agent['session'], event: import('../../playbook-workspaces/src/host.ts').LogRecord) {
     if (event.type !== 'turn/end') return
     for (const [agent, lines] of this.lines) if (agent.session === session && lines.state().pending)
       queueMicrotask(() => { void lines.settle().catch(() => {}) }) // The worldline retains the error and blocks subsequent operations.
@@ -142,7 +142,7 @@ export class Performances {
   }
   start(input: z.infer<typeof startSchema>) {
     if (this.closed) return Promise.reject(new Error('performance service is closed'))
-    const identity = JSON.stringify([input.scriptId, input.revisionId, input.key]), prior = this.starts.get(input.sessionId)
+    const identity = JSON.stringify([input.playbookId, input.revisionId, input.key]), prior = this.starts.get(input.sessionId)
     if (prior) return prior.identity === identity ? prior.task : Promise.reject(new Error('session initialization is already in progress for another source'))
     const task = this.initialize(input), operation = { identity, task }
     this.starts.set(input.sessionId, operation)
@@ -165,12 +165,12 @@ export class Performances {
         if (state.mode !== PRESET) throw new Error('session belongs to another mode')
       }
     }
-    const choice = this.choices(input.scriptId, input.revisionId)
+    const choice = this.choices(input.playbookId, input.revisionId)
     if (!choice.entry) throw new Error('revision does not exist')
-    const artifact = this.artifacts.read(choice.script.id, choice.entry.revision.id, input.key)
-    const payload = { version: 3 as const, originSessionId: input.sessionId, scriptId: input.scriptId, revisionId: input.revisionId, ordinal: choice.entry.ordinal, scriptName: choice.script.name, projectName: choice.project.name, description: choice.entry.revision.description, attachmentKey: input.key, artifact }
+    const artifact = this.artifacts.read(choice.playbook.id, choice.entry.revision.id, input.key)
+    const payload = { originSessionId: input.sessionId, playbookId: input.playbookId, revisionId: input.revisionId, ordinal: choice.entry.ordinal, playbookName: choice.playbook.name, projectName: choice.project.name, description: choice.entry.revision.description, attachmentKey: input.key, artifact }
     const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
-    const workspace = await this.workspaces.workspace(input.scriptId)
+    const workspace = await this.workspaces.workspace(input.playbookId)
     if (this.closed) throw new Error('performance service is closed')
     await this.host.sessionController.create({ sessionId: input.sessionId, workspaceId: workspace.id, agentPreset: PRESET })
     const result = await this.host.sessionController.resolveAgent(input.sessionId)
@@ -184,7 +184,7 @@ export class Performances {
       const state = performanceState(agent.session)
       if (state.fixed) return this.same(input, state.fixed)
       if (state.mode !== PRESET || agent.inbox.nextTurn.length || agent.inbox.nextStep.length) throw new Error('performance session is not ready for initialization')
-      this.prepare(agent, input.scriptId)
+      this.prepare(agent, input.playbookId)
       agent.session.append('session/configuration', { key: CONFIG_KEY, value: fixed, presentation: { initialized: true, label: '演绎', text: [fixed.artifact.context.systemPrompt, ...fixed.artifact.context.messages.map(message => message.content)].join('\n') } })
       this.bindActions(agent, fixed)
       await this.lines.get(agent)!.initialize()
@@ -192,13 +192,13 @@ export class Performances {
     })
   }
   private async same(input: z.infer<typeof startSchema>, fixed: FrozenPerformance) {
-    if (fixed.scriptId !== input.scriptId || fixed.revisionId !== input.revisionId || fixed.attachmentKey !== input.key) throw new Error('performance version and artifact are fixed')
+    if (fixed.playbookId !== input.playbookId || fixed.revisionId !== input.revisionId || fixed.attachmentKey !== input.key) throw new Error('performance version and artifact are fixed')
     const result = await this.host.sessionController.resolveAgent(input.sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
     this.attach(result.agent)
     const lines = this.lines.get(result.agent)!
     await lines.ready()
-    if (lines.state().legacy) throw new Error('performance has no worldline initialization; create a new performance')
+    if (!lines.state().selected) throw new Error('performance initialization is incomplete')
     if (!await this.host.sessions.flush(result.agent.session)) throw new Error('performance initialization persistence is unconfirmed')
     return { sessionId: input.sessionId, fixed }
   }

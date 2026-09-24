@@ -1,6 +1,6 @@
 /** Read-only, snapshot-bound projections of complete worldline executions. */
-import { digest } from '@papermoon/story-compiler/runtime'
-import type { LogRecord, RequestMessage } from '../../story-workspaces/src/host.ts'
+import { digest } from '@papermoon/playbook-compiler/runtime'
+import type { LogRecord, RequestMessage } from '../../playbook-workspaces/src/host.ts'
 import type { FrozenPerformance } from './model.ts'
 import { openingMessages } from './model.ts'
 import { contextRecord, CONTEXT_ERROR, type ContextOrigin } from './composition.ts'

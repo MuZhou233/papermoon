@@ -1,0 +1,14 @@
+{
+  "name": "@papermoon/playbook-workspaces",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./lib/index.js",
+    "./host": "./lib/host.js",
+    "./prompt": "./lib/prompt.js"
+  },
+  "dependencies": {
+    "@papermoon/playbook-core": "workspace:*"
+  }
+}

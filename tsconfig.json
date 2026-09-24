@@ -12,50 +12,50 @@
       "node"
     ],
     "paths": {
-      "@papermoon/story-storage": [
-        "./plugins/story-storage/src/index.ts"
+      "@papermoon/playbook-storage": [
+        "./plugins/playbook-storage/src/index.ts"
       ],
-      "@papermoon/story-storage/value": [
-        "./plugins/story-storage/src/value.ts"
+      "@papermoon/playbook-storage/value": [
+        "./plugins/playbook-storage/src/value.ts"
       ],
-      "@papermoon/story-core": [
-        "./plugins/story-core/src/index.ts"
+      "@papermoon/playbook-core": [
+        "./plugins/playbook-core/src/index.ts"
       ],
-      "@papermoon/story-core/repository": [
-        "./plugins/story-core/src/repository.ts"
+      "@papermoon/playbook-core/repository": [
+        "./plugins/playbook-core/src/repository.ts"
       ],
       "@papermoon/ui": [
         "./packages/ui/src/index.ts"
       ],
-      "@papermoon/story-tools": [
-        "./plugins/story-tools/src/index.ts"
+      "@papermoon/playbook-tools": [
+        "./plugins/playbook-tools/src/index.ts"
       ],
-      "@papermoon/story-tools/catalog": [
-        "./plugins/story-tools/src/catalog.ts"
+      "@papermoon/playbook-tools/catalog": [
+        "./plugins/playbook-tools/src/catalog.ts"
       ],
       "@papermoon/writers": [
         "./plugins/writers/src/model.ts"
       ],
-      "@papermoon/story-compiler": [
-        "./plugins/story-compiler/src/index.ts"
+      "@papermoon/playbook-compiler": [
+        "./plugins/playbook-compiler/src/index.ts"
       ],
-      "@papermoon/story-compiler/runtime": [
-        "./plugins/story-compiler/src/runtime.ts"
+      "@papermoon/playbook-compiler/runtime": [
+        "./plugins/playbook-compiler/src/runtime.ts"
       ],
-      "@papermoon/story-compiler/service": [
-        "./plugins/story-compiler/src/service.ts"
+      "@papermoon/playbook-compiler/service": [
+        "./plugins/playbook-compiler/src/service.ts"
       ],
-      "@papermoon/story-compiler/types": [
-        "./plugins/story-compiler/src/types.ts"
+      "@papermoon/playbook-compiler/types": [
+        "./plugins/playbook-compiler/src/types.ts"
       ],
-      "@papermoon/story-compiler/plugin": [
-        "./plugins/story-compiler/src/plugin.ts"
+      "@papermoon/playbook-compiler/plugin": [
+        "./plugins/playbook-compiler/src/plugin.ts"
       ],
-      "@papermoon/story-compiler/revisions": [
-        "./plugins/story-compiler/src/revisions.ts"
+      "@papermoon/playbook-compiler/revisions": [
+        "./plugins/playbook-compiler/src/revisions.ts"
       ],
-      "@papermoon/story-compiler/execution": [
-        "./plugins/story-compiler/src/execution.ts"
+      "@papermoon/playbook-compiler/execution": [
+        "./plugins/playbook-compiler/src/execution.ts"
       ]
     },
     "jsx": "react-jsx",

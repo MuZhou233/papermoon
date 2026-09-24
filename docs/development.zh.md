@@ -49,24 +49,30 @@ setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保�
 
 初始化不会启动服务。Web 在当前终端中运行，收到中断或终止信号后停止。启动测试使用临时数据和随机分配的本机回环端口，结束时等待进程退出。[测试规范](testing.zh.md)说明交付证据。
 
-编剧配置沿用 `PAPERMOON_DATA_DIR` 指定的产品数据目录，使用独立的 `writers.sqlite`。profile 不将剧本工具注册到全局。客户端插件共用 `tooling/repository/build-clients.ts` 的打包过程。
+编剧配置沿用 `PAPERMOON_DATA_DIR` 指定的产品数据目录，使用独立的 `writers.sqlite`。profile 不将 Playbook 工具注册到全局。客户端插件共用 `tooling/repository/build-clients.ts` 的打包过程。
 
 宿主打包保留 PaperMoon 包的外部导入，让 Worker 路径相对于所属模块的构建产物解析。浏览器打包和主库源码测试继续使用源码别名。
 
 ## 工作区登记格式
 
-资源工作区使用 DSH 工作区域格式 3，拒绝旧登记数据。停止服务后，将旧 `workspace.json` 移出 DSH 存储目录，再启动并重新选择文件夹或剧本。默认路径为 `.papermoon/dsh/storages/workspace.json`；显式设置 `DSH_HOME` 会改变其上级目录。确认新列表无误后再处理备份。此操作不改写会话日志、剧本数据库或编剧数据库。
+Playbook 工作区在 DSH 的工作区登记表中注册为 papermoon-playbook。登记表默认路径为 `.papermoon/dsh/storages/workspace.json`；显式设置 `DSH_HOME` 会改变其上级目录。登记表的格式和持久化约定由 DSH 维护。
 
 ## 编译产物
 
-编译插件的 directory 默认指向 `.papermoon/compiled-stories/`；提供 `PAPERMOON_DATA_DIR` 时，使用该目录下的产物子目录。每个按内容寻址的 JSON 文件都是独立派生结果，草稿变化和项目删除不会将其删除。本版不自动回收，也不记录失败尝试的历史。需要清理时，先停止服务，再仅删除配置指定的 compiled-stories 目录。清理后，重启预览需等待对应内容再次显式编译。保留创作数据库及其他产品数据。
+编译插件的 directory 默认指向 `.papermoon/compiled-playbooks/`；提供 `PAPERMOON_DATA_DIR` 时，使用该目录下的产物子目录。每个按内容寻址的 JSON 文件都是独立派生结果，草稿变化和项目删除不会将其删除。本版不自动回收，也不记录失败尝试的历史。需要清理时，先停止服务，再仅删除配置指定的 compiled-playbooks 目录。清理后，重启预览需等待对应内容再次显式编译。保留创作数据库及其他产品数据。
 
 编译不使用 Node 实验参数。构建后 Worker 检查会打印实际 Node 版本，CI 独立运行其选定的 Node 24 版本。源码测试与正式构建各自使用源码和产物模块路径。
 
 ## 冻结修订数据
 
-剧本存储要求格式 3。版本 1 和 2 数据库会被拒绝，原文件保持不变。使用新存储前，将旧文件保存在配置的新数据库路径之外，不提供迁移或自动删除。业务 KV 仍为格式 1。编译产物与演绎初始化要求格式 3。旧编译文件、附件产物和演绎记录会保留，但不能继续使用，不迁移或原地重新编译。可以将源码恢复到草稿，再提交新修订版本以生成当前产物，然后新开演绎。compiled-stories 目录只保存独立草稿检查，不再需要这些预览时可删除；权威修订产物保存在 Story SQLite 中，已经开始的演绎另有日志副本。
+PaperMoon 当前只维护现行产品格式，不设置产品格式版本号，不维护历史读取器、迁移或兼容性测试矩阵。测试覆盖当前行为、结构校验和数据完整性。依赖版本与 DSH 协议字段仍遵循各自约定。
+
+Playbook 存储使用应用 ID 0x504d5042。默认文件是 PAPERMOON_DATA_DIR 下的 playbook.sqlite，未设置时使用 .papermoon 目录。业务 KV 与编译产物使用 papermoon.playbook 身份。数据结构改变后，重新创建开发数据：新建 Playbook、提交修订版本并新开会话。创作程序使用 playbook.js、require('@papermoon/playbook') 和 definePlaybook。
+
+compiled-playbooks 目录保存独立的草稿检查结果；修订版本的正式产物保存在 Playbook SQLite 中，运行中的演绎在日志中保存各自产物副本。结构校验与校验和继续检测无效或损坏的记录，移除格式版本管理不意味着移除这些检查。
+
+编辑器备份保存在 papermoon-playbook-editor 浏览器数据库中。读写代码使用同一套当前结构。
 
 ## 上下文产物格式
 
-上下文拼装使用第三版产物、剧本 API 和编译器身份，演绎初始化格式也为第三版。旧产物和已初始化的旧演绎会被拒绝，原文件保留不动。将修订版本的源码恢复到草稿，重新提交带编译结果的修订版本，再新开演绎。已提交的修订版本不能补充产物。剧本 KV、修订附件和世界线节点格式不变。[API 文档](../plugins/story-compiler/api.zh.md#上下文拼装) 说明拼装输入和限制。
+上下文拼装使用编译器身份 papermoon.playbook.commonjs，遵循[当前数据规则](#冻结修订数据)。已提交的修订版本不能补充产物。[API 文档](../plugins/playbook-compiler/api.zh.md#上下文拼装)说明拼装输入和限制。

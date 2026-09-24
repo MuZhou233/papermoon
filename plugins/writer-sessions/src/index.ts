@@ -1,29 +1,29 @@
 /** Host plugin: authenticated setup and effect-owned writer Agent composition. */
 import { z } from 'zod'
 import { isAbsolute } from 'node:path'
-import type { StoryRepository } from '@papermoon/story-core/repository'
-import type { CompilationService } from '@papermoon/story-compiler/service'
-import type { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
+import type { PlaybookRepository } from '@papermoon/playbook-core/repository'
+import type { CompilationService } from '@papermoon/playbook-compiler/service'
+import type { PlaybookWorkspaces } from '../../playbook-workspaces/src/index.ts'
 import type { WriterRepository } from '../../writers/src/repository.ts'
 import { WriterSessions, configureSchema } from './service.ts'
 import { CONFIG_KEY, PRESET, TARGET_PROVIDER, WriterSessionError, writerState } from './model.ts'
 import type { Host } from './host.ts'
 export const name = 'papermoon-writer-sessions'
-export const inject = ['papermoonStoryCore', 'papermoonStoryWorkspaces', 'papermoonStoryCompiler', 'papermoonWriters', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
+export const inject = ['papermoonPlaybookCore', 'papermoonPlaybookWorkspaces', 'papermoonPlaybookCompiler', 'papermoonWriters', 'agents', 'agentPresets', 'sessionController', 'workspaceRegistry', 'connection']
 export interface Config { cwd: string }
 const sessionRequest = z.strictObject({ sessionId: z.string().min(1) })
-const scriptRequest = z.strictObject({ scriptId: z.string().min(1) })
+const playbookRequest = z.strictObject({ playbookId: z.string().min(1) })
 const envelope = z.strictObject({ type: z.literal('client-request'), rpcId: z.string().min(1), method: z.string(), payload: z.unknown() })
 export async function apply(ctx: Host, config: Config): Promise<void> {
   if (!isAbsolute(config.cwd)) throw new Error('writer sessions cwd must be absolute')
-  const core = ctx.get('papermoonStoryCore') as StoryRepository
+  const core = ctx.get('papermoonPlaybookCore') as PlaybookRepository
   const writers = ctx.get('papermoonWriters') as WriterRepository
-  const service = new WriterSessions(ctx, { core, writers, compiler: ctx.get('papermoonStoryCompiler') as CompilationService }, config.cwd)
+  const service = new WriterSessions(ctx, { core, writers, compiler: ctx.get('papermoonPlaybookCompiler') as CompilationService }, config.cwd)
   ctx.effect(function* () {
     yield () => service.dispose()
     yield ctx.provide('papermoonWriterSessions', service)
-    const workspaces = ctx.get('papermoonStoryWorkspaces') as StoryWorkspaces
-    yield workspaces.register(PRESET, session => { const state = writerState(session); return state.mode === PRESET ? state.fixed?.scriptId ?? state.preparation?.scriptId : undefined })
+    const workspaces = ctx.get('papermoonPlaybookWorkspaces') as PlaybookWorkspaces
+    yield workspaces.register(PRESET, session => { const state = writerState(session); return state.mode === PRESET ? state.fixed?.playbookId ?? state.preparation?.playbookId : undefined })
     yield ctx.on('agent/created', ({ agent }) => service.attach(agent))
     yield ctx.on('agent-preset/selected', id => { const agent = ctx.agents.get(id); if (agent) service.attach(agent) })
     yield ctx.on('agent-preset/selecting', async (agent, preset) => {
@@ -33,8 +33,8 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
     yield ctx.on('agent-preset/changed', async (agent, preset) => {
       for (const workspace of ctx.workspaceRegistry.list()) {
         if (!workspace.sessionIds.includes(agent.id)) continue
-        const isScript = workspace.target?.provider === TARGET_PROVIDER
-        if ((preset === PRESET && !isScript) || (preset !== PRESET && preset !== 'papermoon-moderator' && isScript)) await workspace.detachSession(agent.id)
+        const isPlaybook = workspace.target?.provider === TARGET_PROVIDER
+        if ((preset === PRESET && !isPlaybook) || (preset !== PRESET && preset !== 'papermoon-moderator' && isPlaybook)) await workspace.detachSession(agent.id)
       }
       if (preset !== PRESET && writerState(agent.session).preparation)
         agent.session.append('session/configuration', { key: CONFIG_KEY, value: null })
@@ -45,11 +45,11 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
         if (writerState(agent.session).mode !== PRESET) await ctx.agentPresets.select(agent, PRESET)
         service.prepare(agent, workspace.target.key)
       } else if (workspace && writerState(agent.session).mode === PRESET)
-        throw new WriterSessionError('wrong-mode', 'writer mode requires a script workspace')
+        throw new WriterSessionError('wrong-mode', 'writer mode requires a playbook workspace')
     })
     yield ctx.on('session/prompt-admission', async (agent, _message, next) => { const message = await next(); return message === null ? null : service.admit(agent, message) })
     for (const agent of ctx.agents.list()) service.attach(agent)
-    for (const method of ['scripts', 'writers', 'workspace', 'state', 'configure'] as const) {
+    for (const method of ['playbooks', 'writers', 'workspace', 'state', 'configure'] as const) {
       yield ctx.connection.fetch.register({
         path: `/api/papermoon-writer-sessions/${method}`, methods: ['POST'], requestBody: 'buffered',
         async fetch(request) {
@@ -64,9 +64,9 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
             const input = parsed.data.payload
             let value: unknown
             switch (method) {
-              case 'scripts': z.strictObject({}).parse(input); value = await service.scripts(); break
+              case 'playbooks': z.strictObject({}).parse(input); value = await service.playbooks(); break
               case 'writers': z.strictObject({}).parse(input); value = writers.list().map(({ id, name, sequence, description }) => ({ id, name, sequence, description })); break
-              case 'workspace': value = { workspaceId: (await service.workspace(scriptRequest.parse(input).scriptId)).id }; break
+              case 'workspace': value = { workspaceId: (await service.workspace(playbookRequest.parse(input).playbookId)).id }; break
               case 'state': value = service.view(await service.agent(sessionRequest.parse(input).sessionId)); break
               case 'configure': value = await service.configure(configureSchema.parse(input)); break
             }

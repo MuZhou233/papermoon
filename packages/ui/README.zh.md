@@ -14,7 +14,7 @@
 
 CodeEditor 封装 CodeMirror 6，提供行号、高亮、查找、撤销和只读展示。它报告文本变化，不负责保存或修订身份。明确的诊断目标会选中并滚动到从 1 开始的行列位置，由调用方核对该目标所属的内容。文件切换时，已挂载但暂时隐藏的编辑器保留编辑状态。JavaScript、TypeScript、JSON 和 Markdown 使用语法高亮，其他文件按纯文本显示。高亮不代表编译。
 
-CodeDiff 展示只读的前后内容，比较控件不合并或恢复内容。文案目录使用普通多行文本框，不套用代码编辑控件。这些流程由[剧本编辑器](../../plugins/story-editor/README.zh.md)负责。
+CodeDiff 展示只读的前后内容，比较控件不合并或恢复内容。文案目录使用普通多行文本框，不套用代码编辑控件。这些流程由[Playbook编辑器](../../plugins/playbook-editor/README.zh.md)负责。
 
 PromptTrace 展示 system、user 和 assistant 消息的原文，保留顺序与换行，不解析 Markdown，也不分配运行时事件身份。
 

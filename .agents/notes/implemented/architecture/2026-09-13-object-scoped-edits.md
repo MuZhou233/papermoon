@@ -10,7 +10,7 @@ Program and text tools share a mutable draft. Requiring the model to supply its 
 
 ## Decision
 
-[Local tools](../../../../plugins/story-tools/README.md#session-observations) compare affected objects with the session's original observations, then apply their operations to a fresh complete snapshot. The core validates the resulting structure. Existing storage transactions check the snapshot sequence before saving its KV changes. A rejected sequence check permits recalculation with the same intent and observations, with a maximum of three attempts. This partially replaces the model-supplied edit sequence described by the [writer-session decision](2026-09-12-writer-sessions.md); session ownership and observation lifetime remain unchanged.
+[Local tools](../../../../plugins/playbook-tools/README.md#session-observations) compare affected objects with the session's original observations, then apply their operations to a fresh complete snapshot. The core validates the resulting structure. Existing storage transactions check the snapshot sequence before saving its KV changes. A rejected sequence check permits recalculation with the same intent and observations, with a maximum of three attempts. This partially replaces the model-supplied edit sequence described by the [writer-session decision](2026-09-12-writer-sessions.md); session ownership and observation lifetime remain unchanged.
 
 Database contents remain authoritative. Candidates acquire a persisted identity only after commit. Receipts and observation updates use that committed snapshot, even when a later writer has already advanced the draft. Internal reads grant no authority over other objects. A removed observed translation conflicts until a new read establishes its absence. Default-language changes use a separate observed value.
 
@@ -18,7 +18,7 @@ Commits and restoration retain explicit complete-draft sequence checks. Language
 
 ## Alternatives considered
 
-Removing storage sequence checks would allow old candidates to overwrite newer data. Replacing the expected sequence without recalculating content has the same defect. Per-KV conditional writes would still couple translations and shared settings, while moving business-field checks into SQL would make the storage module depend on authoring rules. Holding a write transaction across business callbacks would lengthen lock ownership and change the storage interface. Exclusive script binding would prevent the intended shared editing workflow.
+Removing storage sequence checks would allow old candidates to overwrite newer data. Replacing the expected sequence without recalculating content has the same defect. Per-KV conditional writes would still couple translations and shared settings, while moving business-field checks into SQL would make the storage module depend on authoring rules. Holding a write transaction across business callbacks would lengthen lock ownership and change the storage interface. Exclusive playbook binding would prevent the intended shared editing workflow.
 
 ## Consequences
 

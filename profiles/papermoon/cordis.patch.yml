@@ -1,22 +1,22 @@
 - insert:
-    - id: papermoon-story-storage
-      name: '../../plugins/story-storage/lib/plugin.js'
+    - id: papermoon-playbook-storage
+      name: '../../plugins/playbook-storage/lib/plugin.js'
       config:
-        path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/story.sqlite'"
-    - id: papermoon-story-core
-      name: '../../plugins/story-core/lib/plugin.js'
-    - id: papermoon-story-compiler
-      name: '../../plugins/story-compiler/lib/plugin.js'
+        path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/playbook.sqlite'"
+    - id: papermoon-playbook-core
+      name: '../../plugins/playbook-core/lib/plugin.js'
+    - id: papermoon-playbook-compiler
+      name: '../../plugins/playbook-compiler/lib/plugin.js'
       config:
-        directory: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/compiled-stories'"
-    - id: papermoon-story-editor
-      name: '../../plugins/story-editor/lib/index.js'
+        directory: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/compiled-playbooks'"
+    - id: papermoon-playbook-editor
+      name: '../../plugins/playbook-editor/lib/index.js'
     - id: papermoon-writers
       name: '../../plugins/writers/lib/index.js'
       config:
         path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/writers.sqlite'"
-    - id: papermoon-story-workspaces
-      name: '../../plugins/story-workspaces/lib/index.js'
+    - id: papermoon-playbook-workspaces
+      name: '../../plugins/playbook-workspaces/lib/index.js'
       config:
         cwd: !!js process.cwd()
     - id: papermoon-performances

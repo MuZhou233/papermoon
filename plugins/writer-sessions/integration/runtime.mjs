@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { StoryStorage } from '../../story-storage/lib/index.js'
-import { StoryRepository } from '../../story-core/lib/repository.js'
+import { PlaybookStorage } from '../../playbook-storage/lib/index.js'
+import { PlaybookRepository } from '../../playbook-core/lib/repository.js'
 import { WriterRepository } from '../../writers/lib/repository.js'
 import { createWriterTemplate } from '../../writers/lib/model.js'
 import { WriterSessions, PRESET } from '../lib/index.js'
-import { CompilationService } from '../../story-compiler/lib/service.js'
-import { ArtifactStore } from '../../story-compiler/lib/store.js'
+import { CompilationService } from '../../playbook-compiler/lib/service.js'
+import { ArtifactStore } from '../../playbook-compiler/lib/store.js'
 const base = new URL('../../../dsh/', import.meta.url)
 const moduleAt = path => import(new URL(path + '/lib/index.js', base).href)
 const { Context } = await moduleAt('vendor/cordis')
@@ -21,7 +21,7 @@ const { default: Agents } = await moduleAt('packages/core/agent')
 const { default: Loop } = await moduleAt('packages/core/agent-loop')
 const { default: Projections } = await moduleAt('packages/session/session-projection')
 const directory = mkdtempSync(join(tmpdir(), 'papermoon-writer-runtime-')), root = new Context()
-const storage = new StoryStorage({ path: join(directory, 'story.sqlite') }), core = new StoryRepository(storage)
+const storage = new PlaybookStorage({ path: join(directory, 'playbook.sqlite') }), core = new PlaybookRepository(storage)
 const writers = new WriterRepository({ path: join(directory, 'writers.sqlite') })
 const compiler = new CompilationService(core, new ArtifactStore(join(directory, 'compiled')))
 let service
@@ -40,10 +40,10 @@ try {
       requests.push(options)
       const ordinal = requests.length
       if (ordinal <= 3) {
-        const name = ordinal === 1 ? 'story_program_read' : ordinal === 2 ? 'story_program_edit' : 'story_compile'
+        const name = ordinal === 1 ? 'playbook_program_read' : ordinal === 2 ? 'playbook_program_edit' : 'playbook_compile'
         const args = ordinal === 1 ? { path: 'main.js' } : ordinal === 2 ? { operations: [{ kind: 'replace-file', path: 'main.js', source: 'after' }] } : { ref: { kind: 'draft', sequence: 3 } }
         const blocks = [{ type: 'tool-call', id: llm.ToolCallId('call-' + ordinal), name, arguments: JSON.stringify(args) }]
-        if (ordinal === 2) blocks.push({ type: 'tool-call', id: llm.ToolCallId('call-text'), name: 'story_text_edit', arguments: JSON.stringify({ operations: [{ kind: 'create-text', key: 'opening' }, { kind: 'set-translation', key: 'opening', language: 'en', text: 'A separate text edit' }] }) })
+        if (ordinal === 2) blocks.push({ type: 'tool-call', id: llm.ToolCallId('call-text'), name: 'playbook_text_edit', arguments: JSON.stringify({ operations: [{ kind: 'create-text', key: 'opening' }, { kind: 'set-translation', key: 'opening', language: 'en', text: 'A separate text edit' }] }) })
         for (const [index, block] of blocks.entries()) {
           yield { type: 'block-start', index, blockType: 'tool-call' }
           yield { type: 'block-end', index, block }
@@ -57,8 +57,8 @@ try {
     }
   }
   root.llm.registerAdapter(['deterministic'], new Adapter())
-  const project = core.createProject({ name: 'Runtime' }), script = core.createScript({ projectId: project.id, name: 'Script', defaultLanguage: 'en' })
-  core.editDraft({ scriptId: script.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'main.js', source: 'before' }, { kind: 'create-file', path: 'story.js', source: 'module.exports={systemPrompt:"Compiled opening",messages:[]}' }] })
+  const project = core.createProject({ name: 'Runtime' }), playbook = core.createPlaybook({ projectId: project.id, name: 'Playbook', defaultLanguage: 'en' })
+  core.editDraft({ playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'main.js', source: 'before' }, { kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"Compiled opening",messages:[]}' }] })
   const writer = writers.create({ ...createWriterTemplate('Writer'), systemPrompt: '  {{literal}}\n', messages: [
     { id: 'one', name: 'One', role: 'user', content: '' }, { id: 'two', role: 'user', content: 'second' },
     { id: 'three', role: 'assistant', content: 'acknowledged' }, { id: 'four', role: 'assistant', content: '{{untouched}}' },
@@ -67,7 +67,7 @@ try {
   service = new WriterSessions(host, { core, writers, compiler }, directory)
   const agent = await root.agentLoop.create(SessionId('writer-runtime'), { provider: 'deterministic', model: 'test' }, { cwd: directory })
   agent.session.append('agent-preset/selected', { agentPreset: PRESET })
-  service.prepare(agent, script.id)
+  service.prepare(agent, playbook.id)
   await service.configure({ sessionId: agent.id, writerId: writer.id, writerSequence: writer.sequence })
   const send = text => agent.followup(service.admit(agent, llm.createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })))
   send('Write'); await agent.whenIdle()
@@ -79,10 +79,10 @@ try {
   assert.deepEqual(requests[0].messages.map(message => message.role), ['system', 'user', 'user', 'assistant', 'assistant', 'user'])
   assert.deepEqual(requests[0].messages.map(message => message.content.map(block => block.text).join('')), ['  {{literal}}\n', '', 'second', 'acknowledged', '{{untouched}}', 'Write'])
   assert.equal(requests[0].tools.length, 16)
-  for (const name of ['story_program_edit', 'story_text_edit']) assert.equal(Object.hasOwn(requests[0].tools.find(tool => tool.name === name).parameters.properties, 'expectedSequence'), false)
-  assert.equal(core.readSnapshot({ kind: 'draft', scriptId: script.id }).content.texts.entries.get('opening').translations.get('en').text, 'A separate text edit')
+  for (const name of ['playbook_program_edit', 'playbook_text_edit']) assert.equal(Object.hasOwn(requests[0].tools.find(tool => tool.name === name).parameters.properties, 'expectedSequence'), false)
+  assert.equal(core.readSnapshot({ kind: 'draft', playbookId: playbook.id }).content.texts.entries.get('opening').translations.get('en').text, 'A separate text edit')
   assert.equal(root.tools.schemas().length, 0)
-  assert.equal(core.readFile({ kind: 'draft', scriptId: script.id }, 'main.js').file.source, 'after')
+  assert.equal(core.readFile({ kind: 'draft', playbookId: playbook.id }, 'main.js').file.source, 'after')
   assert.equal(events.filter(event => event.type === 'context/message').length, 4)
   send('Continue'); await agent.whenIdle()
   assert.equal(agent.session.snapshotEvents().filter(event => event.type === 'context/message').length, 4)

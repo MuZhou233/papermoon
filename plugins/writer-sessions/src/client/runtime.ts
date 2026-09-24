@@ -59,8 +59,8 @@ export class Runtime {
       if (generation === this.generation) this.publish({ sessionId, view, busy: false })
     } catch (error) { if (generation === this.generation) this.publish({ ...this.state, busy: false, error: String(error) }) }
   }
-  async workspace(scriptId: string): Promise<string> {
-    const { workspaceId } = await this.call<{ workspaceId: string }>('workspace', { scriptId })
+  async workspace(playbookId: string): Promise<string> {
+    const { workspaceId } = await this.call<{ workspaceId: string }>('workspace', { playbookId })
     const source = this.host.workspaces.list
     if (source.getSnapshot().items.some(item => item.workspaceId === workspaceId)) return workspaceId
     await new Promise<void>((resolve, reject) => {

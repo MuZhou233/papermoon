@@ -20,7 +20,7 @@ Keeping product code in the framework tree would mix ownership and delivery obli
 
 Upgrades explicitly update the Gitlink and patch evidence. Initialization discards unexported managed source changes while preserving ignored configuration and parent data. Build and launch are separate. Main and submodule checks retain independent scope; an applied patch alone is not delivery evidence.
 
-The [manual-editor decision](2026-09-12-manual-script-editor.md) adds product composition to root startup while retaining an original-Web command; the submodule and process-ownership decisions here still apply.
+The [manual-editor decision](2026-09-12-manual-playbook-editor.md) adds product composition to root startup while retaining an original-Web command; the submodule and process-ownership decisions here still apply.
 
 DSH checks retain setup’s CI package-manager environment. This keeps the submodule dependency layout stable when the parent is invoked interactively.
 

@@ -3,13 +3,13 @@ import { z } from 'zod'
 import { writerSchema, type Writer } from '@papermoon/writers'
 export const PRESET = 'papermoon-writer'
 export const CONFIG_KEY = 'papermoon.writer'
-export const TARGET_PROVIDER = 'papermoon-script'
+export const TARGET_PROVIDER = 'papermoon-playbook'
 export const preparationSchema = z.strictObject({
-  version: z.literal(1), scriptId: z.string().min(1),
+  playbookId: z.string().min(1),
   writer: z.strictObject({ id: z.string().min(1), sequence: z.number().int().nonnegative() }).optional(),
 })
 export type Preparation = z.infer<typeof preparationSchema>
-export const fixedSchema = z.strictObject({ version: z.literal(1), originSessionId: z.string().min(1), scriptId: z.string().min(1), writer: writerSchema })
+export const fixedSchema = z.strictObject({ originSessionId: z.string().min(1), playbookId: z.string().min(1), writer: writerSchema })
 export type FixedWriter = z.infer<typeof fixedSchema>
 export interface LogRecord { type: string; data: unknown }
 export interface SessionLog { header: { agentPreset?: string }; snapshotEvents(): readonly LogRecord[] }

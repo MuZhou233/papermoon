@@ -21,13 +21,13 @@
     "docs:record": "tsx tooling/checks/cli.ts record",
     "note": "tsx tooling/checks/note-cli.ts",
     "test:smoke": "tsx tooling/tests/smoke.ts",
-    "build:plugins": "tsc -p plugins/story-storage/tsconfig.build.json && tsc -p plugins/story-core/tsconfig.build.json && tsc -p plugins/story-compiler/tsconfig.build.json && tsc -p plugins/story-tools/tsconfig.build.json && tsc -p plugins/writers/tsconfig.build.json && tsx tooling/repository/build-clients.ts",
-    "check:plugins:dsh": "tsc -p plugins/story-storage/integration/tsconfig.json && node --import tsx/esm plugins/story-storage/integration/cordis.ts && tsc -p plugins/story-core/integration/tsconfig.json && node --import tsx/esm plugins/story-core/integration/cordis.ts && tsc -p plugins/story-tools/integration/tsconfig.json && node --import tsx/esm plugins/story-tools/integration/cordis.ts && node plugins/writer-sessions/integration/runtime.mjs && node plugins/story-compiler/integration/cordis.mjs && node plugins/performances/integration/runtime.mjs",
-    "check:plugins:pure": "node plugins/story-core/integration/pure-import.mjs && node plugins/performances/integration/pure-reader.mjs",
+    "build:plugins": "tsc -p plugins/playbook-storage/tsconfig.build.json && tsc -p plugins/playbook-core/tsconfig.build.json && tsc -p plugins/playbook-compiler/tsconfig.build.json && tsc -p plugins/playbook-tools/tsconfig.build.json && tsc -p plugins/writers/tsconfig.build.json && tsx tooling/repository/build-clients.ts",
+    "check:plugins:dsh": "tsc -p plugins/playbook-storage/integration/tsconfig.json && node --import tsx/esm plugins/playbook-storage/integration/cordis.ts && tsc -p plugins/playbook-core/integration/tsconfig.json && node --import tsx/esm plugins/playbook-core/integration/cordis.ts && tsc -p plugins/playbook-tools/integration/tsconfig.json && node --import tsx/esm plugins/playbook-tools/integration/cordis.ts && node plugins/writer-sessions/integration/runtime.mjs && node plugins/playbook-compiler/integration/cordis.mjs && node plugins/performances/integration/runtime.mjs",
+    "check:plugins:pure": "node plugins/playbook-core/integration/pure-import.mjs && node plugins/performances/integration/pure-reader.mjs",
     "start:dsh": "tsx tooling/repository/cli.ts start-dsh",
-    "test:editor": "playwright test --config plugins/story-editor/playwright.config.ts",
+    "test:editor": "playwright test --config plugins/playbook-editor/playwright.config.ts",
     "test:writer-sessions": "playwright test --config plugins/writer-sessions/playwright.config.ts",
-    "check:compiler:built": "node plugins/story-compiler/integration/built.mjs"
+    "check:compiler:built": "node plugins/playbook-compiler/integration/built.mjs"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",

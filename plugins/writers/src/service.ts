@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { toolCatalog } from '@papermoon/story-tools/catalog'
+import { toolCatalog } from '@papermoon/playbook-tools/catalog'
 import type { WriterRepository } from './repository.ts'
 import { WriterError, resolveWriterContext, type Writer } from './model.ts'
 import { schemas, type Method } from './protocol.ts'

@@ -10,7 +10,7 @@ PaperMoon needs a complete set of maintenance tools and rules. Product work in t
 
 ## Decision
 
-The main repository owns its engineering rules, bilingual documentation, adapted checkers and complete Agent Note lifecycle. Effective DSH patches retain its code and runtime constraints; the [patch-maintenance decision](../architecture/2026-09-18-patch-maintenance.md) defines documentation, decision ownership and delivery scope. Checks and CI are explicit, with no custom main hook installer.
+The main repository owns its engineering rules, bilingual documentation, adapted checkers and complete Agent Note lifecycle. Effective DSH patches retain its code and runtime constraints; the [patch-maintenance decision](../architecture/2026-09-18-patch-maintenance.md) defines documentation, decision ownership and delivery scope. Checks and CI are explicit, with no custom main hook installer. The repository-root `tmp/` directory holds temporary research material and is outside the maintained-source inventory, so it does not require per-file bilingual exemptions. [Checker documentation](../../../../tooling/checks/README.md) defines the inventory scope.
 
 ## Alternatives considered
 

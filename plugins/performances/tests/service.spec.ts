@@ -3,25 +3,25 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { StoryStorage } from '@papermoon/story-storage'
-import { StoryRepository } from '@papermoon/story-core/repository'
-import { CompilationService, ArtifactStore } from '@papermoon/story-compiler/service'
+import { PlaybookStorage } from '@papermoon/playbook-storage'
+import { PlaybookRepository } from '@papermoon/playbook-core/repository'
+import { CompilationService, ArtifactStore } from '@papermoon/playbook-compiler/service'
 import { Performances, type PerformanceHost } from '../src/service.ts'
 import { performanceState, openingMessages } from '../src/model.ts'
 import { PRESET, CONFIG_KEY } from '../src/constants.ts'
-import { StoryWorkspaces } from '../../story-workspaces/src/index.ts'
-import type { Agent, LogRecord, Decision } from '../../story-workspaces/src/host.ts'
+import { PlaybookWorkspaces } from '../../playbook-workspaces/src/index.ts'
+import type { Agent, LogRecord, Decision } from '../../playbook-workspaces/src/host.ts'
 const cleanup: (() => void | Promise<void>)[] = []
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close() })
 async function fixture() {
-  const directory = mkdtempSync(join(tmpdir(), 'papermoon-performance-')), path = join(directory, 'story.sqlite')
-  const storage = new StoryStorage({ path }), core = new StoryRepository(storage)
+  const directory = mkdtempSync(join(tmpdir(), 'papermoon-performance-')), path = join(directory, 'playbook.sqlite')
+  const storage = new PlaybookStorage({ path }), core = new PlaybookRepository(storage)
   cleanup.push(() => { storage.close(); rmSync(directory, { recursive: true, force: true }) })
   const compiler = new CompilationService(core, new ArtifactStore(join(directory, 'compiled')))
   cleanup.push(() => compiler.close())
-  const project = core.createProject({ name: 'P' }), script = core.createScript({ projectId: project.id, name: 'S', defaultLanguage: 'en' })
-  core.editDraft({ scriptId: script.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'story.js', source: 'module.exports={systemPrompt:"  {{literal}}",messages:[{role:"assistant",content:"Welcome",name:"Opening"},{role:"user",content:"Background"},{role:"user",content:""}]}' }] })
-  const result = await compiler.submit({ scriptId: script.id, expectedSequence: 1, description: 'First' })
+  const project = core.createProject({ name: 'P' }), playbook = core.createPlaybook({ projectId: project.id, name: 'S', defaultLanguage: 'en' })
+  core.editDraft({ playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"  {{literal}}",messages:[{role:"assistant",content:"Welcome",name:"Opening"},{role:"user",content:"Background"},{role:"user",content:""}]}' }] })
+  const result = await compiler.submit({ playbookId: playbook.id, expectedSequence: 1, description: 'First' })
   if (!result.committed) throw new Error('fixture failed')
   await compiler.close()
   const agents = new Map<string, Agent>(), logs = new Map<string, LogRecord[]>(), variables = new Map<string, () => string>()
@@ -45,15 +45,15 @@ async function fixture() {
       list: async () => ({ items: [...logs.keys()].map(sessionId => ({ sessionId })) }),
       inspect: async (id: string) => ({ meta: { agentPreset: PRESET }, events: logs.get(id)! }),
       resolveAgent: async (id: string) => ({ agent: agents.get(id) ?? create(id, logs.get(id)) }),
-      create: async ({ sessionId }: { sessionId: string }) => { const agent = agents.get(sessionId) ?? create(sessionId); service.prepare(agent, script.id); return { sessionId } },
+      create: async ({ sessionId }: { sessionId: string }) => { const agent = agents.get(sessionId) ?? create(sessionId); service.prepare(agent, playbook.id); return { sessionId } },
       selectModel: async () => {},
     },
-    workspaceRegistry: { list: () => [], createResource: async () => ({ id: 'workspace', title: script.name, sessionIds: [], setTitle: async () => {} }) },
+    workspaceRegistry: { list: () => [], createResource: async () => ({ id: 'workspace', title: playbook.name, sessionIds: [], setTitle: async () => {} }) },
   } as unknown as PerformanceHost
-  const workspaces = new StoryWorkspaces(host, core, directory)
+  const workspaces = new PlaybookWorkspaces(host, core, directory)
   service = new Performances(host, core, workspaces); cleanup.push(() => service.close())
-  const input = { sessionId: 'play', scriptId: script.id, revisionId: result.revision.id, key: 'opening/0' }
-  return { core, storage, path, script, input, service, create, agents, logs, variables, steps, created: () => created }
+  const input = { sessionId: 'play', playbookId: playbook.id, revisionId: result.revision.id, key: 'opening/0' }
+  return { core, storage, path, playbook, input, service, create, agents, logs, variables, steps, created: () => created }
 }
 test('initializes once without a compiler and replays the complete frozen context after source deletion', async () => {
   const f = await fixture()
@@ -62,7 +62,7 @@ test('initializes once without a compiler and replays the complete frozen contex
   const agent = f.agents.get('play')!
   expect(agent.session.snapshotEvents().filter(e => e.type === 'session/configuration' && (e.data as { key: string }).key === CONFIG_KEY)).toHaveLength(1)
   expect(agent.session.snapshotEvents().some(e => e.type === 'user/message' || e.type === 'assistant/message')).toBe(false)
-  f.core.deleteScript(f.script.id)
+  f.core.deletePlaybook(f.playbook.id)
   expect(await f.service.start(f.input)).toEqual(first)
   expect(await f.service.view('play')).toMatchObject({ sourceMissing: true })
   const message = { id: 'user', role: 'user' as const, content: [{ type: 'text', text: 'Continue' }], source: { kind: 'user', admission: { historyVersion: 1 } } }
@@ -81,8 +81,8 @@ test('refuses missing attachments and cannot turn an incomplete revision into a 
   db.prepare('DELETE FROM revision_attachments WHERE revision_id=?').run(f.input.revisionId); db.close()
   await expect(f.service.start(f.input)).rejects.toMatchObject({ code: 'corrupt' })
   expect(f.created()).toBe(0)
-  const empty = f.core.commitRevision({ scriptId: f.script.id, expectedSequence: 2, description: 'Uncompiled' })
-  expect(f.service.choices(f.script.id).entry?.revision.id).toBe(empty.revision.id)
+  const empty = f.core.commitRevision({ playbookId: f.playbook.id, expectedSequence: 2, description: 'Uncompiled' })
+  expect(f.service.choices(f.playbook.id).entry?.revision.id).toBe(empty.revision.id)
   await expect(f.service.start({ ...f.input, revisionId: empty.revision.id })).rejects.toMatchObject({ code: 'artifact-not-found' })
 })
 test('freezes mode and identity and refuses damaged initialization rather than reading source again', async () => {
@@ -93,7 +93,7 @@ test('freezes mode and identity and refuses damaged initialization rather than r
   await expect(f.service.start({ ...f.input, key: 'opening/1' })).rejects.toThrow(/fixed/)
   const events = f.logs.get('play')!
   const event = events.find(e => e.type === 'session/configuration' && (e.data as { key: string }).key === CONFIG_KEY)!
-  ;(event.data as { value: { scriptName: string } }).value.scriptName = 'tampered'
+  ;(event.data as { value: { playbookName: string } }).value.playbookName = 'tampered'
   expect(() => performanceState(f.agents.get('play')!.session)).toThrow(/checksum/)
 })
 
@@ -152,14 +152,14 @@ test('inspects siblings outside the active path without changing selection or hi
 
 test('persists the context before dispatch and reuses a turn base without recomposing', async () => {
   const { PerformanceContext, eventMessage, contextRecord } = await import('../src/composition.ts')
-  const { StoryRuntime } = await import('@papermoon/story-compiler/execution')
+  const { PlaybookRuntime } = await import('@papermoon/playbook-compiler/execution')
   const f=await fixture(), first=await f.service.start(f.input), agent=f.agents.get('play')!
-  const runtime=new StoryRuntime();cleanup.push(()=>runtime.close())
+  const runtime=new PlaybookRuntime();cleanup.push(()=>runtime.close())
   const input={id:'compose-input',role:'user' as const,content:[{type:'text',text:'exact input'}],source:{kind:'user',admission:{historyVersion:1}}}
   await f.service.admit(agent,input)
   for(const entry of openingMessages(first.fixed))agent.session.append('context/message',entry)
   agent.session.append('turn/start', { turn: agent.session.snapshotEvents().filter(event=>event.type==='turn/start').length+1 }); agent.session.append('user/message',input)
-  const expand=(seq?:number):import('../../story-workspaces/src/host.ts').RequestMessage[]=>{
+  const expand=(seq?:number):import('../../playbook-workspaces/src/host.ts').RequestMessage[]=>{
     if(seq===undefined)return []
     const events=agent.session.snapshotEvents(), record=contextRecord(events[seq]!)!
     return [...(record.base===undefined?[]:expand(record.base)),...record.messages.map(p=>'message'in p?p.message:eventMessage(events[p.eventSeq]!)!)]
@@ -191,9 +191,9 @@ test('persists the context before dispatch and reuses a turn base without recomp
 })
 test('blocks future requests when context durability is uncertain', async()=>{
   const {PerformanceContext}=await import('../src/composition.ts')
-  const {StoryRuntime}=await import('@papermoon/story-compiler/execution')
+  const {PlaybookRuntime}=await import('@papermoon/playbook-compiler/execution')
   const f=await fixture(),first=await f.service.start(f.input),agent=f.agents.get('play')!
-  const runtime=new StoryRuntime();cleanup.push(()=>runtime.close())
+  const runtime=new PlaybookRuntime();cleanup.push(()=>runtime.close())
   const input={id:'u-save',role:'user' as const,content:[],source:{kind:'user',admission:{historyVersion:1}}}
   await f.service.admit(agent,input)
   for(const entry of openingMessages(first.fixed))agent.session.append('context/message',entry)

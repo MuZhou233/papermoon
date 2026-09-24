@@ -23,8 +23,8 @@
   },
   "dependencies": {
     "@papermoon/ui": "workspace:*",
-    "@papermoon/story-storage": "workspace:*",
-    "@papermoon/story-tools": "workspace:*",
+    "@papermoon/playbook-storage": "workspace:*",
+    "@papermoon/playbook-tools": "workspace:*",
     "zod": "4.1.5"
   },
   "peerDependencies": {

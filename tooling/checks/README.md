@@ -8,7 +8,7 @@ The main checks implement PaperMoon's selected maintenance rules. They never imp
 
 ## Configuration and commands
 
-`config.json` registers pairing exemptions by file path and reason, English word limits and type excerpts. The checker discovers main-repository Markdown files automatically. It rejects exemptions for missing files, translations without source documents and word-limit entries for missing documents. It also rejects symlinked sources and excludes dependencies, DSH and runtime data.
+`config.json` registers pairing exemptions by file path and reason, English word limits and type excerpts. The checker discovers main-repository Markdown files automatically. It rejects exemptions for missing files, translations without source documents and word-limit entries for missing documents. It also rejects symlinked sources and excludes dependencies, DSH, runtime data and the repository-root `tmp/` directory. Temporary research files in `tmp/` do not need individual exemptions; nested directories with the same name remain in scope.
 
 ```sh
 pnpm check:docs

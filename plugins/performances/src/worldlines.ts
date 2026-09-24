@@ -1,7 +1,7 @@
 /** Immutable turn nodes and selections reconstructed from the complete execution log. */
 import { randomUUID } from 'node:crypto'
-import { digest, canonical } from '@papermoon/story-compiler/runtime'
-import type { Agent, InputMessage, LogRecord } from '../../story-workspaces/src/host.ts'
+import { digest, canonical } from '@papermoon/playbook-compiler/runtime'
+import type { Agent, InputMessage, LogRecord } from '../../playbook-workspaces/src/host.ts'
 import type { FrozenPerformance } from './model.ts'
 import { projectActions, type PerformanceActions } from './actions.ts'
 export const WORLDLINE = 'papermoon.worldline'
@@ -12,7 +12,7 @@ export interface WorldNode {
   outcome: string; stateHead: string; requests: number[]; response: string; sealedAt: number
 }
 interface Fact {
-  namespace: typeof WORLDLINE; version: 1; artifact: string; operationId: string; identity: string
+  namespace: typeof WORLDLINE; artifact: string; operationId: string; identity: string
   kind: 'root' | 'begin' | 'seal' | 'select'; node?: WorldNode; run?: Run; selected: string; checksum: string
 }
 export class WorldlineError extends Error {
@@ -54,7 +54,7 @@ function foldWorldlines(events: readonly LogRecord[], fixed: FrozenPerformance) 
     const record = data(event), fact = record.metadata
     if (fact?.namespace !== WORLDLINE) fail('performance contains an unowned history selection')
     const { checksum, ...payload } = fact
-    if (fact.version !== 1 || fact.artifact !== fixed.checksum || digest(payload) !== checksum || event.seq === undefined || record.version !== version + 1) fail('worldline selection is damaged')
+    if (fact.artifact !== fixed.checksum || digest(payload) !== checksum || event.seq === undefined || record.version !== version + 1) fail('worldline selection is damaged')
     if (fact.kind === 'root' || fact.kind === 'seal') {
       const node = fact.node
       if (!node || nodes.has(node.id) || node.ordinal !== nodes.size || (fact.kind === 'root' ? nodes.size !== 0 || node.parent !== null : !pending || node.id !== pending.id || node.parent !== pending.parent)) fail('worldline node identity is inconsistent')
@@ -75,11 +75,10 @@ function foldWorldlines(events: readonly LogRecord[], fixed: FrozenPerformance) 
     if (previous && previous.identity !== fact.identity) fail('worldline operation identity changed')
     operations.set(fact.operationId, { identity: fact.identity, selected, kind: fact.kind })
   }
-  return { nodes, operations, remembered, selected, version, pending, legacy: nodes.size === 0 }
+  return { nodes, operations, remembered, selected, version, pending }
 }
 export function activeRecords(events: readonly LogRecord[], fixed: FrozenPerformance) {
   const state = worldlineState(events, fixed)
-  if (state.legacy) return [...events]
   const ranges = pathRanges(state.nodes, state.selected)
   if (state.pending && events.length > state.pending.start) ranges.push({ start: state.pending.start, end: events.length - 1 })
   return recordsFor(events, ranges)
@@ -102,14 +101,14 @@ export class Worldlines {
     try { if (!await this.flush()) throw new Error('session has no durability provider') }
     catch (error) { this.blocked = new WorldlineError('worldline-save-failed', 'worldline persistence is unconfirmed: ' + String(error)); throw this.blocked }
   }
-  private async append(fact: Omit<Fact, 'checksum' | 'namespace' | 'version' | 'artifact'>, ranges: Range[]) {
+  private async append(fact: Omit<Fact, 'checksum' | 'namespace' | 'artifact'>, ranges: Range[]) {
     this.check()
-    const state = this.state(), payload = { ...fact, namespace: WORLDLINE, version: 1 as const, artifact: this.fixed.checksum }
+    const state = this.state(), payload = { ...fact, namespace: WORLDLINE, artifact: this.fixed.checksum }
     this.agent.session.append('history/selected', { version: state.version + 1, ranges, metadata: { ...payload, checksum: digest(payload) } })
     await this.durable()
   }
   async initialize() {
-    if (!this.state().legacy) return
+    if (this.state().nodes.size) return
     const end = this.agent.session.snapshotEvents().length - 1
     const node: WorldNode = { id: randomUUID(), parent: null, ordinal: 0, ranges: end < 0 ? [] : [{ start: 0, end }], outcome: 'initialized', stateHead: this.fixed.checksum, requests: [], response: '', sealedAt: Date.now() }
     await this.append({ kind: 'root', node, selected: node.id, operationId: 'initialize', identity: this.fixed.checksum }, node.ranges)
@@ -125,7 +124,7 @@ export class Worldlines {
   async admit(message: InputMessage, persist = true): Promise<InputMessage | null> {
     this.check()
     const state = this.state()
-    if (state.legacy) throw new WorldlineError('worldline-legacy', 'this performance is read-only; start a new performance to use worldlines')
+    if (!state.nodes.has(state.selected)) fail('worldline initialization is missing')
     const operation = message.source.admission?.[WORLDLINE] as WorldOperation | undefined
     const operationId = typeof message.source.rpcId === 'string' ? message.source.rpcId : message.id
     const prior = state.operations.get(operationId), identity = canonical(operation ?? message.content)

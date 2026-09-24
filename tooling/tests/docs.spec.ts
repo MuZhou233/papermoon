@@ -25,15 +25,19 @@ function pair(root: string, en = '# Guide\n\nEnglish | [中文](README.zh.md)\n\
   put(root, 'README.md', en); put(root, 'README.zh.md', zh); put(root, 'README.i18n.yaml', pairRecord('README.md', en, zh))
 }
 describe('main-repository documentation', () => {
-  it('passes independently of an absent or invalid DSH checkout', async () => {
+  it('excludes the root DSH checkout and temporary files without hiding nested sources', async () => {
     const root = make(); pair(root)
     expect(await checkDocs(root)).toEqual([])
     put(root, 'dsh/README.md', '[broken](missing.md)')
     put(root, 'dsh/broken.ts', 'this is not valid code')
+    put(root, 'tmp/README.md', '[broken](missing.md)')
     expect(await checkDocs(root)).toEqual([])
     expect(repoFiles(root)).not.toContain('dsh/README.md')
+    expect(repoFiles(root)).not.toContain('tmp/README.md')
     put(root, 'plugins/example/dsh/README.md', 'owned source')
+    put(root, 'plugins/example/tmp/README.md', 'owned source')
     expect(repoFiles(root)).toContain('plugins/example/dsh/README.md')
+    expect(repoFiles(root)).toContain('plugins/example/tmp/README.md')
   })
   it('finds missing translations, stale hashes, broken consolidation links and unmatched structures', async () => {
     const root = make(); pair(root)

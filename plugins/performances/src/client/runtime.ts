@@ -63,9 +63,9 @@ export class Runtime {
       this.blocked.add(state.sessionId)
     }
     const running = state.sessionId && this.host.sessions.binding(state.sessionId)?.session.getSnapshot().running
-    if (state.sessionId && state.view?.worldline && (running || state.view.worldline.pending || state.view.worldline.legacy)) {
+    if (state.sessionId && state.view?.worldline && (running || state.view.worldline.pending)) {
       const t = this.host.locale.bind('papermoon-performances')
-      this.host.conversation.blocks.set(state.sessionId, { reason: t(state.view.worldline.legacy ? 'legacy' : 'generating'), submissionOnly: !state.view.worldline.legacy }, 'papermoon-performance')
+      this.host.conversation.blocks.set(state.sessionId, { reason: t('generating'), submissionOnly: true }, 'papermoon-performance')
       this.blocked.add(state.sessionId)
     }
     for (const listener of this.listeners) listener()
@@ -77,7 +77,7 @@ export class Runtime {
     try { const view = await this.call<View>('state', { sessionId }); if (generation === this.generation) this.publish({ sessionId, view }) }
     catch (error) { if (generation === this.generation && !this.abort.signal.aborted) this.publish({ sessionId, error: String(error) }) }
   }
-  launch(scriptId?: string, revisionId?: string) { window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { scriptId, revisionId } })) }
+  launch(playbookId?: string, revisionId?: string) { window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { playbookId, revisionId } })) }
   async open(sessionId: string) {
     await this.host.sessions.refresh()
     this.host.sessions.open(sessionId)

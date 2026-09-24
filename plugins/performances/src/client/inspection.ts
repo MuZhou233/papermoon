@@ -15,7 +15,7 @@ export interface InspectionData {
   openSource?:(target:string)=>void;readRequest?:(turn:number,step:number)=>Promise<unknown>
 }
 function preferences(id:string):Preferences {
-  try {const value=JSON.parse(localStorage.getItem('papermoon.inspection:'+id)??'null');if(value?.version===1)return {nodeId:typeof value.nodeId==='string'?value.nodeId:undefined,mode:value.mode==='original'||value.mode==='rewritten'?value.mode:undefined,collapsed:value.collapsed===true,offset:Number.isSafeInteger(value.offset)&&value.offset>=0?value.offset:0}} catch { /* Invalid local navigation preferences do not change durable history. */ }
+  try {const value=JSON.parse(localStorage.getItem('papermoon.inspection:'+id)??'null');if(value && typeof value==='object')return {nodeId:typeof value.nodeId==='string'?value.nodeId:undefined,mode:value.mode==='original'||value.mode==='rewritten'?value.mode:undefined,collapsed:value.collapsed===true,offset:Number.isSafeInteger(value.offset)&&value.offset>=0?value.offset:0}} catch { /* Invalid local navigation preferences do not change durable history. */ }
   return {collapsed:false,offset:0}
 }
 export class Inspection {
@@ -32,7 +32,7 @@ export class Inspection {
   constructor(readonly runtime:Runtime,readonly t:T){this.stop=runtime.subscribe(this.observe);this.observe()}
   private publish(patch:Partial<typeof this.state>){this.state={...this.state,...patch};for(const listener of this.listeners)listener()}
   private setProjection(value:InspectionData|null){this.projectionValue=value;for(const listener of this.projectionListeners)listener()}
-  private remember(){const {sessionId,preferences}=this.state;if(sessionId)localStorage.setItem('papermoon.inspection:'+sessionId,JSON.stringify({version:1,...preferences}))}
+  private remember(){const {sessionId,preferences}=this.state;if(sessionId)localStorage.setItem('papermoon.inspection:'+sessionId,JSON.stringify(preferences))}
   mode():InspectionMode {
     const {view}=this.runtime.getSnapshot(),{preferences}=this.state
     const root=this.state.detail!==undefined&&this.state.detail.node.id===preferences.nodeId&&this.state.detail.node.parent===null || view?.worldline?.nodes.find(node=>node.id===preferences.nodeId)?.parent===null
@@ -40,7 +40,7 @@ export class Inspection {
   }
   observe=()=>{
     const {sessionId,view}=this.runtime.getSnapshot()
-    if(!view?.worldline || view.worldline.legacy || !sessionId){if(this.state.sessionId){this.off?.();this.off=undefined;this.generation++;this.pageGeneration++;this.publish({sessionId:undefined,page:undefined,detail:undefined});this.setProjection(null)}return}
+    if(!view?.worldline || !sessionId){if(this.state.sessionId){this.off?.();this.off=undefined;this.generation++;this.pageGeneration++;this.publish({sessionId:undefined,page:undefined,detail:undefined});this.setProjection(null)}return}
     if(sessionId!==this.state.sessionId){this.off?.();this.generation++;this.pageGeneration++;this.publish({sessionId,preferences:preferences(sessionId),page:undefined,detail:undefined});this.setProjection(null);this.off=this.runtime.host.trajectoryInspection.register(sessionId,this.projection);this.signature=''}
     if(!this.state.preferences.nodeId){this.state.preferences.nodeId=view.worldline.selected}
     const signature=JSON.stringify([sessionId,view.worldline.version,view.worldline.count,view.worldline.pending?.id])

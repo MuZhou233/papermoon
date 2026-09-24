@@ -10,7 +10,7 @@ A performance needs alternative outcomes without losing prior executions. Reusin
 
 ## Decision
 
-The [performance plugin](../../../../plugins/performances/README.md#worldlines) seals one input and its complete execution as a node in one Session. Root and child nodes are immutable. Separate selection records identify the active ancestor path, remembered candidate descendants and operation identity. Checksummed versioned facts use DSH's required history-selection event; no separate history database exists.
+The [performance plugin](../../../../plugins/performances/README.md#worldlines) seals one input and its complete execution as a node in one Session. Root and child nodes are immutable. Separate selection records identify the active ancestor path, remembered candidate descendants and operation identity. Checksummed facts use DSH's required history-selection event; no separate history database exists.
 
 Actions inherit the selected parent's state and retain committed changes even when the final model response fails. Receipt recovery occurs before sealing. Unconfirmed persistence or missing receipts stop progress. Recovery seals interrupted work without executing functions. This narrows the recovery timing of [durable functions](2026-09-13-closure-functions.md), whose action and artifact rules remain in force.
 
@@ -28,6 +28,6 @@ Hidden child Sessions would split one visible performance across independently m
 
 The history-selection event is required but does not change structural Session format; unaware readers reject it. Shared tests cover invalid references, selected replacement evidence, raw-prefix reconstruction, admission, client selection and Session/SDK replay.
 
-Chat follows runtime selection; trajectory inspects a chosen path or its saved composed context. Audit and usage remain chronological. Reroll and sent-message editing create siblings; another input branches from the selected point. Editing combines replacement input and generation in one operation, preserving the unsent composer draft. Reads and inspection do not change execution position. Existing performances without worldline records are read-only; no tree is inferred. Story and artifact formats remain unchanged.
+Chat follows runtime selection; trajectory inspects a chosen path or its saved composed context. Audit and usage remain chronological. Reroll and sent-message editing create siblings; another input branches from the selected point. Editing combines replacement input and generation in one operation, preserving the unsent composer draft. Reads and inspection do not change execution position. Initialized performances require worldline records. The [current-format decision](../simplification/2026-09-25-current-format-only.md) removes the former read-only fallback for performances without a tree.
 
 Worldline reads expose stable ordered nodes independently of model messages. Actual request prefixes remain reconstructable after switching. Custom context windows and summaries can consume nodes later without redefining recorded history. Engineering checks cover state, requests, recovery, scope and browser interactions; experience feedback remains separate.

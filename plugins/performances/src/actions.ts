@@ -1,15 +1,14 @@
 /** Performance-local commits bind one logged call to its original value and complete state. */
-import { canonical, digest } from '@papermoon/story-compiler/runtime'
-import { StoryRuntime } from '@papermoon/story-compiler/execution'
-import type { JsonObject, JsonValue } from '@papermoon/story-core'
-import type { FunctionDeclaration } from '@papermoon/story-compiler/types'
-import type { Agent, LogRecord } from '../../story-workspaces/src/host.ts'
+import { canonical, digest } from '@papermoon/playbook-compiler/runtime'
+import { PlaybookRuntime } from '@papermoon/playbook-compiler/execution'
+import type { JsonObject, JsonValue } from '@papermoon/playbook-core'
+import type { FunctionDeclaration } from '@papermoon/playbook-compiler/types'
+import type { Agent, LogRecord } from '../../playbook-workspaces/src/host.ts'
 import type { FrozenPerformance } from './model.ts'
 import { ACTION_KEY } from './constants.ts'
 import { activeRecords } from './worldlines.ts'
 const DELIVERY_FAILURE_KEY = 'papermoon.performance.delivery-failure'
 export interface Action {
-  version: 1
   artifactId: string
   previous: string
   call: { sessionId: string; seq: number; id: string; name: string; args: JsonObject }
@@ -37,7 +36,7 @@ export function projectActions(events: readonly LogRecord[], fixed: FrozenPerfor
     if (!action || typeof action !== 'object') throw new PerformanceActionError('corrupt-action', 'invalid action record')
     const { checksum, ...payload } = action
     const call = action.call
-    if (action.version !== 1 || action.artifactId !== fixed.artifact.id || action.previous !== head || digest(payload) !== checksum ||
+    if (action.artifactId !== fixed.artifact.id || action.previous !== head || digest(payload) !== checksum ||
       !call || !Number.isSafeInteger(call.seq) || call.seq < 0 || calls.has(call.seq) || typeof call.sessionId !== 'string' || typeof call.id !== 'string' ||
       !fixed.artifact.functions.some(fn => fn.name === call.name) || !action.state || typeof action.state !== 'object' || Array.isArray(action.state))
       throw new PerformanceActionError('corrupt-action', 'action record does not match its predecessor or frozen function')
@@ -52,7 +51,7 @@ export class PerformanceActions {
   private tail: Promise<unknown> = Promise.resolve()
   private readonly abort = new AbortController()
   private blocked = false
-  constructor(private readonly agent: Agent, private readonly fixed: FrozenPerformance, private readonly runtime: StoryRuntime, private readonly flush: () => Promise<boolean>) {}
+  constructor(private readonly agent: Agent, private readonly fixed: FrozenPerformance, private readonly runtime: PlaybookRuntime, private readonly flush: () => Promise<boolean>) {}
   private check() {
     if (this.abort.signal.aborted) throw new PerformanceActionError('closed', 'performance actions are closed')
     if (this.blocked) throw new PerformanceActionError('performance-save-failed', 'action persistence is unconfirmed; reopen the session before continuing')
@@ -62,7 +61,7 @@ export class PerformanceActions {
     catch (error) {
       this.blocked = true
       // This marker precedes the host's error receipt, whose generic Error encoding omits plugin codes.
-      if (action) this.agent.session.append('session/configuration', { key: DELIVERY_FAILURE_KEY, value: { version: 1, action: action.checksum } })
+      if (action) this.agent.session.append('session/configuration', { key: DELIVERY_FAILURE_KEY, value: { action: action.checksum } })
       throw new PerformanceActionError('performance-save-failed', 'action persistence could not be confirmed: ' + (error instanceof Error ? error.message : String(error)))
     }
   }
@@ -79,7 +78,7 @@ export class PerformanceActions {
       if (!result.ok) throw new PerformanceActionError(result.diagnostics[0]!.code, result.diagnostics.map(d => (d.location?.path ? d.location.path + (d.location.line ? ':' + d.location.line : '') + ': ' : '') + d.message).join('\n'))
       this.check(); combined.throwIfAborted()
       if (projectActions(activeRecords(this.agent.session.snapshotEvents(), this.fixed), this.fixed).head !== before.head) throw new PerformanceActionError('state-conflict', 'performance state changed before action commit')
-      const payload = { version: 1 as const, artifactId: this.fixed.artifact.id, previous: before.head,
+      const payload = { artifactId: this.fixed.artifact.id, previous: before.head,
         call: { sessionId: this.agent.id, seq: call.seq, id: callId, name, args: raw as JsonObject }, state: result.state, value: result.value }
       const action: Action = { ...payload, checksum: digest(payload) }
       if (Buffer.byteLength(canonical(action)) > this.fixed.artifact.options.limits.outputBytes) throw new PerformanceActionError('output-limit', 'complete action record exceeds outputBytes')
@@ -108,7 +107,7 @@ export class PerformanceActions {
       }
       const data = record(receipt), error = data.error as { code?: string } | undefined
       const deliveryFailed = events.some(event => event.type === 'session/configuration' && record(event).key === DELIVERY_FAILURE_KEY &&
-        (record(event).value as { version?: number; action?: string })?.version === 1 && (record(event).value as { action?: string }).action === action.checksum &&
+        (record(event).value as { action?: string })?.action === action.checksum &&
         (event.seq ?? -1) > seq && (event.seq ?? Infinity) < (receipt.seq ?? -1))
       const isError = (data.message as { content?: { type: string; isError?: boolean }[] })?.content?.some(block => block.type === 'tool-result' && block.isError)
       if (!isError || (!deliveryFailed && !['TOOL_OUTCOME_UNKNOWN', 'ABORTED'].includes(error?.code ?? ''))) continue

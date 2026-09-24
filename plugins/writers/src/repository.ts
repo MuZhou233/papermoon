@@ -1,9 +1,9 @@
-/** One connection owns writer settings; script content stays in its separate repository. */
+/** One connection owns writer settings; playbook content stays in its separate repository. */
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, closeSync, openSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { encodeJson } from '@papermoon/story-storage/value'
+import { encodeJson } from '@papermoon/playbook-storage/value'
 import {
   parseDefinition,
   writerSchema,
@@ -11,7 +11,6 @@ import {
   type Writer,
   type WriterDefinition,
 } from './model.ts'
-export const WRITERS_FORMAT_VERSION = 2
 export const WRITERS_APPLICATION_ID = 0x504d5752
 const table =
   'CREATE TABLE writers (id TEXT PRIMARY KEY, sequence INTEGER NOT NULL CHECK(sequence >= 0), body TEXT NOT NULL CHECK(json_valid(body))) STRICT'
@@ -48,15 +47,13 @@ export class WriterRepository {
     try {
       this.db.exec('PRAGMA busy_timeout=0; PRAGMA foreign_keys=ON')
       const id = this.db.prepare('PRAGMA application_id').get()!.application_id
-      const version = this.db.prepare('PRAGMA user_version').get()!.user_version
       const schema = this.db
         .prepare("SELECT sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'")
         .all()
-      const fresh = id === 0 && version === 0 && !schema.length
+      const fresh = id === 0 && !schema.length
       if (
         !fresh &&
         (id !== WRITERS_APPLICATION_ID ||
-          version !== WRITERS_FORMAT_VERSION ||
           schema.length !== 1 ||
           schema[0]!.sql !== table)
       )
@@ -80,7 +77,7 @@ export class WriterRepository {
       if (fresh)
         this.transaction(() =>
           this.db.exec(
-            `${table}; PRAGMA application_id=${WRITERS_APPLICATION_ID}; PRAGMA user_version=${WRITERS_FORMAT_VERSION}`,
+            `${table}; PRAGMA application_id=${WRITERS_APPLICATION_ID}`,
           ),
         )
       this.list()

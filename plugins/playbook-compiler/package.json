@@ -1,0 +1,21 @@
+{
+  "name": "@papermoon/playbook-compiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./lib/index.js",
+    "./runtime": "./lib/runtime.js",
+    "./service": "./lib/service.js",
+    "./plugin": "./lib/plugin.js",
+    "./types": "./lib/types.js",
+    "./revisions": "./lib/revisions.js",
+    "./execution": "./lib/execution.js"
+  },
+  "dependencies": {
+    "@papermoon/playbook-core": "workspace:*",
+    "acorn": "8.15.0",
+    "ajv": "8.20.0",
+    "typescript": "6.0.3"
+  }
+}

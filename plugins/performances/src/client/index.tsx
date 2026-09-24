@@ -14,7 +14,7 @@ export const inject = ['slots', 'locale', 'connection', 'sessions', 'uiAgentPres
 function StartButton({ runtime, t }: { runtime: Runtime; t: T }) {
   const mode = useSyncExternalStore(runtime.host.uiAgentPreset.store.subscribe, runtime.host.uiAgentPreset.store.getSnapshot)
   const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
-  return mode.current === PRESET && !state.view?.fixed ? <Button variant="ghost" onClick={() => runtime.launch(state.view?.scriptId)}>{t('start')}</Button> : null
+  return mode.current === PRESET && !state.view?.fixed ? <Button variant="ghost" onClick={() => runtime.launch(state.view?.playbookId)}>{t('start')}</Button> : null
 }
 function Source({ runtime, t }: { runtime: Runtime; t: T }) {
   const menu = useRef<HTMLDetailsElement>(null)
@@ -27,8 +27,8 @@ function Source({ runtime, t }: { runtime: Runtime; t: T }) {
   const { view } = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
   if (!view?.fixed) return null
   const fixed = view.fixed
-  return <details ref={menu} className="ppm-source"><summary>{t('source')} · {fixed.ordinal}</summary><div><strong>{fixed.scriptName} · {t('revision')} {fixed.ordinal}</strong><p className="ppm-preserve">{fixed.description}</p><p>{fixed.artifact.options.language} · {fixed.artifact.options.entry}</p>
-    {view.sourceMissing ? <p>{t('missing')}</p> : <Button onClick={() => { history.pushState(null, '', '#papermoon/' + encodeURIComponent(fixed.scriptId) + '?tab=history&revision=' + encodeURIComponent(fixed.revisionId)); runtime.host.layout.selectPanel('papermoon'); window.dispatchEvent(new Event('papermoon:navigate')) }}>{t('open')}</Button>}
+  return <details ref={menu} className="ppm-source"><summary>{t('source')} · {fixed.ordinal}</summary><div><strong>{fixed.playbookName} · {t('revision')} {fixed.ordinal}</strong><p className="ppm-preserve">{fixed.description}</p><p>{fixed.artifact.options.language} · {fixed.artifact.options.entry}</p>
+    {view.sourceMissing ? <p>{t('missing')}</p> : <Button onClick={() => { history.pushState(null, '', '#papermoon/' + encodeURIComponent(fixed.playbookId) + '?tab=history&revision=' + encodeURIComponent(fixed.revisionId)); runtime.host.layout.selectPanel('papermoon'); window.dispatchEvent(new Event('papermoon:navigate')) }}>{t('open')}</Button>}
     {view.runtime && <section className="ppm-inspection" aria-label={t('state')}>
       <details><summary>{t('state')}</summary><pre>{JSON.stringify(view.runtime.state, null, 2)}</pre></details>
       <details><summary>{t('actions')} · {view.runtime.actions.length}</summary>{view.runtime.actions.map(({action, seq}) => <details key={action.checksum}><summary>{seq} · {action.call.name}</summary><pre>{JSON.stringify(action, null, 2)}</pre></details>)}</details>
