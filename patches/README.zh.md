@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-本目录维护 PaperMoon 必需的 DSH 修改。主仓库的 Gitlink 固定官方基线，[series.json](series.json) 列出补丁和检查。产品行为优先通过 DSH 扩展点和 PaperMoon 插件实现。
+本目录维护 PaperMoon 必需的 DSH 修改。主仓库的 Gitlink 固定官方基线，[series.json](series.json) 列出补丁和检查。产品行为优先通过 DSH 扩展点和 PaperMoon 插件实现。尽量缩小补丁范围；为保证功能完整、职责清楚，确有必要时允许扩大。扩展时在所属 Note 记录上游缺口、受影响消费者及验证。
 
 `dsh/` 是受管理的检出目录。执行 `pnpm run setup` 前先导出需要保留的修改：该命令会重置已跟踪文件、删除未忽略的未跟踪文件，再应用补丁。运行数据和独立工作应放在此目录之外。初始化和升级操作见[开发文档](../docs/development.zh.md)。
 

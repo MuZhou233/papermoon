@@ -14,6 +14,8 @@ Playbook 指可复用的创作内容，定义背景、开场和互动机制；�
 
 主仓库独立规定自己的维护规则。使用 DSH 接口不会将其包结构、运行时设计规则、SDK 要求或组织工作流引入主库规范。[维护决策](../.agents/notes/implemented/process/2026-09-11-independent-maintenance.zh.md)记录了这一选择。
 
+PaperMoon 将 DSH `dsh-v0.1.7-rc.2` 固定到 `477b4f420553e8a52c2fbccc464d7561b239c443`。产品预设通过 registry 条目声明。通用 Session 协议、工具更新投影和客户端绑定生命周期仍由 DSH 负责；PaperMoon 负责预置内容、Playbook 策略和各会话的产品控件。
+
 ## 当前启动方式与数据
 
 启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，在标准 Web profile 上加载 PaperMoon 组合配置。子模块内的依赖安装、构建和登记的检查使用 `CI=true`，保持 DSH 的自动化安装行为和依赖布局。启动继承调用方环境。

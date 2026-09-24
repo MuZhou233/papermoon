@@ -25,9 +25,20 @@
       name: '../../plugins/writer-sessions/lib/index.js'
       config:
         cwd: !!js process.cwd()
-- id: agent-presets
-  config:
-    default: standard
-    roots:
-      - path: !!js process.cwd() + '/profiles/papermoon/presets'
-        trust: system
+- insert:
+    - id: preset-papermoon-writer
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: papermoon-writer
+        name: 编剧
+        description: PaperMoon writer conversation
+        order: 15
+        plugins: []
+    - id: preset-papermoon-moderator
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: papermoon-moderator
+        name: 演绎
+        description: PaperMoon text performance
+        order: 16
+        plugins: []

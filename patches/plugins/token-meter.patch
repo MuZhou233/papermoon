@@ -1,40 +1,40 @@
 diff --git a/packages/llm/token-meter/README.i18n.yaml b/packages/llm/token-meter/README.i18n.yaml
-index 6d29caf63e..74f219a7b8 100644
+index 161e2e3988..4b0df94c12 100644
 --- a/packages/llm/token-meter/README.i18n.yaml
 +++ b/packages/llm/token-meter/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/llm/token-meter/README.md
--README.md: 266aa8c53ffcc849967f90469822503ff3c897a9
--README.zh.md: 9018daa31b5190e25732467ac027e8fffc918da9
-+README.md: 950719aca91e7541a8ca0baa28178c3027bec7d3
-+README.zh.md: 575d34a78320df33880a62d7ed65ba75a7524217
+@@ -60,5 +60,5 @@
+   en: a8c57e6f8c5009a2
+   zh: 5975018d14bfbdbb
+ /deepseek-ai-dsh-token-meter/known-limitations-and-deferred-work/dev-note:
+-  en: ce725ee5fe2ebaa3
+-  zh: 0cd07dddbf4011c0
++  en: 30c9d6a5b654003b
++  zh: 3051c32a8b34c904
 diff --git a/packages/llm/token-meter/README.md b/packages/llm/token-meter/README.md
-index 266aa8c53f..950719aca9 100644
+index e6d957bd14..c7c67ae343 100644
 --- a/packages/llm/token-meter/README.md
 +++ b/packages/llm/token-meter/README.md
-@@ -153,3 +153,5 @@ This Dev Note is non-authoritative working context: notes for maintainers and op
+@@ -157,3 +157,5 @@ This Dev Note is non-authoritative working context: notes for maintainers and op
  </details>
  
  **Runtime invariant:** No companion is published. Usage folds replace samples within each attempt; totals need not be monotone. Composition and measurement share the positional replacement planner and fixed estimator, so their heuristic surface totals agree by construction rather than through independent mutable observations. Route-priced totals deliberately differ.
 +
 +estimateRequest prices an explicit assembled message array and effective tool declarations with the fixed heuristic. It does not read the transcript or change cumulative usage. Request-inspection consumers can use it for a selected historical request instead of pricing discarded history.
 diff --git a/packages/llm/token-meter/README.zh.md b/packages/llm/token-meter/README.zh.md
-index 9018daa31b..575d34a783 100644
+index 526be7b2e3..f09ecd0425 100644
 --- a/packages/llm/token-meter/README.zh.md
 +++ b/packages/llm/token-meter/README.zh.md
-@@ -153,3 +153,5 @@ const price = ctx.tokenMeter.estimateMessage(message)
+@@ -157,3 +157,5 @@ const price = ctx.tokenMeter.estimateMessage(message)
  </details>
  
  **运行时不变式：** 不发布伴生入口。用量 fold 在每次尝试内替换样本，总量不必单调。构成和测量共享位置替换规划器与固定估算器，因此启发式 surface 总量按构造一致，而非需要比较的独立可变观测。路由定价总量有意与之不同。
 +
 +estimateRequest 用固定启发式算法估算显式拼装消息数组和有效工具声明，不读取对话历史，也不改变累计用量。请求检查功能可用它估算指定历史请求，避免计入该请求未采用的历史。
 diff --git a/packages/llm/token-meter/src/index.ts b/packages/llm/token-meter/src/index.ts
-index 2693af5913..a70a1ce643 100644
+index f721d26219..ee2cde0794 100644
 --- a/packages/llm/token-meter/src/index.ts
 +++ b/packages/llm/token-meter/src/index.ts
-@@ -214,6 +214,15 @@ export class TokenMeter extends Service {
+@@ -215,6 +215,15 @@ export class TokenMeter extends Service {
      return estimateMessage(message)
    }
  
@@ -51,10 +51,10 @@ index 2693af5913..a70a1ce643 100644
    private _sync(session: Session): ReplayState {
      let state = this.states.get(session)
 diff --git a/packages/llm/token-meter/tests/token-meter.spec.ts b/packages/llm/token-meter/tests/token-meter.spec.ts
-index e795ea5507..5763b99086 100644
+index f207905573..8c553679eb 100644
 --- a/packages/llm/token-meter/tests/token-meter.spec.ts
 +++ b/packages/llm/token-meter/tests/token-meter.spec.ts
-@@ -644,3 +644,12 @@ describe('malformed replay and listener lifecycle', () => {
+@@ -640,3 +640,12 @@ describe('malformed replay and listener lifecycle', () => {
      await secondFiber.dispose()
    })
  })

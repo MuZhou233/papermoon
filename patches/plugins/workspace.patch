@@ -1,5 +1,5 @@
 diff --git a/packages/api/workspace-controller/src/feed.ts b/packages/api/workspace-controller/src/feed.ts
-index 57d38f18e5..c9a3705aaa 100644
+index 709f17fa5d..533d04e617 100644
 --- a/packages/api/workspace-controller/src/feed.ts
 +++ b/packages/api/workspace-controller/src/feed.ts
 @@ -24,6 +24,7 @@ export function workspaceView(workspace: Workspace): WorkspaceView {
@@ -19,10 +19,10 @@ index 57d38f18e5..c9a3705aaa 100644
      sessionIds: [...record.sessionIds],
      createdAt: record.createdAt,
 diff --git a/packages/api/workspace-controller/src/types.ts b/packages/api/workspace-controller/src/types.ts
-index aa053c8d67..54522a2d3c 100644
+index d5b98746be..1d3abac009 100644
 --- a/packages/api/workspace-controller/src/types.ts
 +++ b/packages/api/workspace-controller/src/types.ts
-@@ -15,6 +15,7 @@ export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-dir
+@@ -18,6 +18,7 @@ export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-dir
  export interface WorkspaceView {
    readonly workspaceId: WorkspaceId
    /** Canonical host directory path. */
@@ -30,69 +30,209 @@ index aa053c8d67..54522a2d3c 100644
    readonly path: string
    /** User-visible title. */
    readonly title: string
+diff --git a/packages/client/ui-agent-preset/README.i18n.yaml b/packages/client/ui-agent-preset/README.i18n.yaml
+index 7f08d21282..2e0df2e0ab 100644
+--- a/packages/client/ui-agent-preset/README.i18n.yaml
++++ b/packages/client/ui-agent-preset/README.i18n.yaml
+@@ -15,8 +15,8 @@
+   en: d152484eb41ac6b4
+   zh: b3ad7867f23dad1c
+ /deepseek-ai-dsh-client-ui-agent-preset/use-this-package:
+-  en: cf381c4f00b42c3f
+-  zh: 1b226687dcbd4875
++  en: 6afa0e275c46fef5
++  zh: 5e9a16023af4e342
+ /deepseek-ai-dsh-client-ui-agent-preset/understand-the-implementation:
+   en: 7813f0063c15e241
+   zh: 6eabc242edfc45ec
+diff --git a/packages/client/ui-agent-preset/README.md b/packages/client/ui-agent-preset/README.md
+index ca7bba393e..7c4dc1c8e8 100644
+--- a/packages/client/ui-agent-preset/README.md
++++ b/packages/client/ui-agent-preset/README.md
+@@ -31,6 +31,8 @@ Coding Tools in General Settings decide whether a mode can be chosen at all: wit
+ 
+ Known shipped presets offer mode details and usage examples in a read-only dialog. Its tabs preserve each page's scroll position; closing returns focus to the opening action. Help does not change the new-task default. The default badge replaces the card's group badge, and the preset id appears beside the title. Guide copy and examples belong to this package.
+ 
++`uiAgentPreset.binding(sessionId)` exposes a read-only `{ store, load }` view for controls in a mounted Session. Bound readers use that Session’s preset projection, including Sessions outside the main panel. Omitting the identity reads the pending new-session choice. Coding Tools continues to govern selection; turning it off leaves existing Session presets unchanged.
++
+ <a id="understand-the-implementation"></a>
+ ## Understand the implementation
+ 
+diff --git a/packages/client/ui-agent-preset/README.zh.md b/packages/client/ui-agent-preset/README.zh.md
+index d2a3471f45..c212de83b1 100644
+--- a/packages/client/ui-agent-preset/README.zh.md
++++ b/packages/client/ui-agent-preset/README.zh.md
+@@ -31,6 +31,8 @@ kind: "package-reference"
+ 
+ 已知的内置预设提供只读的模式说明与使用示例对话框。各页签保留各自的滚动位置；关闭后焦点回到打开它的操作。帮助不会改变新任务默认值。默认徽标取代卡片的分组徽标，预设 id 显示在标题旁。指南文案与示例归本包所有。
+ 
++`uiAgentPreset.binding(sessionId)` 为已挂载会话中的控件提供只读的 `{ store, load }` 接口。绑定后的读取使用该会话自己的预设投影，也适用于主面板之外的会话。省略身份时读取新会话的待选模式。“编码工具”开关继续控制选择入口，关闭它不改变已有会话的预设。
++
+ <a id="understand-the-implementation"></a>
+ ## 理解实现
+ 
+diff --git a/packages/client/ui-agent-preset/src/client/binding-state.ts b/packages/client/ui-agent-preset/src/client/binding-state.ts
+new file mode 100644
+index 0000000000..d40239dd58
+--- /dev/null
++++ b/packages/client/ui-agent-preset/src/client/binding-state.ts
+@@ -0,0 +1,32 @@
++/** Read-only preset state for product controls mounted in one Session. */
++import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
++import type { SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
++import type { AgentPresetSeatController } from './seat-store.ts'
++
++/** A bound projection or the pending choice for a new Session. */
++export interface PresetBindingState {
++  current: string
++  busy: boolean
++}
++
++/**
++ * Derive a stable reader without giving consumers preset selection authority.
++ * @param seat - upstream picker for this binding.
++ * @param summary - current bound Session, independent of the active main panel.
++ * @returns snapshot reader and a refresh callback owned by the binding lifetime.
++ */
++export function presetBindingState(seat: Pick<AgentPresetSeatController, 'store'>, summary: () => Pick<SessionSummary, 'blank' | 'projectionValues'> | undefined): {
++  store: ObservableSnapshot<PresetBindingState>
++  refresh: () => void
++} {
++  const read = (): PresetBindingState => {
++    const session = summary(), selection = seat.store.getSnapshot()
++    const preset = session?.projectionValues?.['agentPreset']
++    return { current: typeof preset === 'string' ? preset : session?.blank ? selection.current : '', busy: selection.busy }
++  }
++  const store = createSnapshotStore(read())
++  return { store, refresh() {
++    const next = read(), previous = store.getSnapshot()
++    if (next.current !== previous.current || next.busy !== previous.busy) store.set(next)
++  } }
++}
 diff --git a/packages/client/ui-agent-preset/src/client/index.ts b/packages/client/ui-agent-preset/src/client/index.ts
-index 8b418afe1c..9d27d59b81 100644
+index 155b324587..964eebc517 100644
 --- a/packages/client/ui-agent-preset/src/client/index.ts
 +++ b/packages/client/ui-agent-preset/src/client/index.ts
-@@ -36,6 +36,13 @@ import { AgentPresetSectionController } from './section-store.ts'
+@@ -32,6 +32,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+ // Type-only: pulls the Workspace UI navigation service merge (ctx.uiWorkspace).
+ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+ import type { Context as ClientContext } from '@deepseek-ai/cordis'
++import { presetBindingState, type PresetBindingState } from './binding-state.ts'
++import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+ import { AgentPresetLabel } from './AgentPresetLabel.tsx'
+ import type { AgentPresetLabelInjected } from './AgentPresetLabel.tsx'
+ import { AgentPresetSeat } from './AgentPresetSeat.tsx'
+@@ -43,6 +45,16 @@ import { AgentPresetSectionController } from './section-store.ts'
  import { en, zh, type AgentPresetSettingsKey } from './locales.ts'
  import { AGENT_PRESET_SETTINGS_NS, AgentPresetSettingsController } from './settings-store.ts'
  
 +declare module '@deepseek-ai/cordis' {
 +  interface Context {
 +    /** Observable new-session composition selection, shared with target pickers. */
-+    uiAgentPreset: Pick<AgentPresetSeatController, 'store' | 'select' | 'stage' | 'load'>
++    uiAgentPreset: {
++      /** Read the preset state for a mounted Session or the unbound new-session flow. */
++      binding(sessionId?: SessionId): { store: ObservableSnapshot<PresetBindingState>; load(): Promise<void> }
++    }
 +  }
 +}
 +
  declare module '@deepseek-ai/dsh-client-ui-slots' {
    interface LocaleNamespaceMap {
      /** Agent-preset surface copy. */
-@@ -112,6 +119,7 @@ export function apply(ctx: ClientContext): void {
-       return state.current === undefined ? undefined : state.byId[state.current]
-     })
-     activeSeat = seat
-+    scope.effect(() => scope.provide('uiAgentPreset', seat), 'ui-agent-preset: public selection')
-     const seatInjected = (): AgentPresetSeatInjected => ({
-       hooks: { agentPresetSeat: seat.store },
-       load: () => seat.load(),
+@@ -99,6 +111,32 @@ export function apply(ctx: ClientContext): void {
+     boundSeatDisposers.add(dispose)
+     return seat
+   }
++  const readers = new WeakMap<SessionBinding, { store: ObservableSnapshot<PresetBindingState>; load(): Promise<void> }>()
++  ctx.effect(() => ctx.provide('uiAgentPreset', {
++    binding(sessionId?: SessionId) {
++      if (sessionId === undefined) return unboundSeat
++      const binding = ctx.sessions.binding(sessionId)
++      if (binding === undefined) throw new Error('Preset selection requires a mounted Session')
++      const existing = readers.get(binding)
++      if (existing !== undefined) return existing
++      const seat = seatFor(binding)
++      const reader = presetBindingState(seat, () => ctx.sessions.list.getSnapshot().byId[sessionId])
++      const state = { store: reader.store, load: () => seat.load() }
++      readers.set(binding, state)
++      const dispose = binding.ctx.effect(() => {
++        const stopList = ctx.sessions.list.subscribe(reader.refresh)
++        const stopSeat = seat.store.subscribe(reader.refresh)
++        return () => {
++          stopList()
++          stopSeat()
++          readers.delete(binding)
++          boundSeatDisposers.delete(dispose)
++        }
++      }, 'ui-agent-preset: bound projection reader')
++      boundSeatDisposers.add(dispose)
++      return state
++    },
++  }), 'ui-agent-preset: bound selection state')
+   const section = new AgentPresetSectionController(ctx)
+   // Turning Developer tools off clears the shared stage before any apply can compose it.
+   const developerTools = ctx.configForms.developerTools.enabled
+diff --git a/packages/client/ui-agent-preset/tests/binding-state.client.spec.ts b/packages/client/ui-agent-preset/tests/binding-state.client.spec.ts
+new file mode 100644
+index 0000000000..648580a270
+--- /dev/null
++++ b/packages/client/ui-agent-preset/tests/binding-state.client.spec.ts
+@@ -0,0 +1,18 @@
++import { expect, it } from 'vitest'
++import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
++import { presetBindingState } from '../src/client/binding-state.ts'
++import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
++
++it('reads each bound preset independently of the staged picker and preserves stable snapshots', () => {
++  const seat = { store: createSnapshotStore<AgentPresetSeatState>({ current: 'staged', options: [], error: null, busy: false, introduce: false }) }
++  const a = presetBindingState(seat, () => ({ blank: false, projectionValues: { agentPreset: 'writer' } }))
++  const b = presetBindingState(seat, () => ({ blank: false, projectionValues: { agentPreset: 'performance' } }))
++  const blank = presetBindingState(seat, () => ({ blank: true, projectionValues: {} }))
++  const first = a.store.getSnapshot()
++  seat.store.set({ ...seat.store.getSnapshot(), current: 'standard' })
++  a.refresh(); b.refresh(); blank.refresh()
++  expect(a.store.getSnapshot()).toBe(first)
++  expect(a.store.getSnapshot().current).toBe('writer')
++  expect(b.store.getSnapshot().current).toBe('performance')
++  expect(blank.store.getSnapshot().current).toBe('standard')
++})
 diff --git a/packages/client/ui-workspace/README.i18n.yaml b/packages/client/ui-workspace/README.i18n.yaml
-index db2cd9bd89..7d7d1a41df 100644
+index 910c61850f..3475b1aadd 100644
 --- a/packages/client/ui-workspace/README.i18n.yaml
 +++ b/packages/client/ui-workspace/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/client/ui-workspace/README.md
--README.md: d504ad03e6153a987f94357bb939e75c592f7773
--README.zh.md: 10c4acd2dfa3c04f9e1d0e2027451907b0ab8fea
-+README.md: f135da38ebe424729bcbd52042074d95642292f8
-+README.zh.md: c81a480fd41603e3f4dbff9c34961110439708ef
+@@ -69,5 +69,5 @@
+   en: 00d7b1ddda7390f5
+   zh: 1e5a1055d1be4d1d
+ /deepseek-ai-dsh-client-ui-workspace/known-limitations-and-deferred-work/dev-note:
+-  en: 585813ff2c68c20c
+-  zh: 18b43c0d64fa8a72
++  en: c8ad416667c6267d
++  zh: 275e59928650b571
 diff --git a/packages/client/ui-workspace/README.md b/packages/client/ui-workspace/README.md
-index d504ad03e6..f135da38eb 100644
+index 6ae5be1fe5..cb31937d40 100644
 --- a/packages/client/ui-workspace/README.md
 +++ b/packages/client/ui-workspace/README.md
-@@ -121,3 +121,5 @@ None.
+@@ -222,3 +222,5 @@ None.
  </details>
  
  **Runtime invariant:** No companion is published. This is a pure-consumer plugin that registers presentational components into two host-declared slots and registers its locale dictionaries; its inject face consists of stateless RPC wrappers plus a create-and-open call. It emits no Cordis events and owns no cross-plugin mutable state.
 +
 +Session rows retain initialized conversations before a model turn and show the producer-owned purpose label from sessionListMetadata when present. The label is display data, not a built-in mode name.
 diff --git a/packages/client/ui-workspace/README.zh.md b/packages/client/ui-workspace/README.zh.md
-index 10c4acd2df..c81a480fd4 100644
+index c3e4a18732..e90f611725 100644
 --- a/packages/client/ui-workspace/README.zh.md
 +++ b/packages/client/ui-workspace/README.zh.md
-@@ -121,3 +121,5 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
+@@ -222,3 +222,5 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
  </details>
  
  **运行时不变式：** 不发布伴生入口。这是一个纯消费方插件，只向两个由宿主声明的 slot 注册展示组件，并注册自身的 locale dictionaries；inject face 由无状态 RPC 包装层和一次 create-and-open 调用组成；本插件不发出 Cordis 事件，也不持有跨插件可变状态。
 +
 +会话行在模型首轮前保留已经初始化的对话，并显示 sessionListMetadata 中可选的生产者用途标签。标签属于展示数据，不是内置模式名。
 diff --git a/packages/client/ui-workspace/src/client/WorkspacePicker.tsx b/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
-index b1801cc3d9..6126220d22 100644
+index a8e40b7889..4a6dde1f64 100644
 --- a/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
 +++ b/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
-@@ -70,7 +70,7 @@ export function WorkspacePickFlow({
+@@ -74,7 +74,7 @@ export function WorkspacePickFlow({
    selectedId,
  }: WorkspacePickFlowProps) {
    const workspaceSnapshot = useWorkspaces(state => state)
@@ -102,23 +242,23 @@ index b1801cc3d9..6126220d22 100644
      () => anchorRef?.current?.getBoundingClientRect() ?? null,
      [anchorRef],
 diff --git a/packages/client/ui-workspace/src/client/navigation.ts b/packages/client/ui-workspace/src/client/navigation.ts
-index c968595d8a..6c343928f5 100644
+index 1b9ff0be25..17e877c3ed 100644
 --- a/packages/client/ui-workspace/src/client/navigation.ts
 +++ b/packages/client/ui-workspace/src/client/navigation.ts
-@@ -120,7 +120,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+@@ -180,7 +180,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
      const sessions = this.sessions.list.getSnapshot()
      for (const id of sessions.ids) {
        const summary = sessions.byId[id]
--      if (summary !== undefined && summary.blank && summary.cwd === workspace.path
-+      if (summary !== undefined && summary.blank && (workspace.target !== undefined || summary.cwd === workspace.path)
-         && workspace.sessionIds.includes(summary.id)
-         && !archived.includes(summary.id)) return summary.id
+-      if (summary === undefined || !summary.blank || summary.cwd !== workspace.path
++      if (summary === undefined || !summary.blank || (workspace.target === undefined && summary.cwd !== workspace.path)
+         || !workspace.sessionIds.includes(id) || archived.includes(id)) continue
+       return this.reuseBlank(workspace.workspaceId, id)
      }
 diff --git a/packages/client/ui-workspace/src/client/rows/Rows.module.css b/packages/client/ui-workspace/src/client/rows/Rows.module.css
-index 7208d4d4b1..c377680da8 100644
+index 6bb4f294db..e92317aee6 100644
 --- a/packages/client/ui-workspace/src/client/rows/Rows.module.css
 +++ b/packages/client/ui-workspace/src/client/rows/Rows.module.css
-@@ -366,3 +366,7 @@
+@@ -421,3 +421,7 @@
      transition: none;
    }
  }
@@ -127,40 +267,40 @@ index 7208d4d4b1..c377680da8 100644
 +  margin-left: 8px;
 +}
 diff --git a/packages/client/ui-workspace/src/client/rows/Rows.tsx b/packages/client/ui-workspace/src/client/rows/Rows.tsx
-index 0c2101bd0a..672bbcd622 100644
+index 635770fd47..0fc80436d8 100644
 --- a/packages/client/ui-workspace/src/client/rows/Rows.tsx
 +++ b/packages/client/ui-workspace/src/client/rows/Rows.tsx
-@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
+@@ -15,7 +15,7 @@ import type { RefObject } from 'react'
  import clsx from 'clsx'
+ import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
  import {
-   HoverCard, IconAlarmClockOutline16, IconArchiveOutline20, IconBranchOutline16,
--  IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
-+  IconEditOutline16, IconEllipsisOutline16, IconBranchOutline16 as IconResource16, IconFolderClose16, IconFolderOpen16,
-   IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
-   StateDot,
- } from '@deepseek-ai/dsh-client-ui-primitives'
-@@ -147,7 +147,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, home,
+-  HoverCard, IconArchiveOutlineRegular, IconEditOutlineRegular,
++  HoverCard, IconBranchOutlineRegular as IconResource, IconArchiveOutlineRegular, IconEditOutlineRegular,
+   IconEllipsisOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular,
+   IconNewChatOutlineRegular, IconPinFillRegular, IconTrashOutlineRegular,
+   IconTriangleRightFillRegular, IconUnarchiveOutlineRegular, Menu, relativeTime, StateDot, Tooltip,
+@@ -257,7 +257,7 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
        onDragEnd={drag?.end}
      >
        <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
--        {row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
-+        {row.target !== undefined ? <IconResource16 /> : row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
+-        {row.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
++        {row.target !== undefined ? <IconResource /> : row.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
        </span>
        <span className={clsx(css.slot, css.chevron)}>
-         <IconTriangleRightFill14 className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
-@@ -465,6 +465,7 @@ export function SessionNodeItem({
-         </span>
-       )}
-       <span className={css.title}>{title}</span>
+         <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+@@ -642,6 +642,7 @@ export function SessionNodeItem({
+       >
+         {title}
+       </span>
 +      {row.label !== undefined && <span className={css.time}>{row.label}</span>}
-       {row.hasActiveSchedule && <ActiveScheduleIndicator t={t} />}
        {/* A blank New Session row is a provisional placeholder: nothing has
            happened in it yet, so a "now" timestamp and the row verbs
+           (rename/fork/archive) would all act on content that does not
 diff --git a/packages/client/ui-workspace/src/client/tree.ts b/packages/client/ui-workspace/src/client/tree.ts
-index 37c6d50e38..c4a9d53599 100644
+index 0be603f662..11f21f725a 100644
 --- a/packages/client/ui-workspace/src/client/tree.ts
 +++ b/packages/client/ui-workspace/src/client/tree.ts
-@@ -40,6 +40,8 @@ type SessionPendingInteractions = ReadonlyMap<SessionId, SessionPendingInteracti
+@@ -42,6 +42,8 @@ function mainSessionId(list: SessionListState): SessionId | undefined {
  
  /** One top-level session row in a group or the flat list. */
  export interface SessionNode {
@@ -169,7 +309,7 @@ index 37c6d50e38..c4a9d53599 100644
    id: SessionId
    /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
    title: string
-@@ -67,6 +69,7 @@ export interface GroupNode {
+@@ -71,6 +73,7 @@ export interface GroupNode {
    /** Backing Workspace id; absent only for the ungrouped bucket. */
    workspaceId: WorkspaceId | undefined
    cwd: string | undefined
@@ -177,7 +317,7 @@ index 37c6d50e38..c4a9d53599 100644
    /** Workspace creation time (epoch ms); absent only for the ungrouped bucket. */
    createdAt: number | undefined
    label: string
-@@ -113,6 +116,7 @@ interface Group {
+@@ -117,6 +120,7 @@ interface Group {
    key: string
    workspaceId: WorkspaceId | undefined
    cwd: string | undefined
@@ -185,29 +325,29 @@ index 37c6d50e38..c4a9d53599 100644
    createdAt: number | undefined
    label: string
    sessions: SessionSummary[]
-@@ -220,10 +224,10 @@ function groupByWorkspace(
-       if (!sessionVisible(summary, list.current, archived)) continue
-       members.push(summary)
-     }
+@@ -352,10 +356,10 @@ function groupByWorkspace(
+     // The archived-only view lists archives, not the Workspace inventory, so
+     // a Workspace without archived Sessions contributes no group.
+     if (archivedFilter === 'only' && members.length === 0) continue
 -    groups.push(buildGroup(
 -      workspace.workspaceId, workspace.workspaceId, workspace.path,
 +    groups.push({ ...buildGroup(
 +      workspace.workspaceId, workspace.workspaceId, workspace.target === undefined ? workspace.path : undefined,
-       Date.parse(workspace.createdAt), workspace.title, members, 'account',
+       Date.parse(workspace.createdAt), workspace.title, members,
 -    ))
 +    ), ...(workspace.target === undefined ? {} : { target: workspace.target }) })
    }
    const stray = list.ids
      .map(id => list.byId[id])
-@@ -265,6 +269,7 @@ function sessionNode(
+@@ -406,6 +410,7 @@ function sessionNode(
      id: s.id,
      title: sessionTitle(s),
      blank: s.blank,
 +    ...(s.projectionValues?.sessionListMetadata?.label === undefined ? {} : { label: s.projectionValues.sessionListMetadata.label }),
-     running: s.running,
-     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
-     completed: s.completed === true,
-@@ -309,6 +314,7 @@ export function deriveGroups(
+     running: status?.running ?? s.running,
+     runningSubagentCount: runningChildCount(list, s.id, statuses),
+     completed: status?.completionUnread === true,
+@@ -453,6 +458,7 @@ export function deriveGroups(
        key: g.key,
        workspaceId: g.workspaceId,
        cwd: g.cwd,
@@ -215,38 +355,77 @@ index 37c6d50e38..c4a9d53599 100644
        createdAt: g.createdAt,
        label: g.label,
        sessionCount: g.sessions.length,
-diff --git a/packages/preset/agent-presets/src/index.ts b/packages/preset/agent-presets/src/index.ts
-index 5c0875bfab..57b746e220 100644
---- a/packages/preset/agent-presets/src/index.ts
-+++ b/packages/preset/agent-presets/src/index.ts
-@@ -717,7 +717,7 @@ export class AgentPresets extends TypertRemoteService {
+diff --git a/packages/preset/agent-preset-registry/README.i18n.yaml b/packages/preset/agent-preset-registry/README.i18n.yaml
+index 411d7b4a02..63e7467709 100644
+--- a/packages/preset/agent-preset-registry/README.i18n.yaml
++++ b/packages/preset/agent-preset-registry/README.i18n.yaml
+@@ -18,8 +18,8 @@
+   en: bbff250eba0f1b89
+   zh: b20a47f82d8ab6e0
+ /deepseek-ai-dsh-agent-preset-registry/use-this-package/minimal-configuration:
+-  en: cd28d9b4f46c46a8
+-  zh: 4921d853f98469fe
++  en: 97255b867525a12e
++  zh: 62c56ea263910bfe
+ /deepseek-ai-dsh-agent-preset-registry/understand-the-implementation:
+   en: 11a1a4847ffc68b4
+   zh: 9e1ca14d642b43ac
+diff --git a/packages/preset/agent-preset-registry/README.md b/packages/preset/agent-preset-registry/README.md
+index 1db29f2383..25d520097e 100644
+--- a/packages/preset/agent-preset-registry/README.md
++++ b/packages/preset/agent-preset-registry/README.md
+@@ -47,6 +47,8 @@ The Web definitions come from the `dsh-web-app` bundle. Definitions are ordinary
+ 
+ The registry writes no declarations. The `read` Remote renders one declaration’s child list back as entry-list YAML (`!!js` conditions included) so a client can show what a preset composes; nothing accepts YAML back. A new preset or an override of a shipped one is a bundle patch: an `insert` of a `@deepseek-ai/dsh-agent-preset` row, or a patch keyed by that row’s id, installed into the profile with `plugin_manager`; Creator mode authors such bundles in conversation.
+ 
++Product plugins can veto a selection through the awaited `agent-preset/selecting` event. After recomposition and the durable selection record, `agent-preset/changed` awaits reconciliation before returning. These hooks retain the registry’s first-turn lock and serialized selection order, and run within Agent maintenance exclusion so input cannot race recomposition.
++
+ <a id="understand-the-implementation"></a>
+ ## Understand the implementation
+ 
+diff --git a/packages/preset/agent-preset-registry/README.zh.md b/packages/preset/agent-preset-registry/README.zh.md
+index 3549afc916..8029e4fc7b 100644
+--- a/packages/preset/agent-preset-registry/README.zh.md
++++ b/packages/preset/agent-preset-registry/README.zh.md
+@@ -47,6 +47,8 @@ Web 内置定义来自 `dsh-web-app` bundle。定义使用普通插件行；注
+ 
+ 注册表不写入任何声明。`read` Remote 把一条声明的子插件列表按 entry-list YAML 方言（含 `!!js` 条件）渲染回来，供客户端展示 preset 的组成；没有任何接口接受 YAML 写回。新建 preset 或覆盖内置 preset 都是 bundle 补丁：插入一行 `@deepseek-ai/dsh-agent-preset`，或按该行 id 写覆盖补丁，再用 `plugin_manager` 安装到 profile；创造模式在对话中编写这类 bundle。
+ 
++产品插件可以通过串行等待的 `agent-preset/selecting` 事件否决选择。重组完成并写入选择记录后，`agent-preset/changed` 等待关联处理结束再返回。这些钩子保留 registry 的首回合锁定和串行选择顺序，并在 Agent 维护保护内执行，避免输入与重组并发。
++
+ <a id="understand-the-implementation"></a>
+ ## 理解实现
+ 
+diff --git a/packages/preset/agent-preset-registry/src/index.ts b/packages/preset/agent-preset-registry/src/index.ts
+index 54c8ae5cfd..e619777586 100644
+--- a/packages/preset/agent-preset-registry/src/index.ts
++++ b/packages/preset/agent-preset-registry/src/index.ts
+@@ -317,15 +317,18 @@ export class AgentPresetRegistry extends TypertRemoteService {
+    */
+   @Remote('select')
    async select(agent: Agent, agentPreset: string): Promise<string> {
-     validatePresetId(agentPreset, 'agentPreset')
-     const queued = this.switches.get(agent.id) ?? Promise.resolve()
--    const turn = queued.then(() => this.swap(agent, agentPreset))
-+    const turn = queued.then(() => agent.runMaintenance(async () => this.swap(agent, agentPreset)))
+-    const turn = (this.switches.get(agent.id) ?? Promise.resolve()).then(async () => {
++    const turn = (this.switches.get(agent.id) ?? Promise.resolve()).then(() => agent.runMaintenance(async (signal) => {
+       const boundary = this.owner.sessionProjections.stateOf(agent.session, 'turnBoundary')
+       if (boundary !== undefined && (boundary.openTurnStartSeq !== null || boundary.lastTurn > 0)) {
+         throw new RemoteError('agent-preset/locked', 'This session has already started', { sessionId: agent.id, agentPreset })
+       }
++      await this.owner.serial('agent-preset/selecting', agent, agentPreset)
++      signal.throwIfAborted()
+       const preset = await this.recompose(agent.ctx, agentPreset)
+       agent.session.append('agent-preset/selected', { agentPreset: preset.id })
++      await this.owner.serial('agent-preset/changed', agent, preset.id)
+       return preset.id
+-    })
++    }))
      const guard = turn.catch(() => undefined)
      this.switches.set(agent.id, guard)
-     try {
-@@ -742,10 +742,13 @@ export class AgentPresets extends TypertRemoteService {
-         { sessionId: agent.id, agentPreset },
-       )
-     }
-+    await this.resolveMountable(agentPreset)
-+    await this.selfCtx.serial('agent-preset/selecting', agent, agentPreset)
-     const preset = await this.recompose(agent.ctx, agentPreset)
-     // Recorded only after the swap committed: the log states what the agent
-     // runs, and a rejected mount leaves the previous composition.
-     agent.session.append('agent-preset/selected', { agentPreset: preset.id })
-+    await this.selfCtx.serial('agent-preset/changed', agent, preset.id)
-     return preset.id
-   }
- 
-diff --git a/packages/preset/agent-presets/src/types.ts b/packages/preset/agent-presets/src/types.ts
-index a2bfd68800..7bb0ab3e73 100644
---- a/packages/preset/agent-presets/src/types.ts
-+++ b/packages/preset/agent-presets/src/types.ts
-@@ -80,6 +80,21 @@ declare module '@deepseek-ai/cordis' {
+     try { return await turn } finally {
+diff --git a/packages/preset/agent-preset-registry/src/types.ts b/packages/preset/agent-preset-registry/src/types.ts
+index c30141d621..24f709a7cd 100644
+--- a/packages/preset/agent-preset-registry/src/types.ts
++++ b/packages/preset/agent-preset-registry/src/types.ts
+@@ -67,6 +67,21 @@ declare module '@deepseek-ai/cordis' {
       * @param agentPreset - the preset recorded by the committed selection.
       */
      'agent-preset/selected'(sessionId: SessionId, agentPreset: string): void
@@ -268,20 +447,106 @@ index a2bfd68800..7bb0ab3e73 100644
    }
  }
  
+diff --git a/packages/preset/agent-preset-registry/tests/registry.spec.ts b/packages/preset/agent-preset-registry/tests/registry.spec.ts
+index f504087458..a3804563b8 100644
+--- a/packages/preset/agent-preset-registry/tests/registry.spec.ts
++++ b/packages/preset/agent-preset-registry/tests/registry.spec.ts
+@@ -110,6 +110,26 @@ describe('declarative preset revisions', () => {
+     await expect(ctx.agentPresets.select(agent, 'standard')).rejects.toThrow('already started')
+   })
+ 
++  it('awaits product vetoes before recomposition and reconciliation after durable selection', async () => {
++    const ctx = await setup()
++    await declare(ctx, contribution('standard'))
++    await declare(ctx, contribution('minimal'))
++    const agent = await agentOn(ctx, 'product-selection')
++    const off = ctx.on('agent-preset/selecting', async () => { throw new Error('product mode is fixed') })
++    await expect(ctx.agentPresets.select(agent, 'minimal')).rejects.toThrow('product mode is fixed')
++    expect(ctx.agentPresets.composedPreset(agent.ctx)).toBe('standard')
++    off()
++    let reconciled = false
++    ctx.on('agent-preset/changed', async (subject, id) => {
++      expect(subject).toBe(agent)
++      expect(ctx.sessionProjections.stateOf(agent.session, 'agentPreset')).toBe(id)
++      await Promise.resolve()
++      reconciled = true
++    })
++    await ctx.agentPresets.select(agent, 'minimal')
++    expect(reconciled).toBe(true)
++  })
++
+   it('inventories active and disabled child entries and declared display metadata', async () => {
+     const ctx = await setup()
+     await declare(ctx, { ...contribution('standard'), name: 'Standard', description: 'General', order: 2 })
 diff --git a/packages/workspace/workspace/README.i18n.yaml b/packages/workspace/workspace/README.i18n.yaml
-index 92fa599ba3..2f3251fb68 100644
+index 7f24797e9d..86540946ce 100644
 --- a/packages/workspace/workspace/README.i18n.yaml
 +++ b/packages/workspace/workspace/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/workspace/workspace/README.md
--README.md: b5eaac5c68776c927cd464604f8d99d9290d9d54
--README.zh.md: 39cc0d9489bf5f687ee6a4e788c4462e4fabd1f0
-+README.md: 702a661cdcfe570f9cf156beb81d6e4c815fe0a6
-+README.zh.md: 85bda8f7802fe786e60b01e640700059ba0449cf
+@@ -9,14 +9,14 @@
+   en: 7a12adba4e7766e3
+   zh: f6d5c8374f4512c8
+ /deepseek-ai-dsh-workspace/summary:
+-  en: 58d66b238882b849
+-  zh: a427930afd293c6b
++  en: 77018458cd9ac51a
++  zh: b9007822edb20b27
+ /deepseek-ai-dsh-workspace/table-of-contents:
+   en: d152484eb41ac6b4
+   zh: 09388d293f9be9cb
+ /deepseek-ai-dsh-workspace/use-this-package:
+-  en: 37d744451570942e
+-  zh: 7f8200725a1cca54
++  en: 08d14912c2c4e9ff
++  zh: 9bdfc38f8e4a5c74
+ /deepseek-ai-dsh-workspace/use-this-package/when-to-use-it:
+   en: f24dd905d5bcac3e
+   zh: 16b91b99fdaf5add
+@@ -30,8 +30,8 @@
+   en: 2bfeef54ad410e63
+   zh: 98b79574586d000a
+ /deepseek-ai-dsh-workspace/use-this-package/grouping-sessions-under-a-project:
+-  en: 510be21d012de28c
+-  zh: fdcb05447d6ba93c
++  en: da03fc670f797cd3
++  zh: 0b91e059cfe7f30c
+ /deepseek-ai-dsh-workspace/use-this-package/hiding-and-restoring-sessions-and-removing-projects:
+   en: f6f19cd64d8db3b0
+   zh: 55875a2c4d8e4d1f
+@@ -39,8 +39,8 @@
+   en: 447ced401b3b14a8
+   zh: 3ce2105605223945
+ /deepseek-ai-dsh-workspace/understand-the-implementation/design-philosophy:
+-  en: e8ff536e19566447
+-  zh: 53ba4c15f10c1549
++  en: 26ec8f3c5625c740
++  zh: b8d07d638e86284d
+ /deepseek-ai-dsh-workspace/understand-the-implementation/api-behavior:
+   en: 69327adb9ea52680
+   zh: fa32eea5019c7abb
+@@ -48,8 +48,8 @@
+   en: c6de390af6b1a187
+   zh: 85699c7c5c3afe3a
+ /deepseek-ai-dsh-workspace/understand-the-implementation/durable-shape:
+-  en: 056a266f4a15b29d
+-  zh: e1589f5750662887
++  en: 588600e0619f91f6
++  zh: 1569a62b72c7aac6
+ /deepseek-ai-dsh-workspace/understand-the-implementation/lifecycle:
+   en: e41db10d48acbf9a
+   zh: 457d329fe37ba33c
+@@ -60,8 +60,8 @@
+   en: d20f2bba9aab0d1d
+   zh: 2ff06f27e7a8a867
+ /deepseek-ai-dsh-workspace/further-exploration:
+-  en: ea6e4da02bc6da4e
+-  zh: 5168484d76a27436
++  en: 489895987f2c4804
++  zh: 8e202ce8d3893875
+ /deepseek-ai-dsh-workspace/model-experience:
+   en: 215e7ba838619b7b
+   zh: a311da3843709f90
 diff --git a/packages/workspace/workspace/README.md b/packages/workspace/workspace/README.md
-index b5eaac5c68..702a661cdc 100644
+index da2c59d992..2be57801f4 100644
 --- a/packages/workspace/workspace/README.md
 +++ b/packages/workspace/workspace/README.md
 @@ -9,7 +9,7 @@ English | [中文](README.zh.md)
@@ -297,21 +562,21 @@ index b5eaac5c68..702a661cdc 100644
  <a id="use-this-package"></a>
  ## Use this package
  
--Use this package to give the product a project list: named directories the user works in, the sessions that ran in each, a stable order, and a way to hide sessions without losing them. The API contracts behind each action live in the implementation section.
-+Use this package to give the product a project list: named directory or resource targets and their sessions, a stable order, and a way to hide sessions without losing them. The API contracts behind each action live in the implementation section.
+-Use this package to give the product a project list: named directories the user works in, the sessions that ran in each, a stable order, and a way to hide sessions without losing them or bring them back. The API contracts behind each action live in the implementation section.
++Use this package to give the product a project list: named directory or resource targets and their sessions, a stable order, and a way to hide sessions without losing them or bring them back. The API contracts behind each action live in the implementation section.
  
  ### When to use it
  
-@@ -61,7 +61,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+@@ -70,7 +70,7 @@ The first successful registration records its identity durably. Repeated calls r
  
  ### Grouping sessions under a project
  
 -A session joins the project of the directory it runs in: create a session in a project's directory and it appears under that project, newest first. A session can only belong to one project. A session whose directory cannot be validated — no recorded directory, or a moved or deleted folder — cannot join and stays ungrouped.
 +For directory workspaces, a session joins the project of the directory it runs in: create a session in a project's directory and it appears under that project, newest first. A session can only belong to one project. A session whose directory cannot be validated — no recorded directory, or a moved or deleted folder — cannot join and stays ungrouped.
  
- ### Hiding sessions and removing projects
+ ### Hiding and restoring sessions, and removing projects
  
-@@ -79,9 +79,9 @@ This section explains the design decisions behind the feature and points at the
+@@ -88,9 +88,9 @@ This section explains the design decisions behind the feature and points at the
  
  ### Design philosophy
  
@@ -324,7 +589,16 @@ index b5eaac5c68..702a661cdc 100644
  - **Two-write mutations with an explicit marker.** Create and delete persist a `pendingMutation` marker before the record/order pair can diverge, so startup completes exactly the interrupted operation and unmarked divergence fails loud as corruption.
  - **Serialized writes.** Registry operations run on one operation chain; entity mutations go through `table.update` on the domain write chain, stamping `updatedAt` and deciding membership at their chain slot.
  
-@@ -134,6 +134,9 @@ Read these pages when this package's view is not enough: the subsystem reference
+@@ -113,7 +113,7 @@ Archive admission is a capability seam over two Host events this package declare
+ 
+ ### Durable shape
+ 
+-The registry opens the `workspace` domain (version 2): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional `defaultWorkspaceId` first-use identity, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
++The registry opens the `workspace` domain (version 3): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional `defaultWorkspaceId` first-use identity, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
+ 
+ ### Lifecycle
+ 
+@@ -145,6 +145,9 @@ Read these pages when this package's view is not enough: the subsystem reference
  -----
  
  <a id="model-experience"></a>
@@ -335,7 +609,7 @@ index b5eaac5c68..702a661cdc 100644
  
  ### Workspace records and session accounts
 diff --git a/packages/workspace/workspace/README.zh.md b/packages/workspace/workspace/README.zh.md
-index 39cc0d9489..85bda8f780 100644
+index a2e826fc57..7006d6ec2f 100644
 --- a/packages/workspace/workspace/README.zh.md
 +++ b/packages/workspace/workspace/README.zh.md
 @@ -9,7 +9,7 @@ kind: "package-reference"
@@ -351,34 +625,43 @@ index 39cc0d9489..85bda8f780 100644
  <a id="use-this-package"></a>
  ## 使用本包
  
--使用此包为产品提供项目列表：用户工作的命名目录、每个目录中运行的会话、稳定顺序，以及在不丢失会话的前提下将其隐藏的能力。每项操作背后的 API 约定放在实现章节中。
-+使用此包为产品提供项目列表：带名称的文件夹或资源目标、各自的会话、稳定顺序，以及在不丢失会话的前提下将其隐藏的能力。每项操作背后的 API 约定放在实现章节中。
+-使用此包为产品提供项目列表：用户工作的命名目录、每个目录中运行的会话、稳定顺序，以及在不丢失会话的前提下将其隐藏或重新取回的能力。每项操作背后的 API 约定放在实现章节中。
++使用此包为产品提供项目列表：带名称的文件夹或资源目标、各自的会话、稳定顺序，以及在不丢失会话的前提下将其隐藏或恢复的能力。每项操作背后的 API 约定放在实现章节中。
  
  ### 何时使用
  
-@@ -61,7 +61,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+@@ -70,7 +70,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
  
  ### 将会话归入项目
  
 -会话加入它运行目录所在的项目：在项目目录中创建会话，它就会出现在该项目下，新到旧排列。一个会话只能属于一个项目。目录无法校验的会话——没有记录目录，或目录被移动、删除——无法加入，保持 Ungrouped。
 +对于文件夹工作区，会话加入它运行目录所在的项目：在项目目录中创建会话，它就会出现在该项目下，新到旧排列。一个会话只能属于一个项目。目录无法校验的会话——没有记录目录，或目录被移动、删除——无法加入，保持 Ungrouped。
  
- ### 隐藏会话与移除项目
+ ### 隐藏、恢复会话与移除项目
  
-@@ -79,9 +79,9 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+@@ -88,9 +88,9 @@ ctx.workspaceRegistry.list() // shows the project, newest first
  
  ### 设计理念
  
 -- **每个规范路径一条记录。** `fs.realpath` 是唯一的一套唯一性规范：路径以规范化形式存储，因此指向已有记录目录的符号链接会与之冲突，唯一性即规范路径的字符串相等。
 -- **成员资格是所有权加实时 cwd 事实。** 记录的 `sessionIds` 顺序是所有权真源；启动时的头部索引校验它，`sessionIds` 在读取时过滤，下一次变更会持久化剪除无效项。
 -- **仅读取头部。** 引导与 attach 校验只读取 `SessionHeader` 字段；事件正文绝不加载。
-+- **每个目标一条记录。** 文件夹使用规范路径，资源使用提供者及其键。 `fs.realpath` 是唯一的一套唯一性规范：路径以规范化形式存储，因此指向已有记录目录的符号链接会与之冲突，唯一性即规范路径的字符串相等。
-+- **成员资格按目标校验。** 文件夹使用所有权与实时 cwd 事实。 记录的 `sessionIds` 顺序是所有权真源；启动时的头部索引校验它，`sessionIds` 在读取时过滤，下一次变更会持久化剪除无效项。
++- **每个目标一条记录。** 文件夹使用规范路径，资源使用提供者及其键。`fs.realpath` 是唯一的一套唯一性规范：路径以规范化形式存储，因此指向已有记录目录的符号链接会与之冲突，唯一性即规范路径的字符串相等。
++- **成员资格按目标校验。** 文件夹使用所有权与实时 cwd 事实。记录的 `sessionIds` 顺序是所有权真源；启动时的头部索引校验它，`sessionIds` 在读取时过滤，下一次变更会持久化剪除无效项。
 +- **文件夹读取头部。** 资源提供者可以检查持久业务记录以校验会话归属。
  - **两次写入的变更带显式标记。** 创建与删除在记录/顺序对可能分叉之前先持久化 `pendingMutation` 标记，因此启动只补全被中断的操作，未标记的分叉作为损坏明确报错。
  - **串行化写入。** 注册表操作跑在同一条操作链上；实体变更通过领域写链上的 `table.update` 执行，写入 `updatedAt`，并在其所在的链位置决定成员资格。
  
-@@ -134,6 +134,9 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+@@ -114,7 +114,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
+ 
+ ### 持久形态
+ 
+-注册表打开 `workspace` 领域（版本 2）：一张以 `WorkspaceId` 为键的 `workspaces` 表，加上一个持有 `workspaceIds`（权威显示顺序）、`archivedSessionIds`、`pinnedSessionIds`、可选的首次使用身份 `defaultWorkspaceId` 与可选 `pendingMutation` 标记的全局状态。归档与置顶集合存储会话 id 字符串，默认值为空，不包含逐项对象或时间戳；置顶数组把最近置顶的 id 放在前面。归档在同一次全局状态写入中清除置顶，但不改变 Workspace 成员关系。取消归档不做会话存在性探测，因为从集合中移除 id 不可能引入未知 id，而归档会在加入前校验会话。
++注册表打开 `workspace` 领域（版本 3）：一张以 `WorkspaceId` 为键的 `workspaces` 表，加上一个持有 `workspaceIds`（权威显示顺序）、`archivedSessionIds`、`pinnedSessionIds`、可选的首次使用身份 `defaultWorkspaceId` 与可选 `pendingMutation` 标记的全局状态。归档与置顶集合存储会话 id 字符串，默认值为空，不包含逐项对象或时间戳；置顶数组把最近置顶的 id 放在前面。归档在同一次全局状态写入中清除置顶，但不改变 Workspace 成员关系。取消归档不做会话存在性探测，因为从集合中移除 id 不可能引入未知 id，而归档会在加入前校验会话。
+ 
+ ### 生命周期
+ 
+@@ -146,6 +146,9 @@ ctx.workspaceRegistry.list() // shows the project, newest first
  -----
  
  <a id="model-experience"></a>
@@ -492,22 +775,23 @@ index 1df3eacb3d..dabb204481 100644
          if (changed === current && sessionIds.length === current.sessionIds.length) {
            throw unchangedSentinel
 diff --git a/packages/workspace/workspace/src/index.ts b/packages/workspace/workspace/src/index.ts
-index 037344fce4..bc8e063ea9 100644
+index 4b4176c573..ca636d808b 100644
 --- a/packages/workspace/workspace/src/index.ts
 +++ b/packages/workspace/workspace/src/index.ts
-@@ -18,9 +18,9 @@ export { WorkspaceMoveInvalidError } from './entity.ts'
- import { defaultWorkspaceTitle, realpathNormalize } from './paths.ts'
+@@ -18,10 +18,10 @@ export { WorkspaceMoveInvalidError } from './entity.ts'
+ import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
  import { workspaceDomainSpec } from './spec.ts'
  import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
--import type { Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
-+import type { Workspace, WorkspaceTarget, WorkspaceResourceProvider, WorkspaceId as WorkspaceIdBrand } from './types.ts'
+-import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
++import type { SessionActivity, Workspace, WorkspaceTarget, WorkspaceResourceProvider, WorkspaceId as WorkspaceIdBrand } from './types.ts'
  
--export type { Workspace } from './types.ts'
-+export type { Workspace, WorkspaceTarget, WorkspaceResourceProvider } from './types.ts'
+ export type {
+-  SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
++  WorkspaceTarget, WorkspaceResourceProvider, SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
+ } from './types.ts'
  export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
  export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
- export { realpathNormalize } from './paths.ts'
-@@ -98,10 +98,14 @@ export class WorkspaceRegistry extends Service {
+@@ -177,10 +177,14 @@ export class WorkspaceRegistry extends Service {
    private readonly headers = new Map<SessionId, SessionHeader>()
    private readonly sessionPaths = new Map<SessionId, string>()
    private readonly invalidSessionPaths = new Map<SessionId, string>()
@@ -522,7 +806,7 @@ index 037344fce4..bc8e063ea9 100644
      sessionPath: id => this.sessionPaths.get(id),
      readSessionHeader: id => this.readSessionHeader(id),
      rememberSessionPath: (id, path) => {
-@@ -162,6 +166,41 @@ export class WorkspaceRegistry extends Service {
+@@ -241,6 +245,41 @@ export class WorkspaceRegistry extends Service {
      return await this.enqueueOperation(() => this.createCanonical(canonical, title))
    }
  
@@ -558,13 +842,13 @@ index 037344fce4..bc8e063ea9 100644
 +    if (resolved === undefined) throw new Error('workspace target does not exist')
 +    const cwd = await realpathNormalize(resolved.cwd)
 +    if (!(await stat(cwd)).isDirectory()) throw new Error('workspace execution cwd is not a directory')
-+    return this.enqueueOperation(() => this.createCanonical(cwd, resolved.title, target))
++    return this.enqueueOperation(() => this.createCanonical(cwd, resolved.title, false, target))
 +  }
 +
    /**
-    * Look up a workspace by id.
-    * @param id - Workspace id.
-@@ -276,14 +315,16 @@ export class WorkspaceRegistry extends Service {
+    * Initialize the default Workspace only while both the registry and Session
+    * history are empty. Repeated requests reuse its durable identity; deleting
+@@ -500,14 +539,16 @@ export class WorkspaceRegistry extends Service {
    async resolveByPath(path: string): Promise<Workspace | undefined> {
      const canonical = await realpathNormalize(path)
      for (const entity of this.entities.values()) {
@@ -574,8 +858,8 @@ index 037344fce4..bc8e063ea9 100644
      return undefined
    }
  
--  private async createCanonical(canonical: string, title?: string): Promise<WorkspaceEntity> {
-+  private async createCanonical(canonical: string, title?: string, target?: WorkspaceTarget): Promise<WorkspaceEntity> {
+-  private async createCanonical(canonical: string, title?: string, firstUse = false): Promise<WorkspaceEntity> {
++  private async createCanonical(canonical: string, title?: string, firstUse = false, target?: WorkspaceTarget): Promise<WorkspaceEntity> {
      for (const entity of this.entities.values()) {
 -      if (entity.path === canonical) return entity
 +      if (target === undefined
@@ -584,7 +868,7 @@ index 037344fce4..bc8e063ea9 100644
      }
  
      const workspaceName = title ?? defaultWorkspaceTitle(canonical)
-@@ -293,6 +334,7 @@ export class WorkspaceRegistry extends Service {
+@@ -517,6 +558,7 @@ export class WorkspaceRegistry extends Service {
      const now = new Date().toISOString()
      const record: WorkspaceRecord = {
        path: canonical,
@@ -592,7 +876,7 @@ index 037344fce4..bc8e063ea9 100644
        title: workspaceName,
        sessionIds: [],
        createdAt: now,
-@@ -443,7 +485,7 @@ export class WorkspaceRegistry extends Service {
+@@ -666,7 +708,7 @@ export class WorkspaceRegistry extends Service {
      const byPath = new Map<string, WorkspaceId>()
      const accounted = new Map<SessionId, WorkspaceId>()
      for (const [id, record] of table.entries()) {
@@ -601,7 +885,7 @@ index 037344fce4..bc8e063ea9 100644
        for (const sessionId of record.sessionIds) accounted.set(sessionId, id)
      }
  
-@@ -528,14 +570,15 @@ export class WorkspaceRegistry extends Service {
+@@ -761,14 +803,15 @@ export class WorkspaceRegistry extends Service {
      const paths = new Map<string, WorkspaceId>()
      const accounted = new Map<SessionId, WorkspaceId>()
      for (const [id, record] of table.entries()) {
@@ -619,7 +903,7 @@ index 037344fce4..bc8e063ea9 100644
        for (const sessionId of record.sessionIds) {
          const holder = accounted.get(sessionId)
          if (holder !== undefined) {
-@@ -605,7 +648,7 @@ export class WorkspaceRegistry extends Service {
+@@ -838,7 +881,7 @@ export class WorkspaceRegistry extends Service {
        const record = this.requireTable().get(entity.id) as WorkspaceRecord
        for (const sessionId of record.sessionIds) {
          const path = this.sessionPaths.get(sessionId)
@@ -629,18 +913,18 @@ index 037344fce4..bc8e063ea9 100644
            ?? (this.headers.has(sessionId)
              ? `canonical cwd '${path}' differs from workspace path '${record.path}'`
 diff --git a/packages/workspace/workspace/src/spec.ts b/packages/workspace/workspace/src/spec.ts
-index 089e039f27..c23a2e4253 100644
+index 9bd792258a..0a2e74b8b5 100644
 --- a/packages/workspace/workspace/src/spec.ts
 +++ b/packages/workspace/workspace/src/spec.ts
-@@ -21,6 +21,7 @@ const workspaceId = z.string().transform(value => value as WorkspaceId)
+@@ -23,6 +23,7 @@ const sessionId = z.string().transform(value => brandString<SessionId>(value))
   */
  export const workspaceRecord = z.object({
    path: z.string(),
 +  target: z.object({ provider: z.string().min(1), key: z.string().min(1) }).optional(),
    title: z.string(),
-   sessionIds: z.array(z.string().transform(value => brandString<SessionId>(value))),
+   sessionIds: z.array(sessionId),
    createdAt: z.string(),
-@@ -67,7 +68,7 @@ export type WorkspaceDomainState = z.infer<typeof workspaceDomainState>
+@@ -75,7 +76,7 @@ export type WorkspaceDomainState = z.infer<typeof workspaceDomainState>
   */
  export const workspaceDomainSpec = defineDomain({
    name: 'workspace',
@@ -648,21 +932,15 @@ index 089e039f27..c23a2e4253 100644
 +  version: 3,
    global: {
      schema: workspaceDomainState,
-     initial: { initialized: false, workspaceIds: [], archivedSessionIds: [] },
+     initial: { initialized: false, workspaceIds: [], archivedSessionIds: [], pinnedSessionIds: [] },
 diff --git a/packages/workspace/workspace/src/types.ts b/packages/workspace/workspace/src/types.ts
-index 6343d37f57..ca79466fd6 100644
+index 6355aee02c..0c3d2c2696 100644
 --- a/packages/workspace/workspace/src/types.ts
 +++ b/packages/workspace/workspace/src/types.ts
-@@ -22,24 +22,43 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
+@@ -22,6 +22,29 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
    }
  }
  
--/**
-- * One workspace: a stable id over an existing directory, a display title, and
-- * an ordered candidate account of sessions. Membership requires both an id in
-- * that account and a session header whose canonical cwd equals the workspace
-- * path. Consumers only see this interface; the implementation stays private.
-- */
 +/** A provider-owned resource; its identity is independent of a process directory. */
 +export interface WorkspaceTarget {
 +  readonly provider: string
@@ -686,7 +964,20 @@ index 6343d37f57..ca79466fd6 100644
 +  accepts(key: string, sessionId: SessionId): Promise<boolean>
 +}
 +
-+/** A durable target, display information and ordered Session membership. */
+ /**
+  * Activity families a `workspace/session-activity` listener may report. This
+  * package declares none: each provider merges its own key from a module both
+@@ -54,24 +77,20 @@ export interface SessionActivity {
+   readonly items?: readonly SessionActivityItem[]
+ }
+ 
+-/**
+- * One workspace: a stable id over an existing directory, a display title, and
+- * an ordered candidate account of sessions. Membership requires both an id in
+- * that account and a session header whose canonical cwd equals the workspace
+- * path. Consumers only see this interface; the implementation stays private.
+- */
++/** A durable directory or resource target with ordered Session membership. */
  export interface Workspace {
 +  /** Provider-owned resource; absent for an ordinary directory Workspace. */
 +  readonly target?: WorkspaceTarget | undefined
@@ -707,7 +998,7 @@ index 6343d37f57..ca79466fd6 100644
    readonly title: string
  
    /** ISO-8601 creation instant, stamped at create and never rewritten. */
-@@ -49,12 +68,9 @@ export interface Workspace {
+@@ -81,12 +100,9 @@ export interface Workspace {
    readonly updatedAt: string
  
    /**
@@ -723,7 +1014,7 @@ index 6343d37f57..ca79466fd6 100644
     */
    readonly sessionIds: readonly SessionId[]
  
-@@ -66,14 +82,11 @@ export interface Workspace {
+@@ -98,14 +114,11 @@ export interface Workspace {
    setTitle(title: string): Promise<void>
  
    /**
@@ -743,7 +1034,7 @@ index 6343d37f57..ca79466fd6 100644
     * @returns resolution after durability.
     */
    attachSession(sessionId: SessionId): Promise<void>
-@@ -103,10 +116,11 @@ export interface Workspace {
+@@ -135,10 +148,11 @@ export interface Workspace {
    detachSession(sessionId: SessionId): Promise<void>
  
    /**
@@ -758,10 +1049,10 @@ index 6343d37f57..ca79466fd6 100644
 +  status(): Promise<'ok' | 'missing-dir' | 'missing-target'>
  }
 diff --git a/packages/workspace/workspace/tests/workspace.spec.ts b/packages/workspace/workspace/tests/workspace.spec.ts
-index 1a783b0dbe..14aacddf68 100644
+index e358fb0636..78ee6655d7 100644
 --- a/packages/workspace/workspace/tests/workspace.spec.ts
 +++ b/packages/workspace/workspace/tests/workspace.spec.ts
-@@ -20,7 +20,7 @@ import WorkspaceRegistry, {
+@@ -22,7 +22,7 @@ import WorkspaceRegistry, {
  import type { WorkspaceDomainState, WorkspaceRecord } from '../src/index.ts'
  import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath } from '../src/paths.ts'
  
@@ -770,11 +1061,10 @@ index 1a783b0dbe..14aacddf68 100644
  
  const header = (id: string, cwd?: string, createdAt = 0): SessionHeader => ({
    version: SESSION_FORMAT_VERSION,
-@@ -973,3 +973,34 @@ describe('registry-global session archive', () => {
-     expect(upgraded.registry.archivedSessionIds).toEqual([])
+@@ -1058,6 +1058,37 @@ describe('registry-global session archive', () => {
    })
  })
-+
+ 
 +
 +describe('resource Workspaces', () => {
 +  it('keeps resources sharing a cwd separate and validates provider-owned membership', async () => {
@@ -805,3 +1095,7 @@ index 1a783b0dbe..14aacddf68 100644
 +    } finally { await h.ctx.fiber.dispose() }
 +  })
 +})
++
+ describe('registry-global session unarchive', () => {
+   it('unarchives durably in order, idempotently skips absent ids, and leaves accounting untouched', async () => {
+     const dir = await makeDir('unarchive-home')

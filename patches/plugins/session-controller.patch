@@ -1,20 +1,31 @@
 diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
-index 3620f28368..97681939ff 100644
+index c1f577ec93..f007ed40a4 100644
 --- a/packages/api/session-controller/README.i18n.yaml
 +++ b/packages/api/session-controller/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/api/session-controller/README.md
--README.md: 768c8704775d422c9c48d7d40a58d589f715b718
--README.zh.md: 3c1de73d13678b15af233196894b51fffa952f67
-+README.md: 510b46fe94aed7ae9c405494c84a43a250889891
-+README.zh.md: 9d9af51db0e659577b2db53018fe95f3ff3af2cc
+@@ -24,8 +24,8 @@
+   en: 266ab2b1e2fec542
+   zh: b3450ae28a1e0baf
+ /session-controller/configuration:
+-  en: 5c4c4224074e38a8
+-  zh: e0b0edac65c88ff4
++  en: b73d326b1d0b420a
++  zh: 4bb6812a54771b93
+ /session-controller/model-experience:
+   en: 30b917bf822bb4df
+   zh: b0b023b5b526c317
+@@ -36,5 +36,5 @@
+   en: e896bfcaf38b4f6c
+   zh: 55a4eba838f166de
+ /session-controller/known-limitations-and-deferred-work/dev-note:
+-  en: 68e0dfe4588c5b88
+-  zh: db51b435611bded1
++  en: 2c5da8f1aaf2a8c5
++  zh: 86b62bcb67918273
 diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
-index 768c870477..510b46fe94 100644
+index d1ece35b6b..047f86ed2c 100644
 --- a/packages/api/session-controller/README.md
 +++ b/packages/api/session-controller/README.md
-@@ -56,6 +56,9 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
+@@ -96,6 +96,9 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
  -----
  
  <a id="model-experience"></a>
@@ -24,7 +35,7 @@ index 768c870477..510b46fe94 100644
  ## Model Experience
  
  None, as invoked Agent commands own any model-visible effect.
-@@ -86,3 +89,9 @@ None.
+@@ -127,3 +130,9 @@ None.
  </details>
  
  **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.
@@ -33,12 +44,12 @@ index 768c870477..510b46fe94 100644
 +
 +Prompt admission receives an optional expected historyVersion. Consumers validate it under the existing maintenance guard. An admission listener may return null for an already durably accepted request, preventing another enqueue. Client snapshots carry historySelection independently of the loaded event window and load selected history after opening.
 +
-+Host integrations submit user input through submitUserInput with a fresh request identity, durable attachments and consumer admission data. This entry is not a Remote method. It shares model and attachment validation, session/prompt-admission and enqueue with ordinary prompt. After validation, session/prompt-accepted persists acceptance before enqueue; failure prevents enqueue but cannot undo facts already saved. Retries use the same request identity and do not repeat admission.
++Host integrations submit user input through submitUserInput with a fresh request identity, durable attachments and consumer admission data. This entry is not a Remote method. It shares attachment admission, session/prompt-admission and enqueue with ordinary prompt. After validation, session/prompt-accepted persists acceptance before enqueue; failure prevents enqueue but cannot undo facts already saved. Retries use the same request identity and do not repeat admission.
 diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
-index 3c1de73d13..9d9af51db0 100644
+index ae4c924b1f..0dadc84752 100644
 --- a/packages/api/session-controller/README.zh.md
 +++ b/packages/api/session-controller/README.zh.md
-@@ -56,6 +56,9 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用
+@@ -96,6 +96,9 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不
  -----
  
  <a id="model-experience"></a>
@@ -48,7 +59,7 @@ index 3c1de73d13..9d9af51db0 100644
  ## 模型体验
  
  无；任何模型可见效果都由被调用的 Agent 命令负责。
-@@ -86,3 +89,9 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用
+@@ -127,3 +130,9 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不
  </details>
  
  **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。
@@ -57,7 +68,7 @@ index 3c1de73d13..9d9af51db0 100644
 +
 +提示词接纳接收可选的预期 historyVersion，消费者在现有维护保护中校验。接纳监听器可以为已经持久接纳的请求返回 null，避免再次入队。客户端快照独立携带 historySelection，不受已加载事件窗口限制；打开后加载选中的历史。
 +
-+Host 集成通过 submitUserInput 提交用户输入，使用新请求身份、已持久保存的附件及调用方接纳资料。该入口不暴露为 Remote 方法。它与普通 prompt 共用模型与附件校验、session/prompt-admission 和入队处理。校验通过后，session/prompt-accepted 在入队前持久记录接纳结果；此阶段失败会阻止入队，但不能撤销已经保存的事实。重试使用相同请求身份，不重复接纳。
++Host 集成通过 submitUserInput 提交用户输入，使用新请求身份、已持久保存的附件及调用方接纳资料。该入口不暴露为 Remote 方法。它与普通 prompt 共用附件接纳、session/prompt-admission 和入队处理。校验通过后，session/prompt-accepted 在入队前持久记录接纳结果；此阶段失败会阻止入队，但不能撤销已经保存的事实。重试使用相同请求身份，不重复接纳。
 diff --git a/packages/api/session-controller/src/client/contract/events.ts b/packages/api/session-controller/src/client/contract/events.ts
 index bc825f08fd..05cd9f5676 100644
 --- a/packages/api/session-controller/src/client/contract/events.ts
@@ -113,19 +124,20 @@ index bc825f08fd..05cd9f5676 100644
    }
  }
 diff --git a/packages/api/session-controller/src/client/sessions/session.ts b/packages/api/session-controller/src/client/sessions/session.ts
-index 2945f0b5c4..1f59f7b226 100644
+index 284abc5656..08fb0f935d 100644
 --- a/packages/api/session-controller/src/client/sessions/session.ts
 +++ b/packages/api/session-controller/src/client/sessions/session.ts
-@@ -5,7 +5,7 @@ import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
+@@ -6,8 +6,8 @@ import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
  import type { AttachmentIdType, FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
  import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
  import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
--import { SessionLogOffset, SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
 +import { SessionLogOffset, SessionSeq, type SessionId, type SessionHistorySelection } from '@deepseek-ai/dsh-session/types'
+ import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
+-import { SessionLogOffset, SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
  import { SessionEventStream } from '../transport.ts'
  import type { SessionJournalChange } from '../transport.ts'
  import type {
-@@ -145,6 +145,7 @@ export class Session implements SessionFace {
+@@ -165,6 +165,7 @@ export class Session implements SessionFace {
  
    /** Contiguous history and live tail consumed by Conversation assembly. */
    readonly eventSource = new MutableSessionEventSource()
@@ -133,7 +145,7 @@ index 2945f0b5c4..1f59f7b226 100644
    private snapshotCache: SessionSnapshot
    private readonly notifier: Notifier
    /**
-@@ -167,6 +168,18 @@ export class Session implements SessionFace {
+@@ -187,6 +188,18 @@ export class Session implements SessionFace {
      private readonly options: SessionOptions = {},
    ) {
      this.projections = options.projections ?? new ProjectionValueStore()
@@ -152,7 +164,7 @@ index 2945f0b5c4..1f59f7b226 100644
      this.address = options.address
      this.parentAvailable = options.parentAvailable
      this.notifier = new Notifier(() => {
-@@ -252,6 +265,7 @@ export class Session implements SessionFace {
+@@ -274,6 +287,7 @@ export class Session implements SessionFace {
          mode,
          content,
          clientTimeZone,
@@ -160,16 +172,16 @@ index 2945f0b5c4..1f59f7b226 100644
        }, signal)
      } else if (content.some(part => part.type === 'file')) {
        result = {
-@@ -588,6 +602,7 @@ export class Session implements SessionFace {
+@@ -597,6 +611,7 @@ export class Session implements SessionFace {
     * @returns when the Remote iterator has completed teardown.
     */
    async dispose(): Promise<void> {
 +    this.stopHistorySelection()
+     this.stopObservingInbox()
      // Unsettled echoes retire as failed so their owners can restore or
-     // release browser resources; echoes already scheduled as observed keep
-     // that settlement.
-@@ -621,6 +636,9 @@ export class Session implements SessionFace {
-       await events.open({ maxMessages: PAGE_MESSAGES })
+     // release browser resources; admitted echoes keep their observed outcome.
+@@ -631,6 +646,9 @@ export class Session implements SessionFace {
+       await events.open(HISTORY_PAGE_OPTIONS)
        if (generation !== this.openGeneration || this.events !== events) return
        this.openState = 'open'
 +      const selected = this.projections.get('historySelection') as SessionHistorySelection | null | undefined
@@ -178,19 +190,19 @@ index 2945f0b5c4..1f59f7b226 100644
      } catch (error) {
        if (generation !== this.openGeneration || this.events !== events) return
        if (!isRemoteFailure(error)) throw error
-@@ -669,6 +687,7 @@ export class Session implements SessionFace {
-     this.hasMore = hasMore
+@@ -684,6 +702,7 @@ export class Session implements SessionFace {
+     }
      if (visible.some(entry => entry.event.type === 'turn/start')) this.firstPromptPendingTurn = false
      if (projections !== undefined) this.projections.seed(projections)
 +    this.eventSource.selectHistory(this.projections.get('historySelection') as SessionHistorySelection | null | undefined)
      this.eventSource.replace(visible, hasMore)
-     for (const entry of visible) this.observeSubmissionEvent(entry.event)
-     this.notifier.markDirty()
+     // A new follow baseline replaces confirmed optimistic inputs with Host-owned rows.
+     // Receipt-backed inputs are accepted, not failed, even if their history is outside this window.
 diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
-index a564234664..5a0d15ac97 100644
+index 7e900b92ae..c5a8a7e6e8 100644
 --- a/packages/api/session-controller/src/commands.ts
 +++ b/packages/api/session-controller/src/commands.ts
-@@ -6,7 +6,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
+@@ -7,7 +7,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
  import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
  import { AttachmentError } from '@deepseek-ai/dsh-attachment'
  import type {
@@ -199,7 +211,7 @@ index a564234664..5a0d15ac97 100644
  } from '@deepseek-ai/dsh-attachment'
  import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/types'
  import type {} from '@deepseek-ai/dsh-client-file-upload'
-@@ -52,18 +52,48 @@ import type {
+@@ -54,18 +54,48 @@ import type {
    SessionRequestId,
  } from './types.ts'
  
@@ -253,8 +265,8 @@ index a564234664..5a0d15ac97 100644
 +  return content.some(part => part.type !== 'text' || (part.text ?? '').trim().length > 0)
  }
  
- /** Implements Session business commands delegated by the Session Controller Remote service. */
-@@ -98,6 +128,13 @@ export class SessionCommandController {
+ /**
+@@ -116,6 +146,13 @@ export class SessionCommandController {
          })
        }
      }
@@ -268,7 +280,7 @@ index a564234664..5a0d15ac97 100644
      const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
      let adopted: Agent
      try {
-@@ -110,6 +147,7 @@ export class SessionCommandController {
+@@ -128,6 +165,7 @@ export class SessionCommandController {
      } catch (error) {
        this.rejectCreation(sessionId, error)
      }
@@ -276,7 +288,7 @@ index a564234664..5a0d15ac97 100644
      if (workspace !== undefined) {
        try {
          await workspace.attachSession(sessionId)
-@@ -299,7 +337,21 @@ export class SessionCommandController {
+@@ -308,7 +346,21 @@ export class SessionCommandController {
     * @param request - Session identity, prompt content, source metadata, and delivery mode.
     * @returns acknowledgement that the Agent accepted the prompt.
     */
@@ -299,18 +311,7 @@ index a564234664..5a0d15ac97 100644
      if (!hasPromptContent(request.content)) {
        throw new RemoteError(
          'gateway/bad-request',
-@@ -319,22 +371,25 @@ export class SessionCommandController {
-     }
-     const agent = await this.resolveAgent(request.sessionId)
-     if (hasPromptRequest(agent, request.requestId)) return { accepted: true }
--    const selection = this.agents.selectionFor(agent).current
--    if (!routeServed(this.ctx, selection.provider)) {
--      throw new RemoteError(
--        'session/model-unavailable',
--        `no adapter serves provider "${selection.provider}"; select a model for this session`,
--        { provider: selection.provider, model: selection.model },
--      )
--    }
+@@ -331,11 +383,13 @@ export class SessionCommandController {
      const source: MessageSource = {
        kind: 'user',
        rpcId: request.requestId,
@@ -322,19 +323,10 @@ index a564234664..5a0d15ac97 100644
 +    const admit = async (signal?: AbortSignal): Promise<SessionPromptValue> => {
        try {
 +        signal?.throwIfAborted()
-+        const selection = this.agents.selectionFor(agent).current
-+        if (!routeServed(this.ctx, selection.provider)) {
-+          throw new RemoteError(
-+            'session/model-unavailable',
-+            `no adapter serves provider "${selection.provider}"; select a model for this session`,
-+            { provider: selection.provider, model: selection.model },
-+          )
-+        }
-+
          if (hasImage) {
            const current = this.agents.selectionFor(agent).current
            const model = await this.ctx.llm.resolveModelInfo(current.provider, current.model)
-@@ -346,12 +401,26 @@ export class SessionCommandController {
+@@ -347,12 +401,26 @@ export class SessionCommandController {
              )
            }
          }
@@ -367,7 +359,7 @@ index a564234664..5a0d15ac97 100644
          if (this.ctx.agents.get(agent.id) !== agent) {
            throw new RemoteError(
              'session/not-found',
-@@ -359,7 +428,10 @@ export class SessionCommandController {
+@@ -360,7 +428,10 @@ export class SessionCommandController {
              { sessionId: agent.id },
            )
          }
@@ -379,7 +371,7 @@ index a564234664..5a0d15ac97 100644
          if (request.mode === 'steer') agent.steer(message)
          else agent.followup(message)
          binding.commit()
-@@ -372,7 +444,8 @@ export class SessionCommandController {
+@@ -373,7 +444,8 @@ export class SessionCommandController {
        }
        return { accepted: true }
      }
@@ -388,8 +380,8 @@ index a564234664..5a0d15ac97 100644
 +    return hasImage ? this.agents.serializeImageAdmission(agent, guarded) : guarded()
    }
  
-   /**
-@@ -590,8 +663,9 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
+   private async requireModel(selection: Pick<AgentModelSelection, 'provider' | 'model'>): Promise<void> {
+@@ -607,8 +679,9 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
    if (agent.inbox.nextTurn.some(matches) || agent.inbox.nextStep.some(matches)) return true
    // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
    return agent.session.snapshotEvents().some((event) => {
@@ -402,10 +394,10 @@ index a564234664..5a0d15ac97 100644
    })
  }
 diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
-index be6e8d7ebc..0289f543ac 100644
+index 3fe15221fb..f8ed26cfac 100644
 --- a/packages/api/session-controller/src/index.ts
 +++ b/packages/api/session-controller/src/index.ts
-@@ -15,7 +15,8 @@ import {
+@@ -18,7 +18,8 @@ import {
    inspectApiSession,
    type ApiSessionAgentResult,
  } from './agent.ts'
@@ -415,7 +407,7 @@ index be6e8d7ebc..0289f543ac 100644
  import { SessionControlController } from './control.ts'
  import { SessionHistoryController } from './history.ts'
  import { SessionFileReferences } from './file-references.ts'
-@@ -349,6 +350,15 @@ export class SessionController extends TypertRemoteService {
+@@ -428,6 +429,15 @@ export class SessionController extends TypertRemoteService {
      return this.commands.prompt(request)
    }
  
@@ -432,10 +424,10 @@ index be6e8d7ebc..0289f543ac 100644
     * Read one image proven reachable from the addressed Session log.
     * @param request - Session and attachment identities used for authorization.
 diff --git a/packages/api/session-controller/src/list.ts b/packages/api/session-controller/src/list.ts
-index 4aa369c378..1a4131def6 100644
+index 54ebe1b334..fed06a8c79 100644
 --- a/packages/api/session-controller/src/list.ts
 +++ b/packages/api/session-controller/src/list.ts
-@@ -21,10 +21,11 @@ import type {
+@@ -20,10 +20,11 @@ import type {
  
  const SEARCH_PROVIDER_CALL_LIMIT = 100
  const SESSION_SEARCH_QUERY_MAX_CHARS = 500
@@ -448,7 +440,7 @@ index 4aa369c378..1a4131def6 100644
    lastPromptAt: z.number().nullable(),
  })
  
-@@ -47,13 +48,15 @@ export function applySessionListMetadata(
+@@ -46,13 +47,15 @@ export function applySessionListMetadata(
    state: SessionListMetadata,
    event: SessionEvent,
  ): SessionListMetadata {
@@ -467,7 +459,7 @@ index 4aa369c378..1a4131def6 100644
  }
  
  /**
-@@ -83,7 +86,7 @@ export class ApiSessionList {
+@@ -82,7 +85,7 @@ export class ApiSessionList {
        init: () => ({ blank: true, lastPromptAt: null }),
        apply: applySessionListMetadata,
        wire: { viewSchema: sessionListMetadataSchema, view: state => state },
@@ -476,7 +468,7 @@ index 4aa369c378..1a4131def6 100644
      })
      ctx.inject(['attachments'], (attachmentCtx) => {
        ctx.sessionProjections.register<'imageLimits', null>({
-@@ -164,6 +167,18 @@ export class ApiSessionList {
+@@ -165,6 +168,18 @@ export class ApiSessionList {
     * @returns authorized bounded Session search results.
     */
    async search(query: string, signal: AbortSignal): Promise<SessionSearchValue> {
@@ -495,7 +487,7 @@ index 4aa369c378..1a4131def6 100644
      const normalizedQuery = normalizeSearchQuery(query)
      signal.throwIfAborted()
      const provider = this.ctx.get('sessionQuery')
-@@ -200,8 +215,8 @@ export class ApiSessionList {
+@@ -201,8 +216,8 @@ export class ApiSessionList {
            page = await provider.searchSessions({
              query: normalizedQuery,
              eventFilters: [
@@ -506,7 +498,7 @@ index 4aa369c378..1a4131def6 100644
              ],
              limit: requestedLimit,
              ...(requestedCursor === undefined ? {} : { cursor: requestedCursor }),
-@@ -234,8 +249,8 @@ export class ApiSessionList {
+@@ -235,8 +250,8 @@ export class ApiSessionList {
            if (authorized.length > SESSION_SEARCH_RESULT_LIMIT) continue
            if (!visibleIds.has(hit.header.id)
              || hit.bestMatch.sessionId !== hit.header.id
@@ -518,18 +510,18 @@ index 4aa369c378..1a4131def6 100644
            acceptedIds.add(hit.header.id)
            authorized.push({
 diff --git a/packages/api/session-controller/src/types.ts b/packages/api/session-controller/src/types.ts
-index 49c939d3f0..3478abac21 100644
+index a8f0d7e450..8590859c02 100644
 --- a/packages/api/session-controller/src/types.ts
 +++ b/packages/api/session-controller/src/types.ts
-@@ -5,7 +5,7 @@ import type {
+@@ -6,7 +6,7 @@ import type {
  } from '@deepseek-ai/dsh-attachment'
  import type { Branded } from '@deepseek-ai/dsh-brand'
  import type { LlmAttemptId, MessageId } from '@deepseek-ai/dsh-llm/brand'
--import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-+import type { ContentBlock, MessageSourceMap as LlmMessageSourceMap } from '@deepseek-ai/dsh-llm'
+-import type { TextBlock } from '@deepseek-ai/dsh-llm'
++import type { TextBlock, MessageSourceMap as LlmMessageSourceMap } from '@deepseek-ai/dsh-llm'
  import type { SessionId, SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
  import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
- import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
+ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 @@ -43,7 +43,9 @@ declare module '@deepseek-ai/dsh-session/types' {
  
  /** Persisted hints used to summarize a cold Session. */
@@ -541,7 +533,7 @@ index 49c939d3f0..3478abac21 100644
    readonly blank: boolean
    /** Latest human-authored prompt time in the folded prefix. */
    readonly lastPromptAt: number | null
-@@ -317,6 +319,8 @@ export interface SessionPromptRequest {
+@@ -338,6 +340,8 @@ export interface SessionPromptRequest {
    /** At least one non-whitespace text part or attachment. */
    readonly content: readonly PromptContentPart[]
    readonly clientTimeZone?: string
@@ -550,7 +542,7 @@ index 49c939d3f0..3478abac21 100644
  }
  
  /** Receipt after one prompt enters the target Agent inbox. */
-@@ -377,7 +381,7 @@ export type SessionRequestId = Branded<'session-request-id'>
+@@ -400,7 +404,7 @@ export type SessionRequestId = Branded<'session-request-id'>
  declare module '@deepseek-ai/dsh-llm' {
    interface MessageSourceMap {
      /** Browser prompt correlation and optional Host-validated time zone. */
@@ -560,7 +552,7 @@ index 49c939d3f0..3478abac21 100644
  }
  
 diff --git a/packages/api/session-controller/tests/commands-create-fork.host.spec.ts b/packages/api/session-controller/tests/commands-create-fork.host.spec.ts
-index 42bb3fe508..748cd678a9 100644
+index 87bdc5a399..2d9dc44b2c 100644
 --- a/packages/api/session-controller/tests/commands-create-fork.host.spec.ts
 +++ b/packages/api/session-controller/tests/commands-create-fork.host.spec.ts
 @@ -83,7 +83,9 @@ describe('Session creation failures', () => {
@@ -573,7 +565,7 @@ index 42bb3fe508..748cd678a9 100644
        attachSession: () => Promise.reject(new Error('read-only workspace')),
      } as unknown as Workspace
      failed.provide('workspaceRegistry', {
-@@ -283,3 +285,18 @@ describe('Session fork failures', () => {
+@@ -291,3 +293,18 @@ describe('Session fork failures', () => {
      await ctx.fiber.dispose()
    })
  })
@@ -593,7 +585,7 @@ index 42bb3fe508..748cd678a9 100644
 +  } finally { await ctx.fiber.dispose() }
 +})
 diff --git a/packages/api/session-controller/tests/commands-upload-file.host.spec.ts b/packages/api/session-controller/tests/commands-upload-file.host.spec.ts
-index a6073c5f2a..ceeb8b222d 100644
+index 14527cccec..41cd02b4d8 100644
 --- a/packages/api/session-controller/tests/commands-upload-file.host.spec.ts
 +++ b/packages/api/session-controller/tests/commands-upload-file.host.spec.ts
 @@ -25,7 +25,7 @@ async function uploadHarness(origin?: 'subagent'): Promise<{
@@ -620,7 +612,7 @@ index a6073c5f2a..ceeb8b222d 100644
      ctx: undefined,
      steer: vi.fn(),
      followup,
-@@ -470,3 +471,103 @@ describe('Session file uploads', () => {
+@@ -471,3 +472,101 @@ describe('Session file uploads', () => {
        })
    })
  })
@@ -691,15 +683,13 @@ index a6073c5f2a..ceeb8b222d 100644
 +    } finally { await ctx.fiber.dispose() }
 +  })
 +
-+  it('rejects unavailable models and unsupported retained images before acceptance', async () => {
++  it('rejects unsupported retained images before acceptance', async () => {
 +    const { ctx, controller, agent, followup } = await uploadHarness()
 +    const commit = vi.fn(), read = vi.fn()
 +    const request = { sessionId: agent.id, requestId: 'image-reuse' as SessionRequestId, mode: 'queue' as const, content: [{ type: 'image' as const, attachment: { attachmentId: AttachmentId('sha256:' + 'ab'.repeat(32)), mediaType: 'image/png' as const, bytes: 3, width: 1, height: 1 } }], admission: {} }
 +    try {
 +      ctx.on('session/prompt-accepted', commit)
 +      ctx.attachments.readImage = read
-+      vi.spyOn(ctx.llm, 'listProviders').mockReturnValueOnce([])
-+      await expect(controller.submitUserInput(request)).rejects.toMatchObject({ code: 'session/model-unavailable' })
 +      vi.spyOn(ctx.llm, 'resolveModelInfo').mockResolvedValueOnce({ provider: 'fixture', id: 'fixture-model', name: 'Fixture', inputModalities: ['text'] })
 +      await expect(controller.submitUserInput(request)).rejects.toMatchObject({ code: 'session/attachment-invalid', details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' } })
 +      expect(commit).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled(); expect(followup).not.toHaveBeenCalled()
@@ -725,26 +715,26 @@ index a6073c5f2a..ceeb8b222d 100644
 +  })
 +})
 diff --git a/packages/api/session-controller/tests/session-cold.host.spec.ts b/packages/api/session-controller/tests/session-cold.host.spec.ts
-index eaca25062f..44b1b450ec 100644
+index aefd8b9288..7b10c85be7 100644
 --- a/packages/api/session-controller/tests/session-cold.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-cold.host.spec.ts
-@@ -548,6 +548,7 @@ describe('subagent ownership fence', () => {
+@@ -670,6 +670,7 @@ describe('subagent ownership fence', () => {
      const followup = vi.fn()
      const agent = {
        id: session.id, session, inbox: inboxFor(), status: 'idle', ctx, followup,
 +      runMaintenance: (operation: (signal: AbortSignal) => Promise<unknown>) => operation(new AbortController().signal),
      } as unknown as Agent
-     ctx.agents.register(agent)
+     await ctx.agents.register(agent)
      const remote = createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
-@@ -569,6 +570,7 @@ describe('subagent ownership fence', () => {
+@@ -691,6 +692,7 @@ describe('subagent ownership fence', () => {
      const followup = vi.fn()
      const agent = {
        id: session.id, session, inbox: inboxFor(), status: 'idle', ctx, followup,
 +      runMaintenance: (operation: (signal: AbortSignal) => Promise<unknown>) => operation(new AbortController().signal),
      } as unknown as Agent
-     ctx.agents.register(agent)
+     await ctx.agents.register(agent)
      const remote = createSessionTestRemote(ctx, {
-@@ -691,6 +693,7 @@ describe('sessions.prompt synchronous rejection', () => {
+@@ -813,6 +815,7 @@ describe('sessions.prompt synchronous rejection', () => {
        session,
        inbox: inboxFor(),
        status: 'idle',
@@ -752,7 +742,7 @@ index eaca25062f..44b1b450ec 100644
        ctx,
        followup,
        steer,
-@@ -786,6 +789,7 @@ describe('sessions.prompt synchronous rejection', () => {
+@@ -909,6 +912,7 @@ describe('sessions.prompt synchronous rejection', () => {
        session,
        inbox: inboxFor(),
        status: 'idle',
@@ -761,7 +751,7 @@ index eaca25062f..44b1b450ec 100644
        followup: () => { throw new Error('agent "session-throwing" lifecycle disposed') },
        steer: () => { throw new Error('agent "session-throwing" lifecycle disposed') },
 diff --git a/packages/api/session-controller/tests/session-list-blank.host.spec.ts b/packages/api/session-controller/tests/session-list-blank.host.spec.ts
-index cdfbbda39b..c1f435f150 100644
+index fce236d3e3..f032448342 100644
 --- a/packages/api/session-controller/tests/session-list-blank.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-list-blank.host.spec.ts
 @@ -1,11 +1,4 @@
@@ -786,7 +776,7 @@ index cdfbbda39b..c1f435f150 100644
 +  const { ctx, remote, attach } = await harness()
 +  try {
 +    const session = ctx.sessions.create()
-+    attach(session)
++    await attach(session)
 +    session.append('session/configuration', { key: 'opening', value: {}, presentation: { initialized: true, label: 'Reading' } })
 +    const result = await remote.list({})
 +    if (!result.ok) throw new Error('list failed')
@@ -795,10 +785,10 @@ index cdfbbda39b..c1f435f150 100644
 +  } finally { await ctx.fiber.dispose() }
 +})
 diff --git a/packages/api/session-controller/tests/session-projections.host.spec.ts b/packages/api/session-controller/tests/session-projections.host.spec.ts
-index 90ffb10456..7842a8754a 100644
+index ed4f4a6b0c..b022e75ed2 100644
 --- a/packages/api/session-controller/tests/session-projections.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-projections.host.spec.ts
-@@ -95,7 +95,7 @@ const lastUserUnit = () => ({
+@@ -96,7 +96,7 @@ const lastUserUnit = () => ({
      : state),
    wire: {
      viewSchema: z.union([z.object({ text: z.string() }), z.null()]),
@@ -808,7 +798,7 @@ index 90ffb10456..7842a8754a 100644
    stateVersion: 1,
  }) satisfies ProjectionDefinition<'test/last-user', LastUserState>
 diff --git a/packages/api/session-controller/tests/session-search.host.spec.ts b/packages/api/session-controller/tests/session-search.host.spec.ts
-index c616bc6910..bc852766bf 100644
+index 1e38cd9788..25275e4c3e 100644
 --- a/packages/api/session-controller/tests/session-search.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-search.host.spec.ts
 @@ -76,6 +76,7 @@ class SearchSessionQuery extends SessionQueryEngine {

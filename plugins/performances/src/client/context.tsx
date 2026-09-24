@@ -4,7 +4,7 @@ import { CONFIG_KEY, PRODUCER, ACTION_KEY } from '../constants.ts'
 import type { FrozenPerformance } from '../model.ts'
 import type { T } from './locales.ts'
 interface Event { type: string; seq: number; time: number; data: unknown }
-interface Entry { groupId: string; index: number; name?: string; message: { id: string; role: 'user' | 'assistant'; content: { type: 'text'; text: string }[]; source: { plugin?: string } } }
+interface Entry { groupId: string; index: number; name?: string; message: { id: string; role: 'user' | 'assistant'; content: { type: 'text'; text: string }[]; source: { producer?: string } } }
 interface Match { event: Event; location: unknown }
 interface Context { key: string; id: string; matches: readonly Match[]; start?: Match }
 function fixed(event: Event): FrozenPerformance | undefined {
@@ -15,7 +15,7 @@ function fixed(event: Event): FrozenPerformance | undefined {
 function match(event: Event) {
   const value = fixed(event)
   if (value) return { id: `papermoon.performance:${value.originSessionId}`, role: 'start' as const }
-  if (event.type === 'context/message') { const entry = event.data as Entry; if (entry.message.source.plugin === PRODUCER) return { id: entry.groupId, role: 'update' as const } }
+  if (event.type === 'context/message') { const entry = event.data as Entry; if (entry.message.source.producer === PRODUCER) return { id: entry.groupId, role: 'update' as const } }
   return null
 }
 export const openingDefinition = {
@@ -36,7 +36,7 @@ export const initializationDefinition = {
   buildViewNode(context: Context) {
     const first = context.matches[0]
     if (!first) return null
-    return { key: context.key, id: context.id, kind: 'papermoon-initialization', target: 'trajectory', anchorSeq: first.event.seq, location: first.location, visibility: 'visible', independent: true, data: { kind: 'node', node: { kind: 'context', seq: first.event.seq, time: first.event.time, content: [{ type: 'text', text: JSON.stringify(fixed(first.event), null, 2) }], source: { kind: 'plugin', plugin: 'papermoon-performance-initialization' }, provenance: { role: 'inject', label: 'PaperMoon' }, form: 'snapshot' } } }
+    return { key: context.key, id: context.id, kind: 'papermoon-initialization', target: 'trajectory', anchorSeq: first.event.seq, location: first.location, visibility: 'visible', independent: true, data: { kind: 'node', node: { kind: 'context', seq: first.event.seq, time: first.event.time, content: [{ type: 'text', text: JSON.stringify(fixed(first.event), null, 2) }], source: { kind: 'authored-context', producer: 'papermoon-performance-initialization' }, provenance: { role: 'inject', label: 'PaperMoon' }, form: 'snapshot' } } }
   },
 }
 export function Opening({ node, t }: { node: { data: { system?: string; systemName?: string; messages: { role: 'user' | 'assistant'; name?: string; content: string }[] } }; t: T }) {
@@ -56,6 +56,6 @@ export const actionDefinition = {
     if (!first) return null
     const value = (first.event.data as { value: unknown }).value
     return { key: context.key, id: context.id, kind: 'papermoon-action', target: 'trajectory', anchorSeq: first.event.seq, location: first.location, visibility: 'visible', independent: true,
-      data: { kind: 'node', node: { kind: 'context', seq: first.event.seq, time: first.event.time, content: [{ type: 'text', text: JSON.stringify(value, null, 2) }], source: { kind: 'plugin', plugin: 'papermoon-performance-action' }, provenance: { role: 'inject', label: 'PaperMoon' }, form: 'snapshot' } } }
+      data: { kind: 'node', node: { kind: 'context', seq: first.event.seq, time: first.event.time, content: [{ type: 'text', text: JSON.stringify(value, null, 2) }], source: { kind: 'authored-context', producer: 'papermoon-performance-action' }, provenance: { role: 'inject', label: 'PaperMoon' }, form: 'snapshot' } } }
   },
 }

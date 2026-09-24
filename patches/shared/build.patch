@@ -1,0 +1,36 @@
+diff --git a/scripts/clean.spec.ts b/scripts/clean.spec.ts
+index 11a8c880b0..ac6b33eb50 100644
+--- a/scripts/clean.spec.ts
++++ b/scripts/clean.spec.ts
+@@ -82,6 +82,18 @@ describe('RepositoryCleaner', () => {
+     expect(existsSync(join(root, 'native/system/tsconfig.tsbuildinfo'))).toBe(false)
+   })
+ 
++  it('removes the desktop keyboard test output without deleting neighboring artifacts', async () => {
++    const root = fixture()
++    addProject(root, 'keyboard-tests', '../lib/desktop-keyboard-test-types')
++    write(join(root, 'lib/desktop-keyboard-test-types/test.js'))
++    write(join(root, 'lib/retained.txt'))
++
++    await new RepositoryCleaner(root).clean()
++
++    expect(existsSync(join(root, 'lib/desktop-keyboard-test-types'))).toBe(false)
++    expect(existsSync(join(root, 'lib/retained.txt'))).toBe(true)
++  })
++
+   it('refuses project outputs reached through a symlink outside the repository', async () => {
+     const root = fixture()
+     const externalProject = fixture()
+diff --git a/scripts/clean.ts b/scripts/clean.ts
+index bb789f298c..15b8be2a0b 100644
+--- a/scripts/clean.ts
++++ b/scripts/clean.ts
+@@ -136,7 +136,7 @@ export class RepositoryCleaner {
+         const typesDirectory = resolve(parsed.options.outDir)
+         const outputDirectory = basename(typesDirectory) === 'types'
+           ? dirname(typesDirectory)
+-          : typesDirectory === nativeEntryOutput
++          : typesDirectory === nativeEntryOutput || typesDirectory === join(this.root, 'lib/desktop-keyboard-test-types')
+             ? typesDirectory
+             : undefined
+         if (outputDirectory === undefined) {

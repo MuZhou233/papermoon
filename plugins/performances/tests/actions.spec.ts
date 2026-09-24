@@ -42,7 +42,7 @@ async function fixture(seed: readonly LogRecord[] = [], flush: () => Promise<boo
   const call = (id: string, amount: number) => agent.session.append('tool/call', { turn: 1, step: 1, callId: id, name: 'add', arguments: JSON.stringify({ amount }) })
   const run = (id: string, amount: number, signal = new AbortController().signal) => actor.invoke('add', { amount }, id, signal)
   const state = () => projectActions(events, fixed)
-  const receipt = (id: string, code: string) => agent.session.append('tool/result', { turn: 1, step: 1, message: { id: 'receipt-' + events.length, source: { kind: 'tool', callId: id }, content: [{ type: 'tool-result', isError: true }] }, error: { code } })
+  const receipt = (id: string, code: string) => agent.session.append('tool/result', { turn: 1, step: 1, message: { id: 'receipt-' + events.length, role: 'tool', toolCallId: id, source: { kind: 'tool', callId: id }, isError: true, content: [] }, error: { code } })
   return { fixed, agent, events, actor, call, run, state, receipt, surfaces }
 }
 test('commits raw values once per logged call and serializes overlapping calls', async () => {
@@ -79,7 +79,7 @@ test('blocks after unconfirmed persistence and restores the recorded result with
   await expect(f.actor.recover()).rejects.toMatchObject({ code: 'performance-save-failed' })
   const restored = await fixture(f.events)
   await restored.actor.recover()
-  expect(restored.events.at(-1)).toMatchObject({ type: 'tool/result', data: { message: { content: [{ isError: false, content: [{ type: 'text', text: '2' }] }] } } })
+  expect(restored.events.at(-1)).toMatchObject({ type: 'tool/result', data: { message: { isError: false, content: [{ type: 'text', text: '2' }] } } })
   expect(await restored.run('a', 2)).toBe(2)
   expect(restored.state().actions).toHaveLength(1)
   expect(await restored.run('b', 1)).toBe(3)
@@ -89,7 +89,7 @@ test('restores an interrupted receipt once while keeping its historical position
   const call = f.call('a', 2) as LogRecord; await f.run('a', 2)
   const action = f.state().actions[0]!, receipt = f.receipt('a', 'TOOL_OUTCOME_UNKNOWN') as LogRecord
   await f.actor.recover()
-  expect(f.events.at(-1)).toMatchObject({ type: 'tool/result', data: { message: { content: [{ type: 'tool-result', isError: false, content: [{ type: 'text', text: '2' }] }] } } })
+  expect(f.events.at(-1)).toMatchObject({ type: 'tool/result', data: { message: { isError: false, content: [{ type: 'text', text: '2' }] } } })
   expect(f.surfaces.at(-1)).toEqual({ surfaceOp: { op: 'replace', startSeq: receipt.seq, endSeq: receipt.seq }, sourceEventSeqs: [receipt.seq, action.seq, call.seq] })
   const size = f.events.length; await f.actor.recover(); expect(f.events).toHaveLength(size)
   f.call('a', -1); f.receipt('a', 'ABORTED'); await f.actor.recover()

@@ -14,6 +14,8 @@ The main repository maintains plugins, tooling, documentation, dependencies and 
 
 The main rules are self-contained. Consuming a DSH interface does not import its package structure, runtime design rules, SDK requirements or organization workflows into main-repository policy. The [maintenance decision](../.agents/notes/implemented/process/2026-09-11-independent-maintenance.md) records this choice.
 
+PaperMoon pins DSH `dsh-v0.1.7-rc.2` at `477b4f420553e8a52c2fbccc464d7561b239c443`. Product presets are declarative registry entries. Shared Session protocol, tool-update projection and client binding lifetimes remain DSH responsibilities; PaperMoon owns authored content, Playbook policy and per-session product controls.
+
 ## Current launch and data
 
 The launcher executes DSH's official built CLI with the standard Web profile, PaperMoon's composition overlay and the PaperMoon root as its working directory. Dependency installation, build and registered checks run inside the submodule with `CI=true`, which preserves DSH’s automated installation behavior and dependency layout. Launch inherits the caller’s environment.

@@ -46,7 +46,7 @@ function fixture(seed: readonly LogRecord[] = [], flush = async () => true) {
     const callId = run.id
     agent.session.append('tool/call', { turn: 1, step: 1, callId, name: 'add', arguments: JSON.stringify({ amount }) })
     const value = await actions.invoke('add', { amount }, callId, new AbortController().signal)
-    agent.session.append('tool/result', { message: { id: callId, source: { callId }, content: [{ type: 'tool-result', content: [{ type: 'text', text: String(value) }] }] } })
+    agent.session.append('tool/result', { message: { id: callId, role: 'tool', toolCallId: callId, source: { kind: 'tool', callId }, content: [{ type: 'text', text: String(value) }] } })
     agent.session.append('turn/end', { turn: 1, reason: { kind: outcome } })
     await lines.settle(); return lines.state().nodes.get(lines.state().selected)!
   }
@@ -86,7 +86,7 @@ test('recovers an interrupted execution from committed records without running a
   const run = f.lines.state().pending!
   f.agent.session.append('tool/call', { turn: 1, step: 1, callId: run.id, name: 'add', arguments: '{"amount":4}' })
   await f.actions.invoke('add', { amount: 4 }, run.id, new AbortController().signal)
-  f.agent.session.append('tool/result', { error: { code: 'TOOL_OUTCOME_UNKNOWN' }, message: { id: run.id, source: { callId: run.id }, content: [{ type: 'tool-result', isError: true, content: [] }] } })
+  f.agent.session.append('tool/result', { error: { code: 'TOOL_OUTCOME_UNKNOWN' }, message: { id: run.id, role: 'tool', toolCallId: run.id, source: { kind: 'tool', callId: run.id }, isError: true, content: [] } })
   const reopened = fixture(f.events)
   await reopened.lines.settle()
   expect(reopened.lines.state().nodes.size).toBe(2)

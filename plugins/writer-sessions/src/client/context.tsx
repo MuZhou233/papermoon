@@ -2,7 +2,7 @@
 import { Button } from '@papermoon/ui'
 import type { T } from './locales.ts'
 interface Event { type: string; seq: number; time: number; data: unknown }
-interface Entry { groupId: string; index: number; name?: string; message: { id: string; role: 'user' | 'assistant'; content: readonly { type: 'text'; text: string }[]; source: { kind: 'plugin'; plugin: string } } }
+interface Entry { groupId: string; index: number; name?: string; message: { id: string; role: 'user' | 'assistant'; content: readonly { type: 'text'; text: string }[]; source: { kind: 'authored-context'; producer: string } } }
 interface Match { event: Event; location: unknown }
 interface Context { key: string; id: string; matches: readonly Match[]; start?: Match }
 export const contextDefinition = {
@@ -10,7 +10,7 @@ export const contextDefinition = {
   match(event: Event) {
     if (event.type !== 'context/message') return null
     const data = event.data as Entry
-    if (data.message.source.plugin !== 'papermoon-writer-context') return null
+    if (data.message.source.producer !== 'papermoon-writer-context') return null
     return { id: data.groupId, role: data.index === 0 ? 'start' as const : 'update' as const }
   },
   start: () => true,

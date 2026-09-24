@@ -33,6 +33,6 @@ export function performanceState(session: SessionLog): { mode?: string; playbook
 }
 export function openingMessages(fixed: FrozenPerformance) {
   return fixed.artifact.context.messages.map((entry, index) => ({ index, groupId: `papermoon.performance:${fixed.originSessionId}`, ...(entry.name === undefined ? {} : { name: entry.name }),
-    message: { id: `papermoon.performance:${fixed.originSessionId}:${index}`, role: entry.role, content: [{ type: 'text' as const, text: entry.content }], source: { kind: 'plugin' as const, plugin: PRODUCER } },
+    message: { id: `papermoon.performance:${fixed.originSessionId}:${index}`, role: entry.role, content: [{ type: 'text' as const, text: entry.content }], source: { kind: 'authored-context' as const, producer: PRODUCER } },
   }))
 }

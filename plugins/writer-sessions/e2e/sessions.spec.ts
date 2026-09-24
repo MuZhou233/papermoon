@@ -59,7 +59,9 @@ test('writer workspace sends exact context and retains its accepted configuratio
   await expect(page.locator('.pws-context summary')).toBeVisible()
   await page.locator('.pws-context summary').click()
   await expect(page.locator('.pws-context pre')).toHaveText(['Preset user', 'Preset assistant'])
-  const requests = readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line))
+  const recordedRequests = () => readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line))
+  const conversationRequests = () => recordedRequests().filter(request => !request.purpose)
+  const requests = conversationRequests()
   await test.info().attach('model-request', { body: JSON.stringify(requests[0], null, 2), contentType: 'application/json' })
   expect(requests[0].messages.map((message: { role: string }) => message.role)).toEqual(['system', 'user', 'assistant', 'user'])
   expect(requests[0].messages.map((message: { content: { text: string }[] }) => message.content.map(block => block.text).join(''))).toEqual([definition.systemPrompt, 'Preset user', 'Preset assistant', 'Please inspect the playbook.'])
@@ -68,6 +70,11 @@ test('writer workspace sends exact context and retains its accepted configuratio
   await page.reload()
   await expect(fixed).toBeDisabled()
   await expect(page.locator('.pws-context summary')).toHaveCount(1)
+  await call(page, 'settings/update', { args: { ns: 'ui-settings', patch: { enabled: false } } })
+  await page.reload()
+  await expect(fixed).toBeDisabled()
+  expect((await call(page, 'papermoon-writer-sessions/state', { sessionId })).fixed.writer.id).toBe(writer.id)
+  await call(page, 'settings/update', { args: { ns: 'ui-settings', patch: { enabled: true } } })
   await page.getByRole('tab', { name: 'Trajectory', exact: true }).click()
   await expect(page.getByText('Preset assistant', { exact: true }).first()).toBeVisible()
   expect(sessionId).toBeTruthy()
@@ -77,8 +84,12 @@ test('writer workspace sends exact context and retains its accepted configuratio
   const send = { sessionId: child.sessionId, requestId: crypto.randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Continue from the inherited context.' }] }
   await call(page, 'session/prompt', { args: { request: send } })
   await call(page, 'session/prompt', { args: { request: send } })
-  await expect.poll(() => readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').length).toBe(3)
-  const last = JSON.parse(readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').at(-1)!)
+  try {
+    await expect.poll(() => conversationRequests().length).toBe(3)
+  } finally {
+    await test.info().attach('recorded-requests', { body: JSON.stringify(recordedRequests(), null, 2), contentType: 'application/json' })
+  }
+  const last = conversationRequests().at(-1)!
   expect(last.messages.filter((message: { content: { text: string }[] }) => message.content.some(block => block.text === 'Preset assistant'))).toHaveLength(1)
   await call(page, 'papermoon/deletePlaybook', { playbookId: playbook.id })
   await page.reload()
@@ -93,6 +104,9 @@ test('mode changes preserve unsent text and clear incompatible workspace choices
   await page.addLocatorHandler(page.getByRole('button', { name: 'Continue', exact: true }), async () => { await page.getByRole('button', { name: 'Continue', exact: true }).click() })
   await page.goto(server.url)
   await page.getByRole('button', { name: 'New session', exact: true }).last().click()
+  await call(page, 'settings/update', { args: { ns: 'ui-settings', patch: { enabled: false } } })
+  await expect(page.getByRole('button', { name: 'Standard mode', exact: true })).toHaveCount(0)
+  await call(page, 'settings/update', { args: { ns: 'ui-settings', patch: { enabled: true } } })
   const project = await call(page, 'papermoon/createProject', { name: 'Workspace project' })
   await call(page, 'papermoon/createPlaybook', { projectId: project.id, name: 'Other playbook', defaultLanguage: 'en' })
   await page.getByRole('button', { name: 'Standard mode', exact: true }).click()

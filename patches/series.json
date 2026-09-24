@@ -1,6 +1,7 @@
 {
   "version": 1,
   "patches": [
+    "shared/build.patch",
     "shared/session.patch",
     "shared/tools.patch",
     "shared/runtime-catalogs.patch",
@@ -20,10 +21,9 @@
         "packages/core/agent-loop/tests/loop.spec.ts",
         "packages/core/session/tests",
         "packages/api/session-controller/tests",
-        "packages/preset/agent-presets/tests/mount.spec.ts",
+        "packages/preset/agent-preset-registry/tests",
         "packages/client/ui-agent-preset/tests",
         "packages/client/ui-workspace/tests",
-        "packages/client/ui-trajectory/tests/layout.client.spec.ts",
         "packages/client/ui-conversation/tests/composer-blocks.client.spec.ts",
         "packages/client/ui-conversation/tests/input-bar.client.spec.tsx",
         "packages/session-query/session-query/tests/search-helpers.spec.ts",
@@ -45,8 +45,10 @@
         "packages/core/scope/tests",
         "packages/client/ui-trajectory/tests",
         "scripts/gen-cordis-catalog-runtime.spec.ts",
-        "scripts/gen-cordis-catalog-record.spec.ts",
-        "scripts/gen-cordis-catalog-partition.spec.ts"
+        "scripts/gen-cordis-catalog-partition.spec.ts",
+        "scripts/clean.spec.ts",
+        "packages/llm/llm-pi-ai/tests",
+        "packages/llm/llm/tests/content.spec.ts"
       ]
     },
     {

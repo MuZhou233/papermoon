@@ -1,68 +1,72 @@
 diff --git a/packages/client/ui-chat/README.i18n.yaml b/packages/client/ui-chat/README.i18n.yaml
-index 2c5c3fda05..ba2627037e 100644
+index 43fe0e4ac9..825318f80d 100644
 --- a/packages/client/ui-chat/README.i18n.yaml
 +++ b/packages/client/ui-chat/README.i18n.yaml
-@@ -2,5 +2,5 @@
- # side as of the last confirmed-consistent state. Both languages carry equal authority;
- # after editing either side, bring the other along and re-record with:
- #   pnpm run verify-translation-pairing --write packages/client/ui-chat/README.md
--README.md: 2333739f2827eb673525b9f00547d12e8d343888
--README.zh.md: 0de859abfcfac1679d605cf4447a2f4ac2312f5d
-+README.md: b2e18b860aa3a98af7204702799162f2809a3487
-+README.zh.md: 83713778331309f10f054922f614a24036f8af11
+@@ -48,5 +48,5 @@
+   en: 1e7e55adf5c87246
+   zh: dd5befdf58ea084f
+ /deepseek-ai-dsh-client-ui-chat/known-limitations-and-deferred-work/dev-note:
+-  en: b8b7eeb4ae675d2a
+-  zh: fbe7022074ba81b9
++  en: 0aa0f7c07e48be75
++  zh: 548ebdf797fece33
 diff --git a/packages/client/ui-chat/README.md b/packages/client/ui-chat/README.md
-index 2333739f28..b2e18b860a 100644
+index b3343fd9c3..cb7cbe4672 100644
 --- a/packages/client/ui-chat/README.md
 +++ b/packages/client/ui-chat/README.md
-@@ -90,3 +90,11 @@ None.
+@@ -173,3 +173,13 @@ None.
  </details>
  
  **Runtime invariant:** No companion is published. Conversation and Slot registration enforce Chat target consistency.
 +
-+Client plugins call ctx.chatPresentation.preserveReplies(preset) to keep every reply-bearing Assistant step visible in Compact mode for that preset. Reasoning within those steps and separate Tool rows still fold. Registrations are effects; disposal restores ordinary behavior. The policy applies equally to live and restored history without changing model requests or the persisted Normal/Compact preference.
++Client plugins call ctx.chatPresentation.preserveReplies(preset) to keep every reply-bearing Assistant step visible when completed turns fold for that preset. Reasoning within those steps and separate Tool rows still fold. Registrations are effects; disposal restores ordinary behavior. The policy applies equally to live and restored history without changing model requests or the saved work-details preference.
 +
-+The conversation.chat.turn-actions chain can replace the default fork controls for a complete turn, including one without closing text. It receives the turn and its raw closing coordinate. Selectors remain pure functions of their owner props.
++The conversation.chat.turn-actions chain can replace the default fork controls for a complete turn, including one without closing text. It receives the bound sessionId and agentPreset, the turn and its raw closing coordinate. Selectors remain pure functions of their owner props.
 +
 +The conversation.chat.user-actions list adds actions beside a user bubble and supplies its raw message sequence. Persisted user sources determine input presentation, including inputs recorded before a turn starts.
 +
 +Keyed Chat node renderers receive openView when hosted by the Conversation view. It selects a registered view with an opaque focus identity, so inspection links need not change Session history or navigate by DOM selectors.
++
++Feature-owned Chat nodes can set `independent: true` to remain outside both process groups and completed-turn disclosure. This keeps authored context visible without changing the ordinary context-message policy.
 diff --git a/packages/client/ui-chat/README.zh.md b/packages/client/ui-chat/README.zh.md
-index 0de859abfc..8371377833 100644
+index b524f85580..cac793bf81 100644
 --- a/packages/client/ui-chat/README.zh.md
 +++ b/packages/client/ui-chat/README.zh.md
-@@ -92,3 +92,11 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点。没有
+@@ -173,3 +173,13 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点，并且
  </details>
  
  **运行时不变式：** 不发布伴生入口。Conversation 与 slot 注册已经强制 Chat target 一致。
 +
-+客户端插件调用 ctx.chatPresentation.preserveReplies(preset)，让指定预设在紧凑模式下保留所有含有回复正文的 Assistant 步骤。其中的思考及独立工具行仍会折叠。登记按 effect 管理，撤销后恢复普通行为。策略对实时与恢复的历史同样生效，不改变模型请求，也不修改已保存的标准／紧凑显示偏好。
++客户端插件调用 ctx.chatPresentation.preserveReplies(preset)，让指定预设在折叠已完成轮次时保留所有含有回复正文的 Assistant 步骤。其中的思考及独立工具行仍会折叠。登记按 effect 管理，撤销后恢复普通行为。策略对实时与恢复的历史同样生效，不改变模型请求，也不修改已保存的工作详情显示偏好。
 +
-+conversation.chat.turn-actions 链可以替换完整轮次的默认分支控件，包括没有结束正文的轮次。它接收轮次及原始结束坐标。选择器仍是仅依赖所属参数的纯函数。
++conversation.chat.turn-actions 链可以替换完整轮次的默认分支控件，包括没有结束正文的轮次。它接收绑定的 sessionId 和 agentPreset、轮次及原始结束坐标。选择器仍是仅依赖所属参数的纯函数。
 +
 +conversation.chat.user-actions 列表在用户气泡旁添加操作，并提供消息的原始序号。持久记录中的用户来源决定输入的展示方式，包括执行轮次开始前记录的输入。
 +
 +由 Conversation 视图承载时，按键注册的 Chat 节点渲染器会收到 openView。它用不透明的焦点身份选择已注册视图，让检查入口无需改变 Session 历史或通过 DOM 选择器导航。
++
++功能自有的 Chat 节点可设置 `independent: true`，同时退出过程分组和已完成轮次的折叠。预置上下文因此保持可见，普通上下文消息仍沿用原有策略。
 diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
-index e0b5718ecc..ba58683b48 100644
+index 8c86d6e918..2acce107be 100644
 --- a/packages/client/ui-chat/src/client/apply.ts
 +++ b/packages/client/ui-chat/src/client/apply.ts
-@@ -32,6 +32,7 @@ import { registerConversationNodes } from './conversation-nodes/register.ts'
+@@ -34,6 +34,7 @@ import { QuotaNoticeHost } from './chat/QuotaNoticeHost.tsx'
  import { en, NS, zh } from './locale.ts'
  import { TranscriptViewRow, type TranscriptViewRowInjected } from './settings/TranscriptViewRow.tsx'
  import { createChatStore } from './stores.ts'
 +import { ChatPresentation } from './chat-presentation.ts'
  import { TranscriptViewPolicy } from './transcript-view.ts'
- import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../chat-settings.ts'
- import { useTurnDataValue } from './chat/use-turn-data.ts'
-@@ -55,6 +56,7 @@ export const inject = [
+ import { derivePresentationPolicy } from './presentation-policy.ts'
+ import { CHAT_SETTINGS_NAMESPACE, DEFAULT_LINK_OPENING, type ChatSettings } from '../chat-settings.ts'
+@@ -63,6 +64,7 @@ export const inject = [
   * @param ctx - Client root context.
   */
  export function apply(ctx: Context): void {
-+  const presentation = new ChatPresentation(ctx)
-   const chatSources = new WeakMap<SessionBinding, ObservableSnapshot<ChatSnapshot>>()
-   const chatSource = (binding: SessionBinding): ObservableSnapshot<ChatSnapshot> => {
-     let source = chatSources.get(binding)
-@@ -104,6 +106,7 @@ export function apply(ctx: Context): void {
++  const replyPolicy = new ChatPresentation(ctx)
+   const quotaNotice = createSnapshotStore<QuotaNoticeState | null>(null)
+   let quotaNoticeSeq = 0
+   // Each hold is its own token, so a release can only drop the hold it was
+@@ -184,6 +186,7 @@ export function apply(ctx: Context): void {
        children: {
          'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
          'conversation.message.images': { kind: 'single', scope: 'session' },
@@ -70,14 +74,12 @@ index e0b5718ecc..ba58683b48 100644
        },
        store: chatStore,
        inject: (sessionId: SessionId): ChatViewInjected => {
-@@ -112,7 +115,9 @@ export function apply(ctx: Context): void {
-         const session = binding.session
+@@ -193,7 +196,7 @@ export function apply(ctx: Context): void {
          const chat = chatSource(binding)
+         const conversation = ctx.uiConversation.binding(binding)
          return {
--          hooks: { transcriptView: transcriptView.mode },
-+          hooks: {
-+            transcriptView: transcriptView.mode, replyPresets: presentation.presets,
-+          },
+-          hooks: { presentation },
++          hooks: { presentation, replyPresets: replyPolicy.presets },
            keyedHooks: {
              chatNode: key => chat.getSnapshot().nodes.source(key),
              chatNodeProcess: key => chat.getSnapshot().nodes.processSource(key),
@@ -137,10 +139,10 @@ index 0000000000..1b6a649da0
 +  private publish(): void { this.store.set([...new Set(this.registrations.values())]) }
 +}
 diff --git a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
-index 399897a9b5..69d6db5fd2 100644
+index 76ce74ef02..dba951603b 100644
 --- a/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
 +++ b/packages/client/ui-chat/src/client/chat/AssistantNodeView.tsx
-@@ -22,8 +22,8 @@ export const AssistantNodeView = memo(function AssistantNodeView({
+@@ -25,8 +25,8 @@ export const AssistantNodeView = memo(function AssistantNodeView({
    )
    const reasoningHidden = turnProcess !== undefined
      && turnProcess.foldable
@@ -152,13 +154,13 @@ index 399897a9b5..69d6db5fd2 100644
    const revealProcess = useCallback(() => { turnProcess?.setOpen(true) }, [turnProcess])
    return (
 diff --git a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
-index 40e08dbaf7..f061b0dd2e 100644
+index f2269daf9d..8516a8086a 100644
 --- a/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
 +++ b/packages/client/ui-chat/src/client/chat/ChatNodeSeat.tsx
-@@ -4,16 +4,18 @@ import type { ConversationLocationDataStore, ConversationTurnDataMap } from '@de
- import type { ChatNodeOwnerProps, ChatViewSlotProps } from '../contract/slots.ts'
+@@ -6,17 +6,19 @@ import type { ChatNodeHookContext, ChatNodeOwnerProps, ChatViewSlotProps, UsePre
  import type { ChatNode } from '../contract/chat-nodes.ts'
- import { TURN_PROCESS_INDEPENDENT_KINDS } from '../contract/turn-process.ts'
+ import type { ChatNodeStore } from '../contract/snapshot.ts'
+ import { TURN_PROCESS_INDEPENDENT_KINDS, turnProcessAlwaysOpen } from '../contract/turn-process.ts'
 +import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
  import { storedTurnProcessEntry } from '../stores.ts'
  import { useSearchableHidden } from './searchable-hidden.ts'
@@ -167,38 +169,39 @@ index 40e08dbaf7..f061b0dd2e 100644
 -interface ChatNodeSeatProps extends ChatNodeOwnerProps {
 +interface ChatNodeSeatProps extends Omit<ChatNodeOwnerProps, 'renderUserActions'> {
    readonly nodeKey: string
+   /** A replaced Builder must rebind keyed hooks even when references and keys survive. */
+   readonly nodeStore: ChatNodeStore
    readonly useChatNode: ChatViewSlotProps['useChatNode']
    readonly useChatNodeProcess: ChatViewSlotProps['useChatNodeProcess']
-   readonly historyIncomplete: boolean
-   readonly compactTranscript: boolean
+   readonly usePresentation: UsePresentation
 +  readonly preserveReplies: boolean
    readonly useStore: ChatViewSlotProps['useStore']
    readonly actions: ChatViewSlotProps['actions']
    readonly renderSlot: ChatViewSlotProps['renderSlot']
-@@ -36,8 +38,8 @@ function turnOf(node: ChatNode | undefined): number | undefined {
- 
- /** Subscribe, apply Turn-process visibility, and dispatch one stable Context key. */
+@@ -43,8 +45,8 @@ function turnOf(node: ChatNode | undefined): number | undefined {
+  * only seats whose visibility actually changes.
+  */
  export const ChatNodeSeat = memo(function ChatNodeSeat({
--  nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript,
+-  nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation,
 -  cwd, openFile, openSkill, inspectCall, forkAt,
-+  nodeKey, useChatNode, useChatNodeProcess, historyIncomplete, compactTranscript, preserveReplies,
++  nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation, preserveReplies,
 +  cwd, openFile, openSkill, openView, inspectCall, forkAt,
    loadImage, renderMessageImages, fileMentions, useStore, actions, renderSlot, t,
  }: ChatNodeSeatProps) {
    const node = useChatNode(nodeKey)
-@@ -68,7 +70,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
-     && !historyIncomplete
+@@ -77,7 +79,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+     && (processPresentation.turnStarted || processPresentation.turnClosed)
    const processMember = routedNode !== undefined
      && processWindowReady
 -    && !TURN_PROCESS_INDEPENDENT_KINDS.has(routedNode.kind)
 +    && !(routedNode.independent === true || TURN_PROCESS_INDEPENDENT_KINDS.has(routedNode.kind))
      && routedNode.anchorSeq >= processSpec.processStartSeq
-     && routedNode.anchorSeq < processSpec.answerAnchorSeq
-   const processAnswer = routedNode !== undefined
-@@ -79,15 +81,18 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+     && (liveProcess || processSpec.answerAnchorSeq === null || routedNode.anchorSeq < processSpec.answerAnchorSeq
+       || (groupPart === 'reasoning' && routedNode.kind === 'assistant-step' && routedNode.data.step === processSpec.answerStep))
+@@ -90,16 +92,19 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+   const ownsDisclosure = routedNode?.kind === 'turn-process' || processAnswer
    const foldable = processWindowReady
-     && (processMember || (ownsDisclosure
-       && (processPresentation.hasExternalProcess || processSpec.inlineReasoning)))
+     && (liveProcess || processMember || ownsDisclosure)
 +  const preserveReply = preserveReplies && routedNode?.kind === 'assistant-step'
 +    && hasAssistantReplyContent(routedNode.data.blocks)
    const turnProcess = useMemo(() => processSpec === undefined
@@ -207,15 +210,16 @@ index 40e08dbaf7..f061b0dd2e 100644
        spec: processSpec,
        foldable,
 +      preserveReply,
+       hasContent: !interleavedInput && (processPresentation?.hasExternalProcess === true || processSpec.inlineReasoning),
        open: processOpen,
        setOpen,
      }, [
--    foldable, processOpen, processSpec, setOpen,
-+    foldable, preserveReply, processOpen, processSpec, setOpen,
+-    foldable, interleavedInput, processOpen, processSpec, processPresentation?.hasExternalProcess, setOpen,
++    preserveReply, foldable, interleavedInput, processOpen, processSpec, processPresentation?.hasExternalProcess, setOpen,
    ])
    const controllerInactive = routedNode?.kind === 'turn-process'
-     && !foldable
-@@ -95,7 +100,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+     && foldCompleted && !foldable
+@@ -107,7 +112,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
      && foldable
      && processPresentation.compactAnswer
      && !processOpen
@@ -224,7 +228,7 @@ index 40e08dbaf7..f061b0dd2e 100644
    const revealProcess = useCallback(() => {
      if (processMember) setOpen(true)
    }, [processMember, setOpen])
-@@ -107,14 +112,16 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
+@@ -128,14 +133,16 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
        openFile,
        openSkill,
        inspectCall,
@@ -236,28 +240,31 @@ index 40e08dbaf7..f061b0dd2e 100644
        fileMentions,
        turnProcess,
      }, [
--    node, cwd, openFile, openSkill, inspectCall, forkAt,
+-    node, groupPart, cwd, openFile, openSkill, inspectCall, forkAt,
 -    loadImage, renderMessageImages, fileMentions, turnProcess,
-+    node, cwd, openFile, openSkill, openView, inspectCall, forkAt,
++    node, groupPart, cwd, openFile, openSkill, openView, inspectCall, forkAt,
 +    loadImage, renderMessageImages, fileMentions, turnProcess, renderSlot,
    ])
    if (routedNode === undefined || owner === null) return null
-   const turnData = turnDataOf(routedNode)
+   // Runtime dispatch owns the correlation: every Node's discriminant is the
 diff --git a/packages/client/ui-chat/src/client/chat/ChatView.tsx b/packages/client/ui-chat/src/client/chat/ChatView.tsx
-index 1bb0dcdf63..cf13215c59 100644
+index 0514068aed..a9684f7fc2 100644
 --- a/packages/client/ui-chat/src/client/chat/ChatView.tsx
 +++ b/packages/client/ui-chat/src/client/chat/ChatView.tsx
-@@ -217,7 +217,7 @@ const ChatNodeList = memo(function ChatNodeList({ order, ...seatProps }: ChatNod
+@@ -99,8 +99,9 @@ const ChatNodeList = memo(function ChatNodeList({ entries, useChatGroup, pending
+  */
  export function ChatView({
-   useSession, useChat, useChatNode, useChatNodeProcess, useSessions, useStore, actions, renderSlot,
-   sessionId, openFile, openSkill, loadOlder, loadThrough, loadImage, openView, chatScroll, forkAt, fileMentions,
--  useTranscriptView, useProjection, t,
-+  useTranscriptView, useProjection, useReplyPresets, t,
+   useSession, useChat, useChatNode, useChatNodeProcess, useChatGroup, useConversation, useSessions, useStore, actions, renderSlot,
+-  sessionId, openFile, openSkill, openExternalLink, loadOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt, fileMentions,
+-  usePresentation, useProjection, t,
++  sessionId, openFile, openSkill, openExternalLink, loadOlder, loadThrough, loadImage, openView,
++  inspectCall, chatScroll, forkAt, fileMentions,
++  usePresentation, useReplyPresets, useProjection, t,
  }: ChatViewSlotProps) {
    const order = useChat(s => s.order)
-   const nodeStore = useChat(s => s.nodes)
-@@ -236,6 +236,11 @@ export function ChatView({
-   const inbox = useSession(s => s.queue)
+   const groupedEntries = useConversation(snapshot => snapshot.views.grouped('chat')?.entries)
+@@ -121,6 +122,11 @@ export function ChatView({
+   const inbox = useProjection('inbox') as unknown as InboxState | undefined
    // Workspace root off the session list row: path summaries display relative to it.
    const cwd = useSessions(s => s.byId[sessionId]?.cwd)
 +  const preserveRepliesForPresets = useReplyPresets(presets => presets)
@@ -265,28 +272,23 @@ index 1bb0dcdf63..cf13215c59 100644
 +    const preset = s.byId[sessionId]?.projectionValues?.agentPreset
 +    return typeof preset === 'string' && preserveRepliesForPresets.includes(preset)
 +  })
-   const running = useSession(s => s.running)
-   const openState = useSession(s => s.openState)
-   const openError = useSession(s => s.openError)
-@@ -787,11 +792,13 @@ export function ChatView({
-             useChatNodeProcess={useChatNodeProcess}
-             historyIncomplete={hasMore}
-             compactTranscript={compactTranscript}
-+            preserveReplies={preserveReplies}
-             useStore={useStore}
-             actions={actions}
-             cwd={cwd}
-             openFile={requestOpenFile}
-             openSkill={openSkill}
-+            openView={openView}
-             inspectCall={inspectCall}
-             forkAt={forkAt}
-             loadImage={loadImage}
+   const fileImages = useMemo(() => ({
+     resolve: (path: string) => fileMediaUrl(document.baseURI, resolveWorkspacePath(cwd, path)),
+     labels: {
+@@ -251,6 +257,8 @@ export function ChatView({
+                 pendingInputs={pendingInputs}
+                 lastInputTurn={lastInputTurn}
+                 nodeStore={nodeStore}
++                preserveReplies={preserveReplies}
++                openView={openView}
+                 useChatGroup={useChatGroup}
+                 useChatNode={useChatNode}
+                 useChatNodeProcess={useChatNodeProcess}
 diff --git a/packages/client/ui-chat/src/client/chat/MessageItem.tsx b/packages/client/ui-chat/src/client/chat/MessageItem.tsx
-index 0666fe7115..49592b9603 100644
+index d84a819f3c..8f6d4a054a 100644
 --- a/packages/client/ui-chat/src/client/chat/MessageItem.tsx
 +++ b/packages/client/ui-chat/src/client/chat/MessageItem.tsx
-@@ -313,7 +313,7 @@ export function PendingSubmissionBubble({ submission, renderMessageImages, t }:
+@@ -316,7 +316,7 @@ export function PendingSubmissionBubble({ submission, renderMessageImages, t }:
  
  /** User and admitted-steering keyed Chat renderer. */
  export const UserMessageNodeView = memo(function UserMessageNodeView({
@@ -295,7 +297,7 @@ index 0666fe7115..49592b9603 100644
  }: ChatNodeViewProps<'user' | 'steering'>) {
    const data = node.data
    return (
-@@ -328,6 +328,7 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
+@@ -331,6 +331,7 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
          <MessageIconActions
            text={text}
            time={data.time}
@@ -304,39 +306,53 @@ index 0666fe7115..49592b9603 100644
            className={css.actions}
            t={t}
 diff --git a/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx b/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
-index 36c76b7c26..715537d6ee 100644
+index a3d58a8cfe..cadd7cb19d 100644
 --- a/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
 +++ b/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
-@@ -7,7 +7,7 @@ import { assistantText } from './turn-assistant.ts'
+@@ -10,7 +10,7 @@ import type { ChatSnapshot } from '../contract/snapshot.ts'
  import css from './TurnTailNodeView.module.css'
  
  type TurnTailNodeViewProps = ChatNodeViewProps<'turn-tail'>
 -  & PropsRenderSlots<'conversation.chat.turnTail' | 'conversation.chat.assistant-actions'>
 +  & PropsRenderSlots<'conversation.chat.turn-actions' | 'conversation.chat.turnTail' | 'conversation.chat.assistant-actions'>
+   & InjectFace<PerformanceUsageInjected>
+ 
+ function lastContent(snapshot: ChatSnapshot, turn: number, skipWarning: boolean): ChatNode | undefined {
+@@ -26,8 +26,12 @@ function lastContent(snapshot: ChatSnapshot, turn: number, skipWarning: boolean)
  
  /** Turn-local actions and feature tail over the Location index, independent of Assistant placement. */
  export const TurnTailNodeView = memo(function TurnTailNodeView({
-@@ -24,7 +24,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
+-  node, openFile, forkAt, renderSlot, t, useChat, usePerformanceUsage,
++  node, openFile, forkAt, renderSlot, renderSlotChain, sessionId, t, useChat, useSessions, usePerformanceUsage,
+ }: TurnTailNodeViewProps) {
++  const agentPreset = useSessions((state) => {
++    const value = state.byId[sessionId]?.projectionValues?.agentPreset
++    return typeof value === 'string' ? value : undefined
++  })
+   const detailed = usePerformanceUsage(mode => mode) === 'detailed'
+   const data = node.data
+   const hasLaterChatNode = useChat(snapshot =>
+@@ -46,7 +50,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
    const closing = data.closing
    const owner: TurnTailOwnerProps = { turn, seq: closing?.finalNode.seq ?? data.seq, openFile }
-   const tail = renderSlotChain('conversation.chat.turnTail', owner)
--  if (closing === null) return tail === null ? null : <div className={css.root}>{tail}</div>
-+  if (closing === null) return <div className={css.root}>{tail}{renderSlotChain('conversation.chat.turn-actions', owner)}</div>
-   const runMs = turn.start === undefined || turn.end === undefined
-     ? undefined
-     : Math.max(0, turn.end.time - turn.start.time)
-@@ -41,7 +41,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
-       data-actions-reveal={isLatestTurn ? 'always' : 'hover'}
+   const tail = renderSlot('conversation.chat.turnTail', owner)
+-  if (closing === null) return tail === null ? null : <div className={css.root} data-turn-tail={data.turn}>{tail}</div>
++  if (closing === null) return <div className={css.root} data-turn-tail={data.turn}>{tail}{renderSlotChain('conversation.chat.turn-actions', { ...owner, sessionId, agentPreset })}</div>
+   // Interruption-frozen partials carry no messageId, so they address no
+   // durable message and contribute no per-message actions.
+   const messageId = closing.finalNode.messageId
+@@ -60,7 +64,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
+       data-actions-reveal={endsWithResponse ? 'always' : 'hover'}
      >
        {tail}
 -      <MessageIconActions
-+      {renderSlotChain('conversation.chat.turn-actions', owner, { fallback: <MessageIconActions
++      {renderSlotChain('conversation.chat.turn-actions', { ...owner, sessionId, agentPreset }, { fallback: <MessageIconActions
          text={assistantText(closing.blocks)}
          time={closing.time}
          clock="end"
-@@ -63,7 +63,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
-           </>
-         )}
+@@ -74,7 +78,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
+           ? <TurnUsagePanel usage={data.tokenUsage} t={t} />
+           : null}
          t={t}
 -      />
 +      /> })}
@@ -344,19 +360,19 @@ index 36c76b7c26..715537d6ee 100644
    )
  })
 diff --git a/packages/client/ui-chat/src/client/chat/register-node-renderers.ts b/packages/client/ui-chat/src/client/chat/register-node-renderers.ts
-index e58ec4a9ad..4da79db948 100644
+index eec1a124c4..c38bf81d37 100644
 --- a/packages/client/ui-chat/src/client/chat/register-node-renderers.ts
 +++ b/packages/client/ui-chat/src/client/chat/register-node-renderers.ts
-@@ -48,6 +48,7 @@ export function registerChatNodeRenderers(ctx: Context): void {
-     key: 'turn-tail',
+@@ -67,6 +67,7 @@ export function registerChatNodeRenderers(
      locale: NS,
+     inject: () => ({ hooks: { performanceUsage } }),
      children: {
 +      'conversation.chat.turn-actions': { kind: 'chain', scope: 'session' },
-       'conversation.chat.turnTail': { kind: 'chain', scope: 'session' },
+       'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
        'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' },
      },
 diff --git a/packages/client/ui-chat/src/client/contract/chat-nodes.ts b/packages/client/ui-chat/src/client/contract/chat-nodes.ts
-index d04bdfd90e..6f8bfa82dd 100644
+index cade646b1c..e8cf4c1b37 100644
 --- a/packages/client/ui-chat/src/client/contract/chat-nodes.ts
 +++ b/packages/client/ui-chat/src/client/contract/chat-nodes.ts
 @@ -10,6 +10,8 @@ export interface ChatConversationViewNode extends ConversationViewNode {
@@ -369,7 +385,7 @@ index d04bdfd90e..6f8bfa82dd 100644
  
  /** Merge-extensible payload registry keyed by final Chat renderer kind. */
 diff --git a/packages/client/ui-chat/src/client/contract/slots.ts b/packages/client/ui-chat/src/client/contract/slots.ts
-index fa02cc4092..6e24bc6fdd 100644
+index 5c7a8e37cd..78386dd682 100644
 --- a/packages/client/ui-chat/src/client/contract/slots.ts
 +++ b/packages/client/ui-chat/src/client/contract/slots.ts
 @@ -1,4 +1,5 @@
@@ -378,16 +394,7 @@ index fa02cc4092..6e24bc6fdd 100644
  import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
  import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
  import type {
-@@ -9,7 +10,7 @@ import type {
-   InjectFace, KeyedSnapshotSelectorHook, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
-   SlotHookFactory, SnapshotSelectorHook,
- } from '@deepseek-ai/dsh-client-ui-slots'
--import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-+import type { SnapshotStore, ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
- import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
- import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
- import type { createChatStore } from '../stores.ts'
-@@ -43,6 +44,12 @@ export interface TurnTailOwnerProps {
+@@ -52,6 +53,12 @@ export interface TurnTailOwnerProps {
    openFile: (path: string) => void
  }
  
@@ -400,16 +407,16 @@ index fa02cc4092..6e24bc6fdd 100644
  /** Owner currency of finalized-assistant actions. */
  export interface AssistantActionOwnerProps {
    messageId: MessageId
-@@ -82,6 +89,8 @@ export interface ChatNodeOwnerProps {
+@@ -164,6 +171,8 @@ export interface ChatNodeOwnerProps {
    /** Open the current source file of a skill referenced by a sent message. */
    openSkill: (name: string) => void
    openFile: (path: string, options?: OpenFileOptions) => void
 +  /** Open another registered conversation view at its own focus identity. */
 +  openView?: ((view: string, focus: string) => void) | undefined
-   inspectCall: (callId: ToolCallId) => void
+   inspectCall: ((callId: ToolCallId) => void) | undefined
    forkAt: (seq: number) => void
    /**
-@@ -92,6 +101,12 @@ export interface ChatNodeOwnerProps {
+@@ -174,6 +183,12 @@ export interface ChatNodeOwnerProps {
     */
    loadImage: MessageImageLoader
    renderMessageImages: RenderMessageImages
@@ -422,25 +429,25 @@ index fa02cc4092..6e24bc6fdd 100644
    fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
    /** Turn-process state when this Node belongs to a projected Turn. */
    turnProcess?: TurnProcessOwnerProps | undefined
-@@ -100,6 +115,8 @@ export interface ChatNodeOwnerProps {
- /** Shared presentation state for one Turn-process answer generation. */
- export interface TurnProcessOwnerProps {
+@@ -184,6 +199,8 @@ export interface TurnProcessOwnerProps {
+   /** Process content eligible to share one Turn-level disclosure. */
+   readonly hasContent: boolean
    readonly spec: TurnProcessSpec
 +  /** Keep this Assistant reply visible while its reasoning stays in the process disclosure. */
 +  readonly preserveReply?: boolean
    readonly foldable: boolean
    readonly open: boolean
    setOpen(open: boolean): void
-@@ -131,6 +148,8 @@ export interface ChatScrollPosition {
+@@ -231,6 +248,8 @@ export interface PerformanceUsageInjected {
  /** Business callbacks injected into the Chat view. */
  export interface ChatViewInjected {
    hooks: {
 +    /** Presets exempting reply text from completed-Turn folding. */
 +    replyPresets: ObservableSnapshot<readonly string[]>
-     /** Persisted completed-Turn transcript presentation. */
-     transcriptView: SnapshotStore<TranscriptViewMode>
+     /** Live presentation policy derived from the accepted work-details mode. */
+     presentation: ObservableSnapshot<ChatPresentationPolicy>
    }
-@@ -158,7 +177,7 @@ export interface ChatViewInjected {
+@@ -262,7 +281,7 @@ export interface ChatViewInjected {
  /** Full Chat view props. */
  export type ChatViewSlotProps =
    PropsRuntime<'conversation.view'>
@@ -449,22 +456,22 @@ index fa02cc4092..6e24bc6fdd 100644
    & PropsStore<ChatStore>
    & InjectFace<ChatViewInjected>
    & PropsLocale<'chat'>
-@@ -209,6 +228,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
-      * selector that accepts the owner renders; an all-declined chain is empty.
+@@ -313,6 +332,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+      * adds an entry; entries without content return null.
       */
-     'conversation.chat.turnTail': { kind: 'chain'; scope: 'session'; owner: TurnTailOwnerProps }
+     'conversation.chat.turnTail': { kind: 'list'; scope: 'session'; owner: TurnTailOwnerProps }
 +    /** Optional in-session history actions replacing the default fork controls. */
-+    'conversation.chat.turn-actions': { kind: 'chain'; scope: 'session'; owner: TurnTailOwnerProps }
++    'conversation.chat.turn-actions': { kind: 'chain'; scope: 'session'; owner: TurnTailOwnerProps & { sessionId: SessionId; agentPreset: string | undefined } }
 +    /** Ordered actions beside a durable user-message bubble; an empty list adds nothing. */
 +    'conversation.chat.user-actions': { kind: 'list'; scope: 'session'; owner: UserActionOwnerProps }
      /**
       * Ordered actions for one finalized assistant message. Each entry receives
       * the durable message id; a fresh `id` adds an action and reusing one replaces
 diff --git a/packages/client/ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts b/packages/client/ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts
-index fb91233786..a446aa8bcd 100644
+index 0cec87d246..8b6abef08d 100644
 --- a/packages/client/ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts
 +++ b/packages/client/ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts
-@@ -344,7 +344,7 @@ function turnProcessPresentations(
+@@ -440,7 +440,7 @@ function turnProcessPresentations(
        })
        continue
      }
@@ -473,56 +480,71 @@ index fb91233786..a446aa8bcd 100644
      presentations.set(location.turn.turn, {
        ...current,
        earliestProcessAnchor: Math.min(current.earliestProcessAnchor ?? node.anchorSeq, node.anchorSeq),
-@@ -375,7 +375,7 @@ function presentationPosition(
-   const openingHumanAnchor = presentation.openingHumanAnchor
-   if (openingHumanAnchor !== undefined
-     && node.anchorSeq < openingHumanAnchor
+@@ -471,7 +471,7 @@ function presentationPosition(
+   const openingInputAnchor = presentation.openingInputAnchor
+   if (openingInputAnchor !== undefined
+     && node.anchorSeq < openingInputAnchor
 -    && !TURN_PROCESS_INDEPENDENT_KINDS.has(node.kind)) {
 +    && !(node.independent === true || TURN_PROCESS_INDEPENDENT_KINDS.has(node.kind))) {
-     return { anchor: openingHumanAnchor, rank: 2, originalAnchor: node.anchorSeq }
+     return { anchor: openingInputAnchor, rank: 2, originalAnchor: node.anchorSeq }
    }
    if (presentation.control !== undefined && node.key === presentation.control.key) {
+diff --git a/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts b/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts
+index e61bb53109..702b669336 100644
+--- a/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts
++++ b/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts
+@@ -62,6 +62,8 @@ export function contextProducer(source: unknown): ContextProducerView {
+   const kind = record === null ? null : readString(record, 'kind')
+   if (record === null || kind === null) return { role: 'inject', label: null }
+   switch (kind) {
++    case 'authored-context':
++      return { role: 'inject', label: readString(record, 'producer') ?? kind }
+     case 'session-reference':
+       return { role: 'recall', label: joined(collect(record, 'references', 'label')) ?? kind }
+     case 'agent-instructions':
 diff --git a/packages/client/ui-chat/src/client/conversation-nodes/message.ts b/packages/client/ui-chat/src/client/conversation-nodes/message.ts
-index 3cd6538bd5..b1ddd28197 100644
+index ddfffb0cca..30a7d3172a 100644
 --- a/packages/client/ui-chat/src/client/conversation-nodes/message.ts
 +++ b/packages/client/ui-chat/src/client/conversation-nodes/message.ts
-@@ -44,42 +44,47 @@ function isCompactionCheckpoint(event: Parameters<ConversationNodeDefinition['ma
- export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
+@@ -63,17 +63,19 @@ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
    kind: 'input-message',
    target: 'chat',
--  match: event => event.type === 'user/message'
--    && isAppendSurfaceEvent(event)
--    && !isCompactionCheckpoint(event)
--    ? { id: String(event.data.id), role: 'start' }
--    : null,
-+  match: (event) => {
+   match: (event) => {
+-    if (event.type === 'user/message') {
+-      return isAppendSurfaceEvent(event) && !isCompactionCheckpoint(event)
+-        ? { id: String(event.data.id), role: 'start' }
+-        : null
+-    }
 +    if (event.type !== 'user/message' && event.type !== 'context/message') return null
 +    if (!isAppendSurfaceEvent(event) || isCompactionCheckpoint(event)) return null
 +    if (event.type === 'user/message') return { id: String(event.data.id), role: 'start' }
 +    if (event.data.message.role === 'user' && event.data.message.source.kind === 'user')
 +      return { id: String(event.data.message.id), role: 'start' }
-+    return null
-+  },
+     return null
+   },
    start: (_context, match, reader) => {
--    if (match.event.type !== 'user/message') throw new Error('input-message start requires user/message')
 +    if (match.event.type !== 'user/message' && match.event.type !== 'context/message') throw new Error('input-message start requires a message')
      const event = match.event
+-    if (event.type !== 'user/message') throw new Error('input-message start requires user/message')
 -    if (event.data.source.kind !== 'user') {
 +    const message = event.type === 'user/message' ? event.data : event.data.message
 +    const source = message.source
 +    if (source.kind !== 'user') {
+       const nextTurn = reader.previous<InboxState>('inbox-next-turn')?.state
+       const nextStep = reader.previous<InboxState>('inbox-next-step')?.state
+       const location = match.location
+@@ -83,30 +85,30 @@ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
+       const idleSteer = location.kind === 'step' && location.step.step === 1
+         && turnStart !== undefined && (nextStep?.claimSeq ?? -1) > turnStart
+         && (nextTurn?.claimSeq ?? -1) < turnStart && nextStep?.claimedHuman === false
+-        && nextStep.currentClaimed.has(String(event.data.id))
++        && nextStep.currentClaimed.has(String(message.id))
+ 
        return {
-         kind: 'context',
-         seq: event.seq,
-         time: event.time,
--        content: event.data.content,
--        source: event.data.source,
--        provenance: contextProvenance(event.data.source),
--        form: contextForm(event.data.source),
-+        content: message.content,
-+        source: message.source,
-+        provenance: contextProvenance(message.source),
-+        form: contextForm(message.source),
+-        ...contextMessage(event, event.data),
+-        waking: nextTurn?.currentClaimed.has(String(event.data.id)) === true || idleSteer,
++        ...contextMessage(event, message),
++        waking: nextTurn?.currentClaimed.has(String(message.id)) === true || idleSteer,
        }
      }
      const claimed = reader.previous<InboxState>('inbox-next-step')
@@ -551,22 +573,34 @@ index 3cd6538bd5..b1ddd28197 100644
        }
    },
    update: context => context.state,
-@@ -90,7 +95,7 @@ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
- }
- 
- /**
-- * Register the user, steering, and injected-context message contribution.
-+ * Register input classification before Chat ordering and process folding.
-  * @param ctx - owning UI Conversation context.
-  */
- export function registerMessageConversationNode(ctx: Context): void {
+diff --git a/packages/client/ui-chat/src/client/conversation-nodes/process-groups.ts b/packages/client/ui-chat/src/client/conversation-nodes/process-groups.ts
+index 36cb552d32..2228f761bc 100644
+--- a/packages/client/ui-chat/src/client/conversation-nodes/process-groups.ts
++++ b/packages/client/ui-chat/src/client/conversation-nodes/process-groups.ts
+@@ -42,6 +42,7 @@ function sameMembers(left: readonly NodeReference[], right: readonly NodeReferen
+ function structureChanged(previous: ChatNode | undefined, current: ChatNode): boolean {
+   if (!isVisibleChatNode(current) && (previous === undefined || !isVisibleChatNode(previous))) return false
+   return previous === undefined || previous.kind !== current.kind
++    || previous.independent !== current.independent
+     || turnOf(previous) !== turnOf(current)
+     || isVisibleChatNode(previous) !== isVisibleChatNode(current)
+     || reasoning(previous) !== reasoning(current) || reply(previous) !== reply(current)
+@@ -149,7 +150,7 @@ class TurnGroups {
+       previous = key
+       followed = position.next !== undefined
+       const node = readNode(input, key)
+-      if (INDEPENDENT.has(node.kind)) {
++      if (node.independent === true || INDEPENDENT.has(node.kind)) {
+         flush(true)
+         emit(key, { kind: 'node', key })
+       } else if (node.kind === 'turn-process') {
 diff --git a/packages/client/ui-chat/src/client/conversation-nodes/turn-process-presentation.ts b/packages/client/ui-chat/src/client/conversation-nodes/turn-process-presentation.ts
-index a49ae6031b..f2d07f967d 100644
+index 30bea2cb43..e81f7887e8 100644
 --- a/packages/client/ui-chat/src/client/conversation-nodes/turn-process-presentation.ts
 +++ b/packages/client/ui-chat/src/client/conversation-nodes/turn-process-presentation.ts
-@@ -54,7 +54,7 @@ function derivePresentation(
-       && (spec.answerAnchorSeq === null || node.anchorSeq < spec.answerAnchorSeq)) {
-       compactAnswer = false
+@@ -58,7 +58,7 @@ function derivePresentation(
+       hasInterleavedInput = true
+       if (spec.answerAnchorSeq === null || node.anchorSeq < spec.answerAnchorSeq) compactAnswer = false
      }
 -    if (TURN_PROCESS_INDEPENDENT_KINDS.has(node.kind)
 +    if ((node.independent === true || TURN_PROCESS_INDEPENDENT_KINDS.has(node.kind))
@@ -574,30 +608,31 @@ index a49ae6031b..f2d07f967d 100644
        || (spec.answerAnchorSeq !== null && node.anchorSeq >= spec.answerAnchorSeq)) continue
      if (node.kind !== 'assistant-step' || spec.answerStep === null || node.data.step !== spec.answerStep) {
 diff --git a/packages/client/ui-chat/src/client/index.ts b/packages/client/ui-chat/src/client/index.ts
-index 450ce00fce..33f8df5b54 100644
+index 6b361f10f7..192f7f9213 100644
 --- a/packages/client/ui-chat/src/client/index.ts
 +++ b/packages/client/ui-chat/src/client/index.ts
-@@ -31,7 +31,7 @@ export type { ChatStoreState, ToolCallId, TurnProcessViewEntry } from './contrac
- export type { TranscriptViewRowInjected, TranscriptViewRowProps } from './settings/TranscriptViewRow.tsx'
+@@ -32,7 +32,7 @@ export type { TranscriptViewRowInjected, TranscriptViewRowProps } from './settin
  export type { TranscriptViewMode } from '../chat-settings.ts'
+ export type { ChatPresentationPolicy } from './presentation-policy.ts'
  export type {
--  AssistantActionOwnerProps, ChatFileMentions, ChatNodeOwnerProps, ChatNodeTurnDataInjected,
-+  AssistantActionOwnerProps, UserActionOwnerProps, ChatFileMentions, ChatNodeOwnerProps, ChatNodeTurnDataInjected,
+-  AssistantActionOwnerProps, ChatFileMentions, ChatNodeHookContext, ChatNodeInjected, ChatNodeOwnerProps,
++  AssistantActionOwnerProps, UserActionOwnerProps, ChatFileMentions, ChatNodeHookContext, ChatNodeInjected, ChatNodeOwnerProps,
    ChatNodeViewProps, ChatScrollPosition, ChatStore, ChatViewInjected, ChatViewSlotProps,
-   CommandRowOwnerProps, CommandRowProps, MessageImagesProps, OpenFileOptions,
-   TurnProcessOwnerProps, TurnTailOwnerProps, UseChat, UseChatNodeTurnData,
-@@ -59,3 +59,5 @@ type PublicChatNodeDataMap = ChatNodeDataMap
+   CommandRowOwnerProps, CommandRowProps, MessageImagesProps, OpenFileOptions, PresentationInjected,
+   QuotaNoticeCode, QuotaNoticeHostProps, QuotaNoticeInjected, QuotaNoticeOwnerProps, QuotaNoticeState,
+@@ -61,4 +61,6 @@ type PublicChatNodeDataMap = ChatNodeDataMap
  declare module './contract/chat-nodes.ts' {
    interface ChatNodeDataMap extends PublicChatNodeDataMap {}
  }
 +
 +export type { IChatPresentation } from './chat-presentation.ts'
+ export type { ProcessActivity, ProcessActivitySummary, ProcessGroupData } from './contract/process-groups.ts'
 diff --git a/packages/client/ui-chat/tests/__snapshots__/chat-presentation.client.spec.ts.snap b/packages/client/ui-chat/tests/__snapshots__/chat-presentation.client.spec.ts.snap
 new file mode 100644
-index 0000000000..6bf0da085c
+index 0000000000..292b2e5344
 --- /dev/null
 +++ b/packages/client/ui-chat/tests/__snapshots__/chat-presentation.client.spec.ts.snap
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,31 @@
 +// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 +
 +exports[`orders replayed inputs before thought controls in live and rebuilt Chat history 1`] = `
@@ -624,17 +659,16 @@ index 0000000000..6bf0da085c
 +  "order": [
 +    "user",
 +    "turn-process",
-+    "context",
 +    "assistant-step",
 +    "turn-tail",
 +  ],
 +}
 +`;
 diff --git a/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx b/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx
-index d24a0a3446..af0f8d436d 100644
+index 5880bc5792..03e507cee6 100644
 --- a/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx
 +++ b/packages/client/ui-chat/tests/chat-branch-tails.client.spec.tsx
-@@ -65,7 +65,8 @@ function MessageItem({ node, t: translate, referenceLabels, skillNames }: Messag
+@@ -67,7 +67,8 @@ function MessageItem({ node, t: translate, referenceLabels, skillNames }: Messag
          : node,
    }
    const props = {
@@ -646,10 +680,10 @@ index d24a0a3446..af0f8d436d 100644
      case 'user':
 diff --git a/packages/client/ui-chat/tests/chat-presentation.client.spec.ts b/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
 new file mode 100644
-index 0000000000..5e49283b6c
+index 0000000000..254dfc7882
 --- /dev/null
 +++ b/packages/client/ui-chat/tests/chat-presentation.client.spec.ts
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,82 @@
 +// @vitest-environment jsdom
 +import { Context } from '@deepseek-ai/cordis'
 +import { expect, it, vi } from 'vitest'
@@ -682,27 +716,28 @@ index 0000000000..5e49283b6c
 +
 +it('orders replayed inputs before thought controls in live and rebuilt Chat history', async () => {
 +  const ctx = new Context()
-+  new UiConversation(ctx, {} as ISessions)
-+  registerConversationNodes(ctx)
 +  const feed = new MutableSessionEventSource()
 +  const source = { sessionId: SessionId('replayed-chat'), ctx, eventSource: feed } as unknown as SessionBinding
++  new UiConversation(ctx, { binding: () => source } as unknown as ISessions)
++  registerConversationNodes(ctx)
 +  const binding = ctx.uiConversation.binding(source)
 +  binding.activate('chat')
 +  const chat = binding.target('chat')
 +  const append = (event: SessionEvent): void => { feed.append({ type: 'event', event }) }
 +  const replay = createUserMessage({ content: [{ type: 'text', text: 'Replayed question' }], source: { kind: 'user' } })
-+  const injected = createUserMessage({ content: [{ type: 'text', text: 'Injected policy' }], source: { kind: 'plugin', plugin: 'policy-producer' } })
++  const injected = createUserMessage({ content: [{ type: 'text', text: 'Injected policy' }], source: { kind: 'authored-context', producer: 'policy-producer' } })
 +  const kinds = () => { const value = chat.getSnapshot()!; return value.order.map(key => value.nodes.get(key)?.kind) }
 +  try {
 +    append({ seq: SessionSeq(1), time: 1, type: 'turn/start', data: { turn: 1 } })
 +    append({ seq: SessionSeq(2), time: 2, type: 'user/message', surfaceOp: 'append', data: replay })
-+    expect(kinds()).toEqual(['user'])
++    expect(kinds()).toEqual(['user', 'turn-process'])
 +    append({ seq: SessionSeq(3), time: 3, type: 'user/message', surfaceOp: 'append', data: injected })
 +    append({ seq: SessionSeq(4), time: 4, type: 'step/start', data: { turn: 1, step: 1 } })
 +    append({ seq: SessionSeq(5), time: 5, type: 'assistant/message', surfaceOp: 'append', data: { turn: 1, step: 1, stream: [], message: createAssistantMessage({ content: [{ type: 'reasoning', text: 'Recorded thought' }, { type: 'text', text: 'Reply' }], source: { provider: 'test', model: 'test' } }) } })
 +    append({ seq: SessionSeq(6), time: 6, type: 'step/end', data: { turn: 1, step: 1 } })
 +    append({ seq: SessionSeq(7), time: 7, type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
-+    expect(kinds().slice(0, 3)).toEqual(['user', 'turn-process', 'context'])
++    expect(kinds().slice(0, 3)).toEqual(['user', 'turn-process', 'assistant-step'])
++    expect([...chat.getSnapshot()!.nodes.values()].find(node => node.kind === 'context')?.data).toMatchObject({ source: injected.source })
 +    expect(chat.getSnapshot()!.navigation.items()[0]?.prompt).toBe('Replayed question')
 +    const input = chat.getSnapshot()!.nodes.values().find(node => node.kind === 'user')!
 +    expect(input.data).toMatchObject({ content: replay.content, source: replay.source })
@@ -717,10 +752,11 @@ index 0000000000..5e49283b6c
 +
 +it('renders accepted user input outside a turn without creating an execution', async () => {
 +  const ctx = new Context()
-+  new UiConversation(ctx, {} as ISessions)
-+  registerConversationNodes(ctx)
 +  const feed = new MutableSessionEventSource()
-+  const binding = ctx.uiConversation.binding({ sessionId: SessionId('interrupted'), ctx, eventSource: feed } as unknown as SessionBinding)
++  const source = { sessionId: SessionId('interrupted'), ctx, eventSource: feed } as unknown as SessionBinding
++  new UiConversation(ctx, { binding: () => source } as unknown as ISessions)
++  registerConversationNodes(ctx)
++  const binding = ctx.uiConversation.binding(source)
 +  binding.activate('chat')
 +  try {
 +    const message = createUserMessage({ content: [{ type: 'text', text: 'Accepted before interruption' }], source: { kind: 'user' } })
@@ -731,20 +767,35 @@ index 0000000000..5e49283b6c
 +  } finally { await ctx.fiber.dispose() }
 +})
 diff --git a/packages/client/ui-chat/tests/chat-view.client.spec.tsx b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
-index c724bf7ba6..eb71a8217b 100644
+index 3bda5cad62..87709d15c8 100644
 --- a/packages/client/ui-chat/tests/chat-view.client.spec.tsx
 +++ b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
-@@ -277,7 +277,8 @@ function makeHarness(
+@@ -317,8 +317,14 @@ function makeHarness(
+     inspectCall: ChatNodeOwnerProps['inspectCall']
    }> = []
    const renderCommandSlot = ((_key: string, _owner: object, opts?: { fallback?: React.ReactNode }) =>
-     opts?.fallback ?? null) as unknown as React.ComponentProps<typeof CommandNodeView>['renderSlot']
--  const renderTurnTail = ((_key: string, _owner: object) => null) as unknown as
-+  const renderTurnTail = ((_key: string, _owner: object, options?: { fallback?: React.ReactNode }) =>
-+    options?.fallback ?? null) as unknown as
-     React.ComponentProps<typeof TurnTailNodeView>['renderSlotChain']
-   const renderTurnTailSlot = (() => null) as unknown as
+-    opts?.fallback ?? null) as React.ComponentProps<typeof CommandNodeView>['renderSlot']
+-  const renderTurnTailSlot = (() => null) as
++    opts?.fallback ?? null) as unknown as React.ComponentProps<typeof CommandNodeView>['renderSlot']
++  const turnActionOwners: object[] = []
++  const renderTurnTail = ((_key: string, owner: object, options?: { fallback?: React.ReactNode }) => {
++    turnActionOwners.push(owner)
++    return options?.fallback ?? null
++  }) as unknown as
++    React.ComponentProps<typeof TurnTailNodeView>['renderSlotChain']
++  const renderTurnTailSlot = (() => null) as unknown as
      React.ComponentProps<typeof TurnTailNodeView>['renderSlot']
-@@ -366,6 +367,7 @@ function makeHarness(
+   let nodeSlotOverride: React.ComponentProps<typeof ChatNodeSeat>['renderSlot'] | undefined
+   const renderNodeSlot = ((key: string, owner: object, opts?: {
+@@ -371,6 +377,7 @@ function makeHarness(
+             {...nodeProps}
+             node={nodeOwner.node}
+             renderSlot={renderTurnTailSlot}
++            renderSlotChain={renderTurnTail}
+             SessionProvider={props.SessionProvider}
+           />
+         )
+@@ -406,6 +413,7 @@ function makeHarness(
    // ChatView never invokes it (pass-through stub).
    const SessionProviderStub: ChatViewSlotProps['SessionProvider'] = ({ children }) => <>{children}</>
    const props: ChatViewSlotProps = {
@@ -752,10 +803,39 @@ index c724bf7ba6..eb71a8217b 100644
      usePanelInfo: selector => selector({ activePanelId: null }),
      sessionId: SID,
      useSession: bindSnapshotSelector(session.source),
-@@ -1598,6 +1600,35 @@ describe('ChatView', () => {
-     expect(view.getByText('private analysis')).toBeTruthy()
+@@ -479,7 +487,7 @@ function makeHarness(
+     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
+     openFile, openSkill, loadOlder, loadThrough, openView,
+     setOutline: (value: unknown) => { outlineValue = value },
+-    chatScroll, forkAt, toolOwners,
++    chatScroll, forkAt, toolOwners, turnActionOwners,
+     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
+     setGrouped: (value: ConversationGroupedView<ProcessGroupData> | undefined) => {
+       grouped = value
+@@ -2538,6 +2546,55 @@ describe('ChatView', () => {
+     expect(view.getByText(/Check the final decision/)).toBeTruthy()
    })
  
++  it('routes turn actions with the bound preset and reacts only to that session', () => {
++    const h = makeHarness({ nodes: [user(1, 'question'), assistant(2, 'answer')], turnEnds: new Map([[1, 3]]) })
++    const list = createSnapshotStore<SessionListState>({ byId: {
++      [SID]: { projectionValues: { agentPreset: 'narrator' } },
++      other: { projectionValues: { agentPreset: 'writer' } },
++    }, order: [SID] } as unknown as SessionListState)
++    h.props.useSessions = bindSnapshotSelector(list)
++    render(<h.ChatView {...h.props} />)
++    expect(h.turnActionOwners.at(-1)).toMatchObject({ sessionId: SID, agentPreset: 'narrator' })
++    const publish = (id: SessionId, agentPreset: string) => {
++      const state = list.getSnapshot()
++      list.set({ ...state, byId: { ...state.byId, [id]: { ...state.byId[id]!, projectionValues: { agentPreset } } } })
++    }
++    h.turnActionOwners.length = 0
++    act(() => { publish('other' as SessionId, 'standard') })
++    expect(h.turnActionOwners).toEqual([])
++    act(() => { publish(SID, 'writer') })
++    expect(h.turnActionOwners.at(-1)).toMatchObject({ sessionId: SID, agentPreset: 'writer' })
++  })
++
 +  it('keeps intermediate replies for configured presets while folding reasoning and tools', () => {
 +    const first = assistant(2, 'intermediate reply', 1, 1)
 +    first.blocks = [{ kind:'reasoning', text:'intermediate reasoning' }, ...first.blocks]
@@ -775,16 +855,40 @@ index c724bf7ba6..eb71a8217b 100644
 +    expect(row.getAttribute('hidden')).toBe('until-found')
 +  })
 +
-+  it('renders user input and plugin context with distinct presentations', () => {
++  it('renders user input while retaining injected context outside the visible Chat flow', () => {
 +    const input = { ...user(1, 'replayed input'), source: { kind: 'user' as const } }
-+    const other = { ...context(2, 'injected policy'), source: { kind: 'plugin' as const, plugin: 'policy-producer' } }
++    const other = { ...context(2, 'injected policy'), source: { kind: 'authored-context' as const, producer: 'policy-producer' } }
 +    const h = makeHarness({ nodes: [input, other, assistant(3, 'reply')], turnEnds: new Map([[1, 4]]) })
 +    const view = render(<h.ChatView {...h.props} />)
 +    expect(view.getByText('replayed input').closest('[data-chat-flow-kind="user"]')).not.toBeNull()
-+    expect(view.container.querySelector('[data-chat-flow-key="fixture:context:2"]')?.getAttribute('data-chat-flow-kind')).toBe('context')
++    expect(view.queryByText('injected policy')).toBeNull()
 +    expect(input.source).toEqual({ kind: 'user' })
 +  })
 +
    it('folds a completed Turn even while the reader is away from the tail', () => {
      const first = assistant(2, 'first answer', 1, 1)
-     const h = makeHarness({ nodes: [user(1, 'question'), first], running: true })
+     const h = makeHarness({
+diff --git a/packages/client/ui-chat/tests/process-groups.client.spec.ts b/packages/client/ui-chat/tests/process-groups.client.spec.ts
+index 2f98938274..596de09399 100644
+--- a/packages/client/ui-chat/tests/process-groups.client.spec.ts
++++ b/packages/client/ui-chat/tests/process-groups.client.spec.ts
+@@ -67,6 +67,19 @@ function harness(nodes: ChatNode[], currentTimeline = timeline) {
+ }
+ 
+ describe('Definition-owned Chat process groups', () => {
++  it('keeps independent feature nodes outside process groups across incremental updates', () => {
++    const feature = { ...tool('feature', 3), independent: true }
++    const h = harness([tool('before', 2), feature, tool('after', 4)])
++    expect(h.store.entries.map(entry => entry.kind)).toEqual(['group', 'node', 'group'])
++    expect(h.store.entries[1]).toEqual({ kind: 'node', key: 'feature' })
++    h.builder.apply({ upserts: [{ ...feature, independent: false }], timeline })
++    h.commit()
++    expect(h.store.entries.map(entry => entry.kind)).toEqual(['group'])
++    h.builder.apply({ upserts: [feature], timeline })
++    h.commit()
++    expect(h.store.entries.map(entry => entry.kind)).toEqual(['group', 'node', 'group'])
++  })
++
+   it('clears preparation from a closed group while retaining its recorded activity', () => {
+     const preparing: ChatNode<'tool-call'> = {
+       ...tool('call', 2, 'write'),

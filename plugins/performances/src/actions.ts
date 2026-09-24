@@ -99,7 +99,7 @@ export class PerformanceActions {
     for (const { action, seq } of projection.actions) {
       if (seq < fromSeq) continue
       const nextCall = events.find(event => event.type === 'tool/call' && record(event).callId === action.call.id && (event.seq ?? -1) > action.call.seq)
-      const receipts = events.filter(event => (nextCall?.seq === undefined || (event.seq ?? -1) < nextCall.seq) && event.type === 'tool/result' && (record(event).message as { source?: { callId?: string } })?.source?.callId === action.call.id && (event.seq ?? -1) > action.call.seq)
+      const receipts = events.filter(event => (nextCall?.seq === undefined || (event.seq ?? -1) < nextCall.seq) && event.type === 'tool/result' && (record(event).message as { toolCallId?: string })?.toolCallId === action.call.id && (event.seq ?? -1) > action.call.seq)
       const receipt = receipts.at(-1)
       if (!receipt) {
         if (requireReceipts) throw new PerformanceActionError('missing-receipt', 'committed action has no durable tool result')
@@ -109,14 +109,14 @@ export class PerformanceActions {
       const deliveryFailed = events.some(event => event.type === 'session/configuration' && record(event).key === DELIVERY_FAILURE_KEY &&
         (record(event).value as { action?: string })?.action === action.checksum &&
         (event.seq ?? -1) > seq && (event.seq ?? Infinity) < (receipt.seq ?? -1))
-      const isError = (data.message as { content?: { type: string; isError?: boolean }[] })?.content?.some(block => block.type === 'tool-result' && block.isError)
+      const isError = (data.message as { isError?: boolean })?.isError === true
       if (!isError || (!deliveryFailed && !['TOOL_OUTCOME_UNKNOWN', 'ABORTED'].includes(error?.code ?? ''))) continue
       if (receipt.seq === undefined) throw new PerformanceActionError('corrupt-action', 'recovery receipt has no event sequence')
       const original = data.message as { id: string; content: readonly Record<string, unknown>[] }
       if (events.some(event => event.type === 'tool/result' && event.sourceEventSeqs?.includes(seq) && event.sourceEventSeqs.includes(receipt.seq!))) continue
       const { error: _error, ...retained } = data
       this.agent.session.append('tool/result', { ...retained,
-        message: { ...original, content: [{ ...original.content[0], isError: false, content: renderValue(action.value) }] },
+        message: { ...original, isError: false, content: renderValue(action.value) },
       }, { surfaceOp: { op: 'replace', startSeq: receipt.seq, endSeq: receipt.seq }, sourceEventSeqs: [receipt.seq, seq, action.call.seq] })
       changed = true
     }

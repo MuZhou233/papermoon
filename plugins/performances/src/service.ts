@@ -9,7 +9,7 @@ import { digest } from '@papermoon/playbook-compiler/runtime'
 import type { Host, Agent, Dispose, InputMessage } from '../../playbook-workspaces/src/host.ts'
 import type { PlaybookWorkspaces } from '../../playbook-workspaces/src/index.ts'
 import { inspectExecution, executionPosition, type InspectionCursor, type InspectionMode } from './inspection.ts'
-import { PerformanceContext, contextRecord } from './composition.ts'
+import { PerformanceContext, contextRecord, eventMessage } from './composition.ts'
 import { configureLiteralPrompt } from '../../playbook-workspaces/src/prompt.ts'
 import { performanceState, openingMessages, type FrozenPerformance } from './model.ts'
 import { Worldlines, activeRecords, pathTo, pathRanges, recordsFor, type WorldOperation } from './worldlines.ts'
@@ -106,7 +106,7 @@ export class Performances {
       const outcome = events.slice(event.seq! + 1).find(entry => entry.type === 'assistant/message' || entry.type === 'assistant/attempt' || entry.type === 'request/messages' || entry.type === 'turn/end')
       const messages = agent.session.deriveRequestMessages(event.seq)
       const origins = [...(base?.metadata.origins ?? []),...data.metadata.origins]
-      for (const [index,origin] of origins.entries()) if (origin.hash && digest(messages[index]) !== origin.hash) throw new Error('request source checksum does not match')
+      for (const [index,origin] of origins.entries()) if (origin.hash && digest(origin.eventSeq === undefined ? messages[index] : eventMessage(events[origin.eventSeq]!)) !== origin.hash) throw new Error('request source checksum does not match')
       if (outcome && ['assistant/message','assistant/attempt'].includes(outcome.type) && ((outcome.data as {turn:number;step:number}).turn!==data.turn || (outcome.data as {step:number}).step!==data.step)) throw new Error('request outcome has conflicting execution identity')
       const completed = outcome && (outcome.type === 'assistant/message' || outcome.type === 'assistant/attempt')
       const response = completed ? outcome.data as { usage?: unknown; reason?: unknown } : undefined

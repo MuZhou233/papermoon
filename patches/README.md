@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This directory maintains PaperMoon’s necessary changes to DSH. The parent Gitlink pins the official base; [series.json](series.json) lists the patches and checks. Prefer DSH extension points and PaperMoon plugins for product behavior.
+This directory maintains PaperMoon’s necessary changes to DSH. The parent Gitlink pins the official base; [series.json](series.json) lists the patches and checks. Prefer DSH extension points and PaperMoon plugins for product behavior. Minimize patch scope, but expand it when necessary for complete behavior and clear ownership. Record the upstream gap, affected consumers and verification in the owning Note.
 
 `dsh/` is a managed checkout. Export intended changes before `pnpm run setup`, which resets tracked files and removes non-ignored untracked files before applying the patches. Keep runtime data and independent work outside it. See [development](../docs/development.md) for initialization and upgrades.
 

@@ -2,7 +2,7 @@
 import type { ToolHost } from '../../playbook-tools/src/plugin.ts'
 export interface LogRecord { seq?: number; time?: number; type: string; data: unknown; sourceEventSeqs?: readonly number[] }
 export interface SessionLog { header: { agentPreset?: string }; snapshotEvents(): readonly LogRecord[] }
-export interface InitialMessage { index: number; groupId: string; name?: string; message: { id: string; role: 'user' | 'assistant'; content: { type: 'text'; text: string }[]; source: { kind: 'plugin'; plugin: string } } }
+export interface InitialMessage { index: number; groupId: string; name?: string; message: { id: string; role: 'user' | 'assistant'; content: { type: 'text'; text: string }[]; source: { kind: 'authored-context'; producer: string } } }
 export type Dispose = () => void
 export interface InputMessage { id: string; role: 'user'; content: readonly unknown[]; source: { kind: string; admission?: Readonly<Record<string, unknown>>; [key: string]: unknown } }
 export interface Agent {
@@ -54,5 +54,5 @@ export interface Host {
 }
 
 /** Minimal immutable model message consumed by the request selection adapter. */
-export interface RequestMessage { readonly id: string; readonly role: 'system' | 'user' | 'assistant'; readonly content: readonly unknown[]; readonly source: Readonly<Record<string, unknown>> }
+export interface RequestMessage { readonly id: string; readonly role: 'system' | 'developer' | 'user' | 'assistant' | 'tool'; readonly toolCallId?: string; readonly isError?: boolean; readonly content: readonly unknown[]; readonly source: Readonly<Record<string, unknown>> }
 export type RequestPart = { eventSeq: number } | { message: RequestMessage; name?: string }

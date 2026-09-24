@@ -16,6 +16,7 @@ The current organization follows these shared maintenance needs, without establi
 
 | Patch | Responsibility |
 |---|---|
+| `shared/build.patch` | Recognized output cleanup needed by normal builds |
 | `shared/session.patch` | Session records, restoration, history and request selection, with dependent readers and query adaptations |
 | `shared/tools.patch` | Tool schemas, validation and language type rendering |
 | `shared/runtime-catalogs.patch` | Runtime APIs, slots and scoped events derived from several responsibilities |
@@ -41,7 +42,7 @@ A fork or file overlay copies a larger upstream surface. A new export tool would
 
 ## Consequences
 
-The upstream Gitlink, runtime behavior and existing tests and snapshots remain unchanged. Upstream-wide documentation returns to its base. Distinct patch rationale is consolidated into the owning main-repository Notes, with a separate tool-argument bug-fix Note. Direct package contracts retain their semantics and bilingual records.
+The original regrouping preserved the upstream Gitlink, runtime behavior and existing tests and snapshots. The [rc.2 migration](2026-09-25-dsh-rc2-migration.md) subsequently updates the base and its consumers. Upstream-wide documentation returns to its base. Distinct patch rationale is consolidated into the owning main-repository Notes, with a separate tool-argument bug-fix Note. Direct package contracts retain their semantics and bilingual records.
 
 The patch reader rejects duplicate file ownership, including rename sources. Reconstruction and source comparison remain separate from delivery checks. The full documentation aggregate is replaced with runtime-catalog checks, while behavior tests, recorded replay, type checking and lint remain registered. The Host generator's runtime-only mode uses the same projection without generating or checking documentation; its default mode is unchanged.
 

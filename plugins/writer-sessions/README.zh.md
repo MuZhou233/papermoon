@@ -23,3 +23,5 @@
 profile 将[编译服务](../playbook-compiler/README.zh.md)明确传入会话工具构建过程。编译使用绑定 Playbook，通过 DSH 工具记录完整回执，不改变起始提示词或读取观察。
 
 [共用 Playbook 工作区提供者](../playbook-workspaces/README.zh.md)负责资源登记，将编剧与[演绎](../performances/README.zh.md)会话放在同一工作区。本包继续负责编剧准备状态与固定上下文，两种预设不替换对方的配置或 scope 贡献。
+
+Profile 通过 DSH 预设 registry 声明编剧模式。客户端准备状态和输入阻塞归各自挂载的 Session 绑定所有，另一个会话切换模式不会改变它们。预设选择入口沿用 DSH 的“编码工具”设置。

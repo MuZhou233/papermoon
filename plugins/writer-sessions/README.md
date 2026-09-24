@@ -23,3 +23,5 @@ Run `pnpm check`, `pnpm build:plugins`, `pnpm check:plugins:dsh` and `pnpm test:
 The profile explicitly injects the [compiler service](../playbook-compiler/README.md) into session-local tool construction. Compilation uses the bound playbook and records its complete receipt through DSH tools, without changing initial prompts or read observations.
 
 The [shared playbook workspace provider](../playbook-workspaces/README.md) owns resource registration and groups writer and [performance](../performances/README.md) sessions together. Writer preparation and fixed context remain owned here. Writer and moderator presets do not replace each other’s configuration or scope contributions.
+
+The profile declares the writer preset through DSH’s preset registry. Client preparation and input blocking belong to the mounted Session binding; changing another Session’s mode does not change them. The preset picker follows DSH’s Coding Tools setting.

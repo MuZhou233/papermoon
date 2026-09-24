@@ -48,7 +48,7 @@ export function initialContext(sessionId: string, writer: Writer) {
       id: `papermoon.writer:${sessionId}:${entry.id}`,
       role: entry.role,
       content: [{ type: 'text' as const, text: entry.content }],
-      source: { kind: 'plugin' as const, plugin: 'papermoon-writer-context' },
+      source: { kind: 'authored-context' as const, producer: 'papermoon-writer-context' },
     },
   }))
 }

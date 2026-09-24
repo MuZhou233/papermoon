@@ -6,14 +6,14 @@ export interface Observable<T> { getSnapshot(): T; subscribe(listener: () => voi
 export type View = ReturnType<WriterSessions['view']>
 export interface ClientHost {
   connection: { rpc: { call(channel: string, method: string, payload: unknown, signal?: AbortSignal): Promise<{ ok: true; value: unknown } | { ok: false; error: { message: string; code: string } }> } }
-  sessions: { list: Observable<{ current?: string; byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }> }
+  sessions: { list: Observable<{ byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }>; binding(id: string): { ctx: { effect(body: () => (() => void | Promise<void>), label?: string): () => Promise<void> } } | undefined }
   workspaces: { list: Observable<{ items: readonly { workspaceId: string }[] }> }
-  uiAgentPreset: { store: Observable<{ current: string; busy: boolean }>; load(): Promise<void> }
+  uiAgentPreset: { binding(sessionId?: string): { store: Observable<{ current: string; busy: boolean }>; load(): Promise<void> } }
   conversation: { blocks: { set(id: string, block: { reason: string } | undefined, owner?: string): void } }
   layout: { selectPanel(id: string | null): void }
   locale: { register(ns: string, dictionaries: object): () => void; bind(ns: string): T }
-  effect(body: () => () => void, label?: string): unknown
-  slots: { inject(name: string, body: () => () => void): unknown; register<P>(options: { name: string; key?: string; id?: string; locale?: string; inject?: () => object }, component: ComponentType<P>): () => void }
+  effect(body: () => (() => void | Promise<void>), label?: string): () => Promise<void>
+  slots: { inject(name: string, body: () => () => void): unknown; register<P>(options: { name: string; key?: string; id?: string; locale?: string; inject?: (sessionId?: string) => object }, component: ComponentType<P>): () => void }
 }
 interface State { sessionId?: string; view?: View; busy: boolean; error?: string }
 export class Runtime {
@@ -25,7 +25,8 @@ export class Runtime {
   private blocked = new Set<string>()
   readonly getSnapshot = () => this.state
   readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
-  constructor(readonly host: ClientHost) {}
+  readonly preset: ReturnType<ClientHost['uiAgentPreset']['binding']>
+  constructor(readonly host: ClientHost, readonly sessionId?: string) { this.preset = host.uiAgentPreset.binding(sessionId) }
   private publish(state: State) { this.state = state; this.block(); for (const listener of this.listeners) listener() }
   async call<T>(method: string, payload: unknown = {}): Promise<T> {
     const response = await this.host.connection.rpc.call('/api', `papermoon-writer-sessions/${method}`, payload, this.abort.signal)
@@ -33,15 +34,15 @@ export class Runtime {
     return response.value as T
   }
   observe = () => {
-    const list = this.host.sessions.list.getSnapshot(), id = list.current, summary = id ? list.byId[id] : undefined
-    const identity = JSON.stringify([id, summary?.blank, summary?.projectionValues?.agentPreset, this.host.uiAgentPreset.store.getSnapshot().current])
+    const list = this.host.sessions.list.getSnapshot(), id = this.sessionId, summary = id ? list.byId[id] : undefined
+    const identity = JSON.stringify([id, summary?.blank, summary?.projectionValues?.agentPreset, this.preset.store.getSnapshot().current])
     if (identity === this.observed) return
     this.observed = identity
     void this.refresh()
   }
   async refresh() {
-    const generation = ++this.generation, list = this.host.sessions.list.getSnapshot(), id = list.current
-    const mode = this.host.uiAgentPreset.store.getSnapshot().current
+    const generation = ++this.generation, id = this.sessionId
+    const mode = this.preset.store.getSnapshot().current
     if (!id || mode !== PRESET) { this.publish({ sessionId: id, busy: false }); return }
     this.publish({ ...this.state, sessionId: id, ...(this.state.sessionId === id ? {} : { view: undefined }), busy: true, error: undefined })
     try {
@@ -78,7 +79,7 @@ export class Runtime {
     const { sessionId, view, busy, error } = this.state, t = this.host.locale.bind('papermoon-writer-sessions')
     for (const id of this.blocked) if (id !== sessionId) { this.host.conversation.blocks.set(id, undefined, 'papermoon-writer'); this.blocked.delete(id) }
     if (!sessionId) return
-    const writerMode = this.host.uiAgentPreset.store.getSnapshot().current === PRESET
+    const writerMode = this.preset.store.getSnapshot().current === PRESET
     const reason = !writerMode ? undefined : error ? error : busy ? t('loading') : view?.targetMissing ? t('missing') : !view?.fixed && !view?.preparation?.writer ? t('required') : undefined
     this.host.conversation.blocks.set(sessionId, reason ? { reason } : undefined, 'papermoon-writer')
     if (reason) this.blocked.add(sessionId); else this.blocked.delete(sessionId)

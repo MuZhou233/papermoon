@@ -8,6 +8,7 @@ import { openingMessages, type FrozenPerformance } from './model.ts'
 import { pathTo, pathRanges, recordsFor, worldlineState, activeRecords } from './worldlines.ts'
 export const CONTEXT_NAMESPACE = 'papermoon.context'
 export const CONTEXT_ERROR = 'papermoon.context.error'
+/** Hashes cover immutable source messages; Session projections determine the dispatched content. */
 export interface ContextOrigin { kind: 'history' | 'opening' | 'input' | 'authored' | 'continuation' | 'plugin'; ref?: string; nodeId?: string; eventSeq?: number; name?: string; hash?: string }
 export interface ContextMetadata {
   namespace: typeof CONTEXT_NAMESPACE; runId: string; parentId: string; artifactId: string; inputId: string; stateHead: string
@@ -19,11 +20,11 @@ export class ContextError extends Error { constructor(readonly code: string, mes
 function fail(message: string): never { throw new ContextError('context-record-invalid', message) }
 export function eventMessage(event: LogRecord): RequestMessage | undefined {
   const data = event.data as { message?: RequestMessage }
-  const message = event.type === 'user/message' ? event.data as RequestMessage : ['context/message','assistant/message','tool/result','system/message'].includes(event.type) ? data.message : undefined
-  return message && (event.type === 'user/message' || message.content.length > 0) ? message : undefined
+  const message = event.type === 'user/message' ? event.data as RequestMessage : ['context/message','assistant/message','tool/result','system/message','developer/message'].includes(event.type) ? data.message : undefined
+  return message
 }
 function blocks(events: readonly LogRecord[], nodeId: string, excluded: ReadonlySet<string>) {
-  const messages = events.filter(event => { const m = eventMessage(event); return m && m.role !== 'system' && !excluded.has(m.id) })
+  const messages = events.filter(event => { const m = eventMessage(event); return m && m.role !== 'system' && m.role !== 'developer' && !excluded.has(m.id) })
   const consumed = new Set<number>(), result: { id: string; role: 'user' | 'assistant'; seqs: number[]; nodeId: string }[] = []
   for (const event of messages) {
     if (event.seq === undefined) fail('history message has no sequence')
@@ -34,10 +35,10 @@ function blocks(events: readonly LogRecord[], nodeId: string, excluded: Readonly
     for (const call of calls) {
       const coordinates = event.data as {turn: number; step: number}
       const receipt = messages.findLast(candidate => candidate.type === 'tool/result' && candidate.seq! > event.seq! &&
-        (candidate.data as {turn: number; step: number}).turn === coordinates.turn && (candidate.data as {step: number}).step === coordinates.step && eventMessage(candidate)?.source.callId === call.id)
+        (candidate.data as {turn: number; step: number}).turn === coordinates.turn && (candidate.data as {step: number}).step === coordinates.step && eventMessage(candidate)?.toolCallId === call.id)
       if (!receipt || receipt.seq === undefined) fail('history tool block has an incomplete result')
       receipts.push(receipt.seq); consumed.add(receipt.seq)
-      for (const replaced of messages.filter(candidate => candidate.type === 'tool/result' && (candidate.data as {turn: number; step: number}).turn === coordinates.turn && (candidate.data as {step: number}).step === coordinates.step && eventMessage(candidate)?.source.callId === call.id)) consumed.add(replaced.seq!)
+      for (const replaced of messages.filter(candidate => candidate.type === 'tool/result' && (candidate.data as {turn: number; step: number}).turn === coordinates.turn && (candidate.data as {step: number}).step === coordinates.step && eventMessage(candidate)?.toolCallId === call.id)) consumed.add(replaced.seq!)
     }
     seqs.push(...receipts.sort((a,b) => a-b))
     result.push({ id: 'history:' + event.seq, role: message.role as 'user' | 'assistant', seqs, nodeId })
@@ -108,10 +109,10 @@ export class PerformanceContext {
         const hostSystem = [...activeRecords(events,this.fixed)].reverse().find(event => event.type === 'system/message')
         const hostText = hostSystem ? eventMessage(hostSystem)?.content.map(b => (b as {text?: string}).text ?? '').join('') ?? '' : ''
         const system = [plan.systemPrompt, hostText].filter(Boolean).join('\n\n')
-        if (system) { parts.push({message:{id:run.id + ':system',role:'system',content:[{type:'text',text:system}],source:{kind:'plugin',plugin:CONTEXT_NAMESPACE}},...(plan.systemPromptName === undefined ? {} : {name:plan.systemPromptName})}); origins.push({kind:'authored',name:plan.systemPromptName ?? 'system'}) }
+        if (system) { parts.push({message:{id:run.id + ':system',role:'system',content:[{type:'text',text:system}],source:{kind:'system-prompt'}},...(plan.systemPromptName === undefined ? {} : {name:plan.systemPromptName})}); origins.push({kind:'authored',name:plan.systemPromptName ?? 'system'}) }
         for (const [index,item] of plan.messages.entries()) {
           if ('ref' in item) { const ref = source.references.get(item.ref)!; parts.push(...ref.parts); origins.push(...ref.origins) }
-          else { parts.push({message:{id:run.id + ':prompt:' + index,role:item.role,content:[{type:'text',text:item.content}],source:{kind:'plugin',plugin:CONTEXT_NAMESPACE}},...(item.name === undefined ? {} : {name:item.name})}); origins.push({kind:'authored',...(item.name === undefined ? {} : {name:item.name})}) }
+          else { parts.push({message:{id:run.id + ':prompt:' + index,role:item.role,content:[{type:'text',text:item.content}],source:{kind:'authored-context',producer:CONTEXT_NAMESPACE}},...(item.name === undefined ? {} : {name:item.name})}); origins.push({kind:'authored',...(item.name === undefined ? {} : {name:item.name})}) }
         }
         const included = new Set(parts.flatMap(part => 'eventSeq' in part ? [part.eventSeq] : []))
         for (const event of events) {

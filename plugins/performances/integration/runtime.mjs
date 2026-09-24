@@ -11,7 +11,7 @@ const base = new URL('../../../dsh/', import.meta.url)
 const moduleAt = path => import(new URL(path + '/lib/index.js', base).href)
 const { Context } = await moduleAt('vendor/cordis')
 const llm = await moduleAt('packages/llm/llm')
-const { default: Sessions, SessionId, interruptedTurnClosers } = await moduleAt('packages/core/session')
+const { default: Sessions, SessionId, SESSION_FORMAT_VERSION, interruptedTurnClosers } = await moduleAt('packages/core/session')
 const { default: SystemPrompt } = await moduleAt('packages/core/system-prompt')
 const { default: Tools } = await moduleAt('packages/core/tools')
 const { default: Agents } = await moduleAt('packages/core/agent')
@@ -30,7 +30,7 @@ try {
     async resolveModel(provider, model) { return { provider, id: model, name: model } }
     async *stream(options) {
       requests.push(options)
-      const results = options.messages.flatMap(m => m.content).filter(b => b.type === 'tool-result').length
+      const results = options.messages.filter(m => m.role === 'tool').length
       if (results < 2) {
         const block = { type: 'tool-call', id: llm.ToolCallId('increment-' + results), name: 'increment', arguments: JSON.stringify({ amount: results + 1 }) }
         yield { type: 'block-start', index: 0, blockType: 'tool-call' }; yield { type: 'block-end', index: 0, block }
@@ -89,7 +89,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   assert.equal(requests.length, 3)
   assert.deepEqual(requests[0].tools.map(t => t.name), ['increment'])
   assert.equal(requests[0].messages[0].content[0].text, 'Exact {{literal}} prompt')
-  const results = requests[2].messages.flatMap(m => m.content).filter(b => b.type === 'tool-result')
+  const results = requests[2].messages.filter(message => message.role === 'tool')
   assert.deepEqual(results.map(r => r.content), [[{type:'text',text:'1'}], [{type:'text',text:'3'}]])
   assert.ok(!JSON.stringify(requests.map(r => r.messages)).includes('secretCounter'))
   assert.deepEqual((await service.view('one')).runtime.state, { count: 3, secretCounter: 4 })
@@ -107,7 +107,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   assert.equal(rerolled.nodes.length, 3)
   assert.equal(rerolled.nodes[2].parent, rootNode.id)
   assert.equal(requests.length, 6, JSON.stringify(first.session.snapshotEvents().slice(-15), null, 2))
-  assert.equal(requests[3].messages.flatMap(m => m.content).filter(b => b.type === 'tool-result').length, 0)
+  assert.equal(requests[3].messages.filter(message => message.role === 'tool').length, 0)
   assert.deepEqual(requests[3].messages.map(({role,content})=>({role,content})), requests[0].messages.map(({role,content})=>({role,content})))
   assert.equal(rerolled.nodes[2].input.source.kind, 'user')
   assert.notEqual(rerolled.nodes[2].input.id, firstNode.input.id)
@@ -120,7 +120,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   assert.equal(edited.nodes[3].editedFrom, firstNode.id)
   assert.equal(requests.length, 9)
   assert.deepEqual(requests[6].messages.filter(message => message.role === 'user').map(message => message.content), [[{ type: 'text', text: 'Revised input' }]])
-  assert.equal(requests[6].messages.flatMap(message => message.content).filter(block => block.type === 'tool-result').length, 0)
+  assert.equal(requests[6].messages.filter(message => message.role === 'tool').length, 0)
   assert.deepEqual((await service.view('one')).runtime.state, { count: 3, secretCounter: 4 })
   await service.operation('one', { operationId: 'select-root', expectedVersion: edited.version, kind: 'select', nodeId: rootNode.id })
   assert.deepEqual((await service.view('one')).runtime.state, { count: 0, secretCounter: 0 })
@@ -140,7 +140,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   assert.equal((await service.view('recovered')).worldline.nodes.at(-1).outcome, 'interrupted')
   await send(recovered.agent); await recovered.agent.whenIdle()
   assert.ok(requests[requestOffset], JSON.stringify(recovered.agent.session.snapshotEvents().filter(e => e.type === 'turn/end' || e.type === 'tool/result')))
-  const recoveredMessages = requests[requestOffset].messages.flatMap(m => m.content).filter(b => b.type === 'tool-result')
+  const recoveredMessages = requests[requestOffset].messages.filter(message => message.role === 'tool')
   assert.deepEqual(recoveredMessages.map(r => r.content), [[{type:'text',text:'1'}]])
   assert.equal(recoveredMessages[0].isError, false)
   assert.deepEqual((await service.view('recovered')).runtime.state, { count: 3, secretCounter: 4 })
@@ -150,7 +150,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
   assert.ok(repairedEvents.some(e => e.type === 'tool/result' && typeof e.surfaceOp === 'object' && e.surfaceOp.op === 'replace'))
   const { sessionFormatCatalog } = await moduleAt('packages/session/session-format-catalog')
   const persisted = first.session.snapshotEvents()
-  const reader = sessionFormatCatalog.createRestore({ type: 'session', version: 3, id: 'roundtrip', createdAt: 1, isSeeded: false, delegationDepth: 0 }, { recovery: 'strict', validation: 'current' })
+  const reader = sessionFormatCatalog.createRestore({ type: 'session', version: SESSION_FORMAT_VERSION, id: 'roundtrip', createdAt: 1, isSeeded: false, delegationDepth: 0 }, { recovery: 'strict', validation: 'current' })
   for (const event of persisted) reader.decodeRow(sessionFormatCatalog.encodeCurrentEvent(event))
   assert.deepEqual(reader.finish().events, persisted)
   const begin = seed.findIndex(event => event.type === 'history/selected' && event.data.metadata.kind === 'begin')

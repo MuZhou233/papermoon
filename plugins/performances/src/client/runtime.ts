@@ -8,13 +8,14 @@ export interface ClientHost {
   trajectoryInspection: {register(sessionId:string, source:Observable<import('./inspection.ts').InspectionData|null>):()=>void}
   chatPresentation: { preserveReplies(preset: string): () => void }
   connection: { rpc: { call(channel: string, method: string, payload: unknown, signal?: AbortSignal): Promise<{ ok: true; value: unknown } | { ok: false; error: { message: string; code: string } }> } }
-  sessions: { list: Observable<{ current?: string; byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }>; refresh(): Promise<void>; open(id: string): void; binding(id: string): { ctx: unknown; session: Observable<{ running: boolean }>; eventSource: Observable<EventWindow> } | undefined }
-  uiAgentPreset: { store: Observable<{ current: string; busy: boolean }>; load(): Promise<void> }
+  sessions: { list: Observable<{ byId: Record<string, { blank: boolean; projectionValues?: { agentPreset?: string } } | undefined> }>; refresh(): Promise<void>; binding(id: string): { ctx: { effect(body: () => (() => void | Promise<void>), label?: string): () => Promise<void> }; session: Observable<{ running: boolean }>; eventSource: Observable<EventWindow> } | undefined }
+  uiAgentPreset: { binding(sessionId?: string): { store: Observable<{ current: string; busy: boolean }>; load(): Promise<void> } }
   conversation: { blocks: { set(id: string, block: { reason: string; submissionOnly?: boolean } | undefined, owner?: string): void } }
+  uiWorkspace: { openSession(id: string): void }
   layout: { selectPanel(id: string | null): void }
   locale: { register(ns: string, dictionaries: object): () => void; bind(ns: string): T }
-  effect(body: () => () => void, label?: string): unknown
-  slots: { inject(name: string, body: () => () => void): unknown; register<P>(options: { name: string; key?: string; id?: string; order?: number; label?: () => string; locale?: string; select?: (owner: { seq: number }, hooks: unknown) => object | null; inject?: () => object }, component: ComponentType<P>): () => void }
+  effect(body: () => (() => void | Promise<void>), label?: string): () => Promise<void>
+  slots: { inject(name: string, body: () => () => void): unknown; register<P>(options: { name: string; key?: string; id?: string; order?: number; label?: () => string; locale?: string; select?: (owner: { seq: number; sessionId: string; agentPreset?: string }) => object | null; inject?: (sessionId?: string) => object }, component: ComponentType<P>): () => void }
   uiConversation: { events: { register(definition: object): () => void } }
 }
 export type View = Awaited<ReturnType<Performances['view']>>
@@ -31,15 +32,16 @@ export class Runtime {
   private blocked = new Set<string>()
   readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   readonly getSnapshot = () => this.state
-  constructor(readonly host: ClientHost) {}
+  readonly preset: ReturnType<ClientHost['uiAgentPreset']['binding']>
+  constructor(readonly host: ClientHost, readonly sessionId?: string) { this.preset = host.uiAgentPreset.binding(sessionId) }
   async call<T>(method: string, payload: unknown = {}): Promise<T> {
     const result = await this.host.connection.rpc.call('/api', 'papermoon-performances/' + method, payload, this.abort.signal)
     if (!result.ok) throw new Error(result.error.message)
     return result.value as T
   }
   observe = () => {
-    const list = this.host.sessions.list.getSnapshot(), mode = this.host.uiAgentPreset.store.getSnapshot().current
-    const target = mode === PRESET ? list.current : undefined
+    const list = this.host.sessions.list.getSnapshot(), mode = this.preset.store.getSnapshot().current
+    const target = mode === PRESET ? this.sessionId : undefined
     if (target !== this.followed) {
       this.stopEvents?.(); this.stopStatus?.(); this.stopEvents = undefined; this.stopStatus = undefined; this.followed = target
       const binding = target ? this.host.sessions.binding(target) : undefined
@@ -50,7 +52,7 @@ export class Runtime {
         if (change.kind === 'replace' || change.entries?.some(({event}) => event.type === 'request/messages' || event.type === 'history/selected' || event.type === 'turn/end' || event.type === 'assistant/message' || event.type === 'tool/result' || (event.type === 'session/configuration' && (event.data as {key?: string}).key === ACTION_KEY))) this.scheduleRefresh()
       })
     }
-    const identity = JSON.stringify([list.current, list.current && list.byId[list.current]?.blank, mode])
+    const identity = JSON.stringify([this.sessionId, this.sessionId && list.byId[this.sessionId]?.blank, mode])
     if (identity !== this.observed) { this.observed = identity; this.scheduleRefresh() }
   }
   private scheduleRefresh() { clearTimeout(this.refreshTimer); this.refreshTimer = setTimeout(() => { void this.refresh() }, 150) }
@@ -58,7 +60,7 @@ export class Runtime {
     this.state = state
     for (const id of this.blocked) this.host.conversation.blocks.set(id, undefined, 'papermoon-performance')
     this.blocked.clear()
-    if (state.sessionId && this.host.uiAgentPreset.store.getSnapshot().current === PRESET && !state.view?.fixed) {
+    if (state.sessionId && this.preset.store.getSnapshot().current === PRESET && !state.view?.fixed) {
       this.host.conversation.blocks.set(state.sessionId, { reason: state.error ?? this.host.locale.bind('papermoon-performances')('unavailable') }, 'papermoon-performance')
       this.blocked.add(state.sessionId)
     }
@@ -71,8 +73,8 @@ export class Runtime {
     for (const listener of this.listeners) listener()
   }
   async refresh() {
-    const generation = ++this.generation, sessionId = this.host.sessions.list.getSnapshot().current
-    if (!sessionId || this.host.uiAgentPreset.store.getSnapshot().current !== PRESET) { this.publish({ sessionId }); return }
+    const generation = ++this.generation, sessionId = this.sessionId
+    if (!sessionId || this.preset.store.getSnapshot().current !== PRESET) { this.publish({ sessionId }); return }
     this.publish({ sessionId, view: this.state.sessionId === sessionId ? this.state.view : undefined })
     try { const view = await this.call<View>('state', { sessionId }); if (generation === this.generation) this.publish({ sessionId, view }) }
     catch (error) { if (generation === this.generation && !this.abort.signal.aborted) this.publish({ sessionId, error: String(error) }) }
@@ -80,7 +82,7 @@ export class Runtime {
   launch(playbookId?: string, revisionId?: string) { window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { playbookId, revisionId } })) }
   async open(sessionId: string) {
     await this.host.sessions.refresh()
-    this.host.sessions.open(sessionId)
+    this.host.uiWorkspace.openSession(sessionId)
     this.host.layout.selectPanel(null)
     history.replaceState(null, '', '#conversation')
     await this.refresh()

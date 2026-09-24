@@ -5,7 +5,7 @@ import type { Runtime } from './runtime.ts'
 import type { T } from './locales.ts'
 interface Props { runtime: Runtime; t: T }
 export function PlaybookPicker({ runtime, t, folderPicker, pickerOpen: open, setPickerOpen: setOpen, selectWorkspace }: Props & { folderPicker: ReactNode; pickerOpen: boolean; setPickerOpen(open: boolean): void; selectWorkspace(id: string): Promise<void> }) {
-  const mode = useSyncExternalStore(runtime.host.uiAgentPreset.store.subscribe, runtime.host.uiAgentPreset.store.getSnapshot)
+  const mode = useSyncExternalStore(runtime.preset.store.subscribe, runtime.preset.store.getSnapshot)
   const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
   const [query, setQuery] = useState(''), [busy, setBusy] = useState(false)
   const [playbooks, setPlaybooks] = useState<{ playbookId: string; playbookName: string; projectName: string }[]>([]), [error, setError] = useState('')
@@ -30,7 +30,7 @@ export function PlaybookPicker({ runtime, t, folderPicker, pickerOpen: open, set
   </>
 }
 export function WriterPicker({ runtime, t, active = false }: Props & { active?: boolean }) {
-  const mode = useSyncExternalStore(runtime.host.uiAgentPreset.store.subscribe, runtime.host.uiAgentPreset.store.getSnapshot)
+  const mode = useSyncExternalStore(runtime.preset.store.subscribe, runtime.preset.store.getSnapshot)
   const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
   const [open, setOpen] = useState(false), [writers, setWriters] = useState<{ id: string; sequence: number; name: string }[]>([])
   const [error, setError] = useState('')

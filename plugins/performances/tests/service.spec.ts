@@ -171,7 +171,7 @@ test('persists the context before dispatch and reuses a turn base without recomp
   vi.spyOn(runtime,'compose').mockImplementation(async (...args) => {
     const result = await compose(...args)
     agent.session.append('session/configuration',{key:'concurrent-metadata',value:{}})
-    agent.session.append('context/message',{groupId:'explicit-plugin',index:0,message:{id:'plugin-input',role:'user',content:[{type:'text',text:'Explicit plugin contribution'}],source:{kind:'plugin',plugin:'fixture'}}})
+    agent.session.append('context/message',{groupId:'explicit-plugin',index:0,message:{id:'plugin-input',role:'user',content:[{type:'text',text:'Explicit plugin contribution'}],source:{kind:'authored-context',producer:'fixture'}}})
     return result
   })
   const seq=await context.request(1,1,new AbortController().signal)
@@ -185,6 +185,8 @@ test('persists the context before dispatch and reuses a turn base without recomp
   expect(expand(next)).toEqual([...original,eventMessage(agent.session.snapshotEvents()[next-1]!)])
   expect(contextRecord(agent.session.snapshotEvents()[next]!)!.metadata.plan).toBeUndefined()
   expect((await f.service.request('play',seq)).messages).toEqual(original)
+  agent.session.deriveRequestMessages = seq => expand(seq).map(message => message.id === input.id ? { ...message, content: [{ type: 'text', text: 'projected input' }] } : message)
+  expect((await f.service.request('play',seq)).messages.find(message => message.id === input.id)?.content).toEqual([{ type: 'text', text: 'projected input' }])
   const source=agent.session.snapshotEvents().find(e=>e.type==='user/message')!
   ;(source.data as {content:{text:string}[]}).content[0]!.text='corrupted'
   await expect(f.service.request('play',seq)).rejects.toThrow('checksum')

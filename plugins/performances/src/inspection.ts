@@ -3,7 +3,7 @@ import { digest } from '@papermoon/playbook-compiler/runtime'
 import type { LogRecord, RequestMessage } from '../../playbook-workspaces/src/host.ts'
 import type { FrozenPerformance } from './model.ts'
 import { openingMessages } from './model.ts'
-import { contextRecord, CONTEXT_ERROR, type ContextOrigin } from './composition.ts'
+import { contextRecord, eventMessage, CONTEXT_ERROR, type ContextOrigin } from './composition.ts'
 import { pathTo, recordsFor, pathRanges, worldlineState, type WorldNode } from './worldlines.ts'
 
 export type InspectionMode = 'original' | 'rewritten'
@@ -52,11 +52,11 @@ export function inspectExecution(events: readonly LogRecord[], fixed: FrozenPerf
     if (messages.length!==base.metadata.origins.length) throw new Error('context reference count does not match')
     messages.forEach((message,index)=>{
       const origin=base.metadata.origins[index]!
-      if (origin.hash && digest(message)!==origin.hash) throw new Error('context source checksum does not match')
+      if (origin.hash && digest(origin.eventSeq === undefined ? message : eventMessage(snapshot[origin.eventSeq]!))!==origin.hash) throw new Error('context source checksum does not match')
       context.push({id:nodeId+':context:'+index,message,origin})
     })
   } else if (mode==='original') {
-    context.push({id:'opening:system',message:{id:'opening:system',role:'system',content:[{type:'text',text:fixed.artifact.context.systemPrompt}],source:{kind:'plugin',plugin:'papermoon.performance'}},origin:{kind:'opening',name:fixed.artifact.context.systemPromptName}})
+    context.push({id:'opening:system',message:{id:'opening:system',role:'system',content:[{type:'text',text:fixed.artifact.context.systemPrompt}],source:{kind:'system-prompt'}},origin:{kind:'opening',name:fixed.artifact.context.systemPromptName}})
     for (const entry of openingMessages(fixed)) context.push({id:entry.message.id,message:entry.message,origin:{kind:'opening',name:entry.name}})
   }
   // Initial messages have a presentation area even before the first real input is accepted.

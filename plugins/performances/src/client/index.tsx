@@ -10,9 +10,9 @@ import { Launch } from './launch.tsx'
 import { Opening, openingDefinition, initializationDefinition, actionDefinition } from './context.tsx'
 import { en, zh, type T } from './locales.ts'
 import './style.css'
-export const inject = ['slots', 'locale', 'connection', 'sessions', 'uiAgentPreset', 'conversation', 'uiConversation', 'layout', 'chatPresentation', 'trajectoryInspection']
+export const inject = ['slots', 'locale', 'connection', 'sessions', 'uiAgentPreset', 'conversation', 'uiConversation', 'layout', 'chatPresentation', 'trajectoryInspection', 'uiWorkspace']
 function StartButton({ runtime, t }: { runtime: Runtime; t: T }) {
-  const mode = useSyncExternalStore(runtime.host.uiAgentPreset.store.subscribe, runtime.host.uiAgentPreset.store.getSnapshot)
+  const mode = useSyncExternalStore(runtime.preset.store.subscribe, runtime.preset.store.getSnapshot)
   const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
   return mode.current === PRESET && !state.view?.fixed ? <Button variant="ghost" onClick={() => runtime.launch(state.view?.playbookId)}>{t('start')}</Button> : null
 }
@@ -39,32 +39,38 @@ function Source({ runtime, t }: { runtime: Runtime; t: T }) {
 export function apply(ctx: ClientHost) {
   ctx.effect(() => ctx.chatPresentation.preserveReplies(PRESET))
   for (const definition of [openingDefinition, initializationDefinition, actionDefinition, compositionTrajectory]) ctx.effect(() => ctx.uiConversation.events.register(definition))
-  const runtime = new Runtime(ctx)
-  const inspection = new Inspection(runtime,ctx.locale.bind('papermoon-performances'))
-  ctx.effect(()=>()=>inspection.dispose())
+  const boundDisposers = new Set<() => Promise<void>>()
+  ctx.effect(() => async () => { await Promise.all([...boundDisposers].map(dispose => dispose())) })
+  const instances = new Map<object | undefined, { runtime: Runtime; inspection: Inspection }>()
+  const forSession = (sessionId?: string) => {
+    const binding = sessionId === undefined ? undefined : ctx.sessions.binding(sessionId)
+    const previous = instances.get(binding)
+    if (previous) return previous
+    const runtime = new Runtime(ctx, sessionId)
+    const inspection = new Inspection(runtime, ctx.locale.bind('papermoon-performances'))
+    const instance = { runtime, inspection }
+    instances.set(binding, instance)
+    const dispose = (binding?.ctx ?? ctx).effect(() => {
+      const off = ctx.sessions.list.subscribe(runtime.observe), offMode = runtime.preset.store.subscribe(runtime.observe)
+      const refresh = () => void runtime.refresh()
+      window.addEventListener('focus', refresh)
+      void runtime.preset.load().then(runtime.observe)
+      runtime.observe()
+      return () => { off(); offMode(); window.removeEventListener('focus', refresh); inspection.dispose(); runtime.dispose(); instances.delete(binding); boundDisposers.delete(dispose) }
+    })
+    if (binding) boundDisposers.add(dispose)
+    return instance
+  }
   ctx.effect(() => ctx.locale.register('papermoon-performances', { en, zh }))
-  ctx.effect(() => {
-    const off = ctx.sessions.list.subscribe(runtime.observe), offMode = ctx.uiAgentPreset.store.subscribe(runtime.observe)
-    const refresh = () => void runtime.refresh()
-    window.addEventListener('focus', refresh); void ctx.uiAgentPreset.load().then(runtime.observe); runtime.observe()
-    return () => { off(); offMode(); window.removeEventListener('focus', refresh); runtime.dispose() }
-  })
   for (const [slot, component] of [['shell.overlay', Launch], ['conversation.hero.options', StartButton], ['conversation.session.header.actions', Source]] as const)
-    ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, id: 'papermoon-performance', locale: 'papermoon-performances', inject: () => ({ runtime }) }, component))
+    ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, id: 'papermoon-performance', locale: 'papermoon-performances', inject: sessionId => ({ runtime: forSession(sessionId).runtime }) }, component))
   for (const [slot,component] of [['conversation.trajectory.navigation',WorldlineNavigation],['conversation.trajectory.toolbar',InspectionToolbar]] as const)
-    ctx.slots.inject(slot,()=>ctx.slots.register({name:slot,id:'papermoon-worldlines',locale:'papermoon-performances',inject:()=>({inspection})},component))
-  ctx.slots.inject('conversation.chat.user-actions', () => ctx.slots.register({ name: 'conversation.chat.user-actions', id: 'papermoon-edit-input', locale: 'papermoon-performances', inject: () => ({ runtime }) }, EditInput))
-  ctx.slots.inject('conversation.chat.turn-actions', () => {
-    let unregister: (() => void) | undefined
-    const update = () => {
-      const enabled = ctx.uiAgentPreset.store.getSnapshot().current === PRESET
-      if (enabled && !unregister) unregister = ctx.slots.register({ name: 'conversation.chat.turn-actions', locale: 'papermoon-performances',
-        select: owner => ({ seq: owner.seq }), inject: () => ({ runtime }),
-      }, ({ matched, ...props }: { matched: { seq: number }; runtime: Runtime; t: T }) => <TurnActions {...props} seq={matched.seq} />)
-      else if (!enabled && unregister) { unregister(); unregister = undefined }
-    }
-    const off = ctx.uiAgentPreset.store.subscribe(update); update()
-    return () => { off(); unregister?.() }
-  })
+    ctx.slots.inject(slot,()=>ctx.slots.register({name:slot,id:'papermoon-worldlines',locale:'papermoon-performances',inject:sessionId=>({inspection:forSession(sessionId).inspection})},component))
+  ctx.slots.inject('conversation.chat.user-actions', () => ctx.slots.register({ name: 'conversation.chat.user-actions', id: 'papermoon-edit-input', locale: 'papermoon-performances', inject: sessionId => ({ runtime: forSession(sessionId).runtime }) }, EditInput))
+  ctx.slots.inject('conversation.chat.turn-actions', () => ctx.slots.register({
+    name: 'conversation.chat.turn-actions', locale: 'papermoon-performances',
+    select: owner => owner.agentPreset === PRESET ? { seq: owner.seq } : null,
+    inject: sessionId => ({ runtime: forSession(sessionId).runtime }),
+  }, ({ matched, ...props }: { matched: { seq: number }; runtime: Runtime; t: T }) => <TurnActions {...props} seq={matched.seq} />))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({ name: 'conversation.chat.node', key: 'papermoon-opening', locale: 'papermoon-performances' }, Opening))
 }
