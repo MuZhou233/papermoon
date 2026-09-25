@@ -11,7 +11,8 @@
     "plugins/chat.patch",
     "plugins/conversation.patch",
     "plugins/trajectory.patch",
-    "plugins/token-meter.patch"
+    "plugins/token-meter.patch",
+    "plugins/settings.patch"
   ],
   "checks": [
     {
@@ -25,6 +26,8 @@
         "packages/client/ui-agent-preset/tests",
         "packages/client/ui-workspace/tests",
         "packages/client/ui-conversation/tests/composer-blocks.client.spec.ts",
+        "packages/client/ui-conversation/tests/page-policy.client.spec.ts",
+        "packages/client/ui-conversation/tests/apply-inject.client.spec.tsx",
         "packages/client/ui-conversation/tests/input-bar.client.spec.tsx",
         "packages/session-query/session-query/tests/search-helpers.spec.ts",
         "packages/sdk/client/tests/sdk-client.spec.ts",
@@ -48,7 +51,10 @@
         "scripts/gen-cordis-catalog-partition.spec.ts",
         "scripts/clean.spec.ts",
         "packages/llm/llm-pi-ai/tests",
-        "packages/llm/llm/tests/content.spec.ts"
+        "packages/llm/llm/tests/content.spec.ts",
+        "packages/client/ui-settings-general/tests",
+        "packages/client/ui-conversation/tests/skeleton.client.spec.tsx",
+        "packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx"
       ]
     },
     {

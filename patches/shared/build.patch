@@ -1,3 +1,17 @@
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 36dc0506d3..4ae91541de 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -3441,6 +3441,9 @@ importers:
+       '@deepseek-ai/dsh-session':
+         specifier: workspace:*
+         version: link:../../core/session
++      '@deepseek-ai/dsh-session-title':
++        specifier: workspace:*
++        version: link:../../session/session-title
+       '@deepseek-ai/dsh-settings':
+         specifier: workspace:*
+         version: link:../../settings/settings
 diff --git a/scripts/clean.spec.ts b/scripts/clean.spec.ts
 index 11a8c880b0..ac6b33eb50 100644
 --- a/scripts/clean.spec.ts

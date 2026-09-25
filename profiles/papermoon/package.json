@@ -1,0 +1,28 @@
+{
+  "name": "@papermoon/extensions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PaperMoon creation and text conversation extensions",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@papermoon/playbook-editor": "workspace:*",
+    "@papermoon/text-conversations": "workspace:*",
+    "@papermoon/playbook-core": "workspace:*",
+    "@papermoon/performances": "workspace:*",
+    "@papermoon/playbook-compiler": "workspace:*",
+    "@papermoon/playbook-storage": "workspace:*",
+    "@papermoon/writers": "workspace:*",
+    "@papermoon/writer-sessions": "workspace:*",
+    "@papermoon/playbook-workspaces": "workspace:*",
+    "@papermoon/playbook-tools": "workspace:*",
+    "@papermoon/ui-guidance": "workspace:*"
+  }
+}

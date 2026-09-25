@@ -1,0 +1,11 @@
+- insert:
+    - id: story-fixture
+      name: './adapter.mjs'
+- id: agent-default-model
+  config:
+    provider: story-fixture
+    model: off-model
+- id: session-query-sqlite
+  config:
+    openAt: first-search
+    path: ":memory:"

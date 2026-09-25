@@ -1,0 +1,4 @@
+- id: agent-default-model
+  config:
+    provider: story-fixture
+    model: not-listed

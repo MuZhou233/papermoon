@@ -25,7 +25,7 @@ DSH runtime data defaults to `.papermoon/dsh` and `.papermoon/agents`. Explicit 
 
 ## Maintain
 
-[Story Mode requirements](docs/story-mode/README.md) organize planned experiences by chapter, starting with [Chapter 0: hello world](docs/story-mode/00/README.md). Playbooks define backgrounds, openings and interaction mechanisms; performances unfold from them. Story Mode is planned and has no runtime plugin yet.
+[Story Mode](plugins/story-mode/README.md) provides [Chapter 0: hello world](docs/story-mode/00/README.md) from the sidebar, with an introduction, model configuration checks, an example, a real conversation and trajectory inspection. It can be disabled in Plugins. Playbooks define backgrounds, openings and interaction mechanisms; performances unfold from them. [Chapter requirements](docs/story-mode/README.md) guide subsequent development.
 
 Plugins and tooling are maintained in this repository; the `dsh/` Git submodule pins the upstream version.
 

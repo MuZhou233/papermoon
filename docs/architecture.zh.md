@@ -8,7 +8,9 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 ## 职责
 
-Playbook 指可复用的创作内容，定义背景、开场和互动机制；演绎记录从这些内容开始的一次互动。Story 留给计划中的章节式故事模式（Story Mode）。故事模式插件将维护章节定义、进度编排、专用 UI、引导及包含 Playbook 在内的预置内容。其他包提供共用的模型配置、请求执行、会话持久化、编辑、编译与运行机制。[章节文档](story-mode/README.zh.md)记录产品需求，包括共用交互约束和第零章；故事模式插件尚未实现。[命名决定](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.zh.md)说明这项边界及不兼容的格式调整。
+Playbook 指可复用的背景、开场和互动机制，Performance 记录一次互动。Story 指按章节组织的[故事模式](../plugins/story-mode/README.zh.md)。[章节文档](story-mode/README.zh.md)维护产品需求，[命名决定](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.zh.md)保留术语和格式调整的理由。
+
+PaperMoon 分为三层。平台层提供稳定基础，并将 DSH 改造为 PaperMoon，所有 patch 都属于这一层。扩展层将可复用的功能拆为插件，包括 Playbook、编剧、演绎、[文本对话](../plugins/text-conversations/README.zh.md)和[定位提示](../plugins/ui-guidance/README.zh.md)。故事模式层由可开关的插件组成，承载章节内容和仅在该模式使用的功能。依赖向下，共用功能不能放在故事模式层。这是职责边界，不要求移动目录。[实现决策](../.agents/notes/implemented/architecture/2026-09-25-story-mode-layers.zh.md)记录扩展方式的选择。
 
 主仓库维护插件、工具、文档、依赖和 CI。`dsh/` 的 Gitlink 固定 DSH 官方提交，子模块不作为主仓库 workspace 中的包。作用于 DSH 的修改保存为补丁，在 PaperMoon 的[补丁维护范围](../patches/README.zh.md)内保留 DSH 的代码和运行时约束；管理补丁的工具按主仓库标准交付。根据各部分的实际影响选择验证证据。
 
@@ -18,13 +20,13 @@ PaperMoon 将 DSH `dsh-v0.1.7-rc.2` 固定到 `477b4f420553e8a52c2fbccc464d7561b
 
 ## 当前启动方式与数据
 
-启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，在标准 Web profile 上加载 PaperMoon 组合配置。子模块内的依赖安装、构建和登记的检查使用 `CI=true`，保持 DSH 的自动化安装行为和依赖布局。启动继承调用方环境。
+启动器以 PaperMoon 根目录为工作目录，调用 DSH 官方构建后的 CLI，使用独立的 `papermoon` profile。官方基础／Web 组合包、PaperMoon 扩展组合包和故事模式通过原生 profile 层组合，保留用户的组合包选择。子模块内的依赖安装、构建和登记的检查使用 `CI=true`，启动继承调用方环境。
 
 组合配置加入人工 Playbook 编辑器、编剧管理、编剧会话和文本演绎，同时保留 DSH 的配置、认证、普通对话和设置。启动器提供独立的默认数据目录，也保留原版 Web 命令用于对照。[开发文档](development.zh.md)说明命令接口。
 
 ## Playbook 数据
 
-[存储模块](../plugins/playbook-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH。PaperMoon 组合配置挂载该插件，原版 Web 配置不挂载。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-playbook-storage.zh.md)记录归属和事务选择。
+[存储模块](../plugins/playbook-storage/README.zh.md)通过独立 SQLite 数据库管理产品数据，并导出可加载的 Cordis 适配器。核心不依赖 DSH。PaperMoon 组合包挂载该插件，原版 Web 配置不挂载。[存储决策](../.agents/notes/implemented/architecture/2026-09-12-playbook-storage.zh.md)记录归属和事务选择。
 
 [逻辑核心](../plugins/playbook-core/README.zh.md)维护程序与多语言文案结构、纯内容编辑和业务 KV 编码。仓库入口通过存储编排操作，Cordis 入口注册内部服务。编译、会话策略及面向用户和模型的接口由模块之外负责。[核心决策](../.agents/notes/implemented/architecture/2026-09-12-playbook-core.zh.md)记录这一划分。
 

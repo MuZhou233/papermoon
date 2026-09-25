@@ -8,7 +8,9 @@ DSH provides the general agent runtime and application infrastructure. PaperMoon
 
 ## Responsibilities
 
-Playbook names the reusable authored content that defines a background, an opening and interaction mechanisms. A performance records an interaction started from that content. Story is reserved for the planned chapter-based Story Mode, called 故事模式 in Chinese. Its plugin will own chapter definitions, progress orchestration, dedicated UI, guidance and preset content including Playbooks. Other packages provide shared model configuration, request execution, session persistence, editing, compilation and runtime mechanisms. The [chapter documents](story-mode/README.md) record product requirements, including the shared interaction constraints and Chapter 0; the Story Mode plugin is not implemented. The [naming decision](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.md) records this boundary and the incompatible format change.
+Playbook names reusable authored backgrounds, openings and interaction mechanisms; Performance records an interaction. Story names the chapter-based [Story Mode](../plugins/story-mode/README.md). The [chapter documents](story-mode/README.md) own product requirements, while the [naming decision](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.md) preserves the terminology and format rationale.
+
+PaperMoon has three layers. The platform provides stable foundations and adapts DSH into PaperMoon; every patch belongs to it. Extensions split reusable features into plugins, including Playbooks, writers, performances, [text conversations](../plugins/text-conversations/README.md) and [anchored guidance](../plugins/ui-guidance/README.md). Story Mode is a switchable plugin layer for chapter content and features used only in that mode. Dependencies point downward: shared functionality never belongs in Story Mode. These are responsibility boundaries, not a requirement to move directories. The [implementation decision](../.agents/notes/implemented/architecture/2026-09-25-story-mode-layers.md) records the extension choices.
 
 The main repository maintains plugins, tooling, documentation, dependencies and CI. The Gitlink at `dsh/` pins an official DSH commit; the submodule is not a package in the main workspace. Changes applied to DSH are stored as patches and retain its code and runtime constraints within PaperMoon's [patch maintenance scope](../patches/README.md). The tools that manage those patches follow main-repository standards. Validate each part with evidence appropriate to its effects.
 
@@ -18,13 +20,13 @@ PaperMoon pins DSH `dsh-v0.1.7-rc.2` at `477b4f420553e8a52c2fbccc464d7561b239c44
 
 ## Current launch and data
 
-The launcher executes DSH's official built CLI with the standard Web profile, PaperMoon's composition overlay and the PaperMoon root as its working directory. Dependency installation, build and registered checks run inside the submodule with `CI=true`, which preserves DSH’s automated installation behavior and dependency layout. Launch inherits the caller’s environment.
+The launcher executes DSH's official built CLI with a dedicated `papermoon` profile and the PaperMoon root as its working directory. Official base/Web bundles, the PaperMoon extension bundle and Story Mode compose through native profile layers. User bundle choices remain authoritative. Dependency installation, build and registered checks run inside the submodule with `CI=true`; launch inherits the caller's environment.
 
 The composition adds the manual playbook editor, writer management, writer sessions and text performances while retaining DSH configuration, authentication, ordinary conversations and settings. The launcher supplies independent default data homes and keeps an original-Web command for comparison. [Development](development.md) documents the command interface.
 
 ## Playbook data
 
-The [storage module](../plugins/playbook-storage/README.md) owns product data in an independent SQLite database and exports a loadable Cordis adapter. Its core has no DSH dependency. The PaperMoon overlay mounts it; the original Web composition does not. The [storage decision](../.agents/notes/implemented/architecture/2026-09-12-playbook-storage.md) records the ownership and transaction choices.
+The [storage module](../plugins/playbook-storage/README.md) owns product data in an independent SQLite database and exports a loadable Cordis adapter. Its core has no DSH dependency. The PaperMoon bundle mounts it; the original Web composition does not. The [storage decision](../.agents/notes/implemented/architecture/2026-09-12-playbook-storage.md) records the ownership and transaction choices.
 
 The [logic core](../plugins/playbook-core/README.md) owns program and multilingual-text structures, pure content edits and business KV encoding. Its repository entry composes operations over storage; its Cordis entry registers the internal service. These entries keep compilation, session policies and user/model interfaces outside the authored-content module. The [core decision](../.agents/notes/implemented/architecture/2026-09-12-playbook-core.md) records this division.
 

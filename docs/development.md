@@ -16,6 +16,7 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | `pnpm check:plugins:dsh` | Check storage/core/writer lifecycles and scoped Playbook tools against actual DSH Cordis |
 | `pnpm start -- --port 3081 --no-open` | Start PaperMoon over Web; pass arguments as separate argv elements |
 | `pnpm start:dsh -- --port 3081 --no-open` | Start original Web without product plugins |
+| `pnpm test:story-mode` | Exercise Chapter 0 with a deterministic local adapter |
 | `pnpm test:editor` | Verify the editor and writer manager in Chromium against a temporary Web process |
 | `pnpm test:writer-sessions` | Verify writer admission, literal requests and recovery with a deterministic adapter |
 | `pnpm check` | Main type, lint, tests, docs and Notes |
@@ -27,7 +28,7 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 
 The package script named setup must be invoked as `pnpm run setup`: `pnpm setup` is reserved by pnpm. Automation uses the explicit script form.
 
-The [PaperMoon composition](../profiles/papermoon/cordis.patch.yml) mounts storage, core, compiler, editor, writer-management and writer-session plugins through the official profile overlay. It is configuration, not a source patch. Startup does not rebuild plugins; use `pnpm build:plugins` after changing main plugin or UI sources. Browser tests need built DSH artifacts and Chromium, installed with `pnpm exec playwright install chromium`.
+The [PaperMoon composition](../profiles/papermoon/README.md) mounts product extensions through native DSH bundles in the `papermoon` profile. Story Mode is enabled initially and can be switched in Plugins; its installed bundle remains available when disabled. Profile configuration lives under `$DSH_HOME/profiles/papermoon/`; the former `web` profile remains untouched and is used by `pnpm start:dsh`. Configure the new profile through Settings; startup does not copy old profile settings. It also does not rebuild plugins: run `pnpm build:plugins` after changing main plugin or UI sources. Browser tests need built DSH artifacts and Chromium, installed with `pnpm exec playwright install chromium`.
 
 ## Editing and upgrading
 

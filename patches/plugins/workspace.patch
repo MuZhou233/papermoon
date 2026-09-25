@@ -197,37 +197,70 @@ index 0000000000..648580a270
 +  expect(blank.store.getSnapshot().current).toBe('standard')
 +})
 diff --git a/packages/client/ui-workspace/README.i18n.yaml b/packages/client/ui-workspace/README.i18n.yaml
-index 910c61850f..3475b1aadd 100644
+index 910c61850f..28b2554718 100644
 --- a/packages/client/ui-workspace/README.i18n.yaml
 +++ b/packages/client/ui-workspace/README.i18n.yaml
+@@ -15,8 +15,8 @@
+   en: d152484eb41ac6b4
+   zh: 09388d293f9be9cb
+ /deepseek-ai-dsh-client-ui-workspace/use-this-package:
+-  en: c8d579e1e65bc8c5
+-  zh: 56f8e45351445ec7
++  en: c1e018b4d329a717
++  zh: 19840160ef25b789
+ /deepseek-ai-dsh-client-ui-workspace/use-this-package/reordering-and-view-options:
+   en: 1fe0693758e0536b
+   zh: ef30198bc767fc04
 @@ -69,5 +69,5 @@
    en: 00d7b1ddda7390f5
    zh: 1e5a1055d1be4d1d
  /deepseek-ai-dsh-client-ui-workspace/known-limitations-and-deferred-work/dev-note:
 -  en: 585813ff2c68c20c
 -  zh: 18b43c0d64fa8a72
-+  en: c8ad416667c6267d
-+  zh: 275e59928650b571
++  en: 7be3193f3b037896
++  zh: cc2cceed1869d838
 diff --git a/packages/client/ui-workspace/README.md b/packages/client/ui-workspace/README.md
-index 6ae5be1fe5..cb31937d40 100644
+index 6ae5be1fe5..3e654cd0f2 100644
 --- a/packages/client/ui-workspace/README.md
 +++ b/packages/client/ui-workspace/README.md
-@@ -222,3 +222,5 @@ None.
+@@ -25,6 +25,8 @@ This package lets users browse grouped or flat Session lists, choose a Workspace
+ <a id="use-this-package"></a>
+ ## Use this package
+ 
++`ctx.uiWorkspace.interceptStartSession(handler)` installs an effect-owned navigation handler. Returning true consumes New Session before workspace selection or creation; returning false lets the next handler or ordinary flow proceed. Releasing the registration restores the remaining handlers and default behavior. This covers the shared button and shortcut entry points.
++
+ Use the sidebar to browse Workspaces and their Sessions, reorder them, and start new ones; use the picker in the Session Intent hero to choose a Workspace for a new session. An open Workspace shows five idle, non-blank Sessions by default. Running Sessions, including parents with running children, remain visible in their ordered positions without using that quota; the selected blank **New Session** is also an extra row until its first prompt. Each **Show more** click reveals up to five more idle Sessions; after the final batch, **Show less** restores the initial rows while keeping running Sessions visible. Closing and reopening the Workspace also restores this folded projection.
+ 
+ ### Reordering and view options
+@@ -222,3 +224,7 @@ None.
  </details>
  
  **Runtime invariant:** No companion is published. This is a pure-consumer plugin that registers presentational components into two host-declared slots and registers its locale dictionaries; its inject face consists of stateless RPC wrappers plus a create-and-open call. It emits no Cordis events and owns no cross-plugin mutable state.
 +
 +Session rows retain initialized conversations before a model turn and show the producer-owned purpose label from sessionListMetadata when present. The label is display data, not a built-in mode name.
++
++`uiWorkspace.closeSession(sessionId)` releases the main page only when that Session is still selected. It clears navigation ownership without archiving or deleting data, allowing plugin-owned flows to restore ordinary navigation during teardown.
 diff --git a/packages/client/ui-workspace/README.zh.md b/packages/client/ui-workspace/README.zh.md
-index c3e4a18732..e90f611725 100644
+index c3e4a18732..109e43de86 100644
 --- a/packages/client/ui-workspace/README.zh.md
 +++ b/packages/client/ui-workspace/README.zh.md
-@@ -222,3 +222,5 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
+@@ -25,6 +25,8 @@ kind: "package-reference"
+ <a id="use-this-package"></a>
+ ## 使用本包
+ 
++`ctx.uiWorkspace.interceptStartSession(handler)` 注册随调用方生命周期释放的导航处理器。返回 true 时，在选择工作区或创建会话之前接管新建会话；返回 false 时继续执行下一个处理器或普通流程。释放注册后恢复其余处理器和默认行为，适用于共用的按钮与快捷键入口。
++
+ 用侧边栏浏览 Workspace 及其 Session、重排它们并新建会话；在 Session Intent 主视觉区用选择器为新会话选择 Workspace。打开的 Workspace 默认显示五条空闲的非空白 Session。正在运行的 Session（包括有子会话正在运行的父会话）始终按原顺序显示，不占用这五条配额；当前选中的空白**新会话**在首条提示词落地前也作为额外行。每次点击**展开其余**最多再显示五条空闲 Session；全部显示后，**收起**恢复初始行数，但仍显示正在运行的 Session。关闭再打开 Workspace 也会恢复该折叠投影。
+ 
+ ### 重排序与视图选项
+@@ -222,3 +224,7 @@ Workspace 与 Session 悬浮卡片会复制对应行被截断的值：激活 Wor
  </details>
  
  **运行时不变式：** 不发布伴生入口。这是一个纯消费方插件，只向两个由宿主声明的 slot 注册展示组件，并注册自身的 locale dictionaries；inject face 由无状态 RPC 包装层和一次 create-and-open 调用组成；本插件不发出 Cordis 事件，也不持有跨插件可变状态。
 +
 +会话行在模型首轮前保留已经初始化的对话，并显示 sessionListMetadata 中可选的生产者用途标签。标签属于展示数据，不是内置模式名。
++
++`uiWorkspace.closeSession(sessionId)` 仅在目标 Session 仍被选中时释放主页面，清除导航持有关系，不归档或删除数据。插件流程可在卸载时借此恢复普通导航。
 diff --git a/packages/client/ui-workspace/src/client/WorkspacePicker.tsx b/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
 index a8e40b7889..4a6dde1f64 100644
 --- a/packages/client/ui-workspace/src/client/WorkspacePicker.tsx
@@ -242,10 +275,41 @@ index a8e40b7889..4a6dde1f64 100644
      () => anchorRef?.current?.getBoundingClientRect() ?? null,
      [anchorRef],
 diff --git a/packages/client/ui-workspace/src/client/navigation.ts b/packages/client/ui-workspace/src/client/navigation.ts
-index 1b9ff0be25..17e877c3ed 100644
+index 1b9ff0be25..f64270d653 100644
 --- a/packages/client/ui-workspace/src/client/navigation.ts
 +++ b/packages/client/ui-workspace/src/client/navigation.ts
-@@ -180,7 +180,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+@@ -32,6 +32,10 @@ export interface UiWorkspace {
+    * @param target - known Session identity or durable direct-parent subagent address to display.
+    */
+   openSession(target: SessionTarget): void
++  /** Release the current Session without changing another selected panel or archiving data.
++   * @param sessionId - Session owned by the exiting consumer; a different selection is preserved.
++   */
++  closeSession(sessionId: SessionId): void
+   /**
+    * Connect a Workspace and open its Session unless a later navigation supersedes it.
+    * @param workspaceId - target Workspace.
+@@ -60,6 +64,11 @@ export interface UiWorkspace {
+    * @param workspaceId - explicit target; absent inherits the current or most recent Workspace.
+    */
+   startSession(workspaceId?: WorkspaceId): void
++  /** Register an effect-owned handler. Returning true consumes New Session before navigation.
++   * @param handler - Return true to handle the request or false to defer it.
++   * @returns Disposer restoring the remaining handlers and ordinary navigation.
++   */
++  interceptStartSession(handler: () => boolean): () => void
+   /**
+    * Archive a Session and clear it when it is the current selection.
+    * @param sessionId - Session to archive.
+@@ -124,6 +133,7 @@ export class DirectoryBrowseError extends Error {
+ 
+ /** Implements Workspace archive and directory UI operations. */
+ class UiWorkspaceService extends Service implements UiWorkspace {
++  private readonly startHandlers = new Set<() => boolean>()
+   private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
+   private readonly lifetime = new AbortController()
+   private readonly selection = createSnapshotStore<MainSelection>(
+@@ -180,7 +190,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
      const sessions = this.sessions.list.getSnapshot()
      for (const id of sessions.ids) {
        const summary = sessions.byId[id]
@@ -254,6 +318,58 @@ index 1b9ff0be25..17e877c3ed 100644
          || !workspace.sessionIds.includes(id) || archived.includes(id)) continue
        return this.reuseBlank(workspace.workspaceId, id)
      }
+@@ -200,6 +210,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+     this.replaceMain(target, this.lifetime.signal, 'reveal')
+   }
+ 
++  closeSession(sessionId: SessionId): void {
++    if (this.mainReference?.sessionId === sessionId) this.clearMain(false)
++  }
++
+   async openWorkspace(workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void): Promise<void> {
+     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
+     let sessionId: SessionId
+@@ -219,7 +233,16 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+     await this.sessions.fork({ sessionId, increaseTitle: true })
+   }
+ 
++  interceptStartSession(handler: () => boolean): () => void {
++    const dispose = this.ctx.effect(() => {
++      this.startHandlers.add(handler)
++      return () => { this.startHandlers.delete(handler) }
++    }, 'ui-workspace: New Session handler')
++    return () => { void dispose() }
++  }
++
+   startSession(workspaceId?: WorkspaceId): void {
++    for (const handler of this.startHandlers) if (handler()) return
+     const workspace = this.workspaces.list.getSnapshot()
+     const sessions = this.sessions.list.getSnapshot()
+     const current = this.mainReference?.sessionId
+@@ -363,12 +386,12 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+     return true
+   }
+ 
+-  private clearMain(): void {
++  private clearMain(reveal = true): void {
+     const previous = this.mainReference
+     this.mainReference = undefined
+     this.selection.set({})
+     previous?.release()
+-    this.ctx.layout.selectPanel(null)
++    if (reveal) this.ctx.layout.selectPanel(null)
+   }
+ 
+   private replaceMain(
+@@ -388,7 +411,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
+       }
+       const subagentAddress = typeof target === 'string'
+         ? this.sessions.subagentAddress(reference.sessionId)
+-        : target
++        : 'sessionId' in target ? undefined : target
+       this.selection.set({
+         sessionId: reference.sessionId,
+         ...(subagentAddress === undefined ? {} : { subagentAddress }),
 diff --git a/packages/client/ui-workspace/src/client/rows/Rows.module.css b/packages/client/ui-workspace/src/client/rows/Rows.module.css
 index 6bb4f294db..e92317aee6 100644
 --- a/packages/client/ui-workspace/src/client/rows/Rows.module.css
@@ -355,6 +471,39 @@ index 0be603f662..11f21f725a 100644
        createdAt: g.createdAt,
        label: g.label,
        sessionCount: g.sessions.length,
+diff --git a/packages/client/ui-workspace/tests/workspaces-service.client.spec.ts b/packages/client/ui-workspace/tests/workspaces-service.client.spec.ts
+index aae7d728ac..c0415009c7 100644
+--- a/packages/client/ui-workspace/tests/workspaces-service.client.spec.ts
++++ b/packages/client/ui-workspace/tests/workspaces-service.client.spec.ts
+@@ -140,7 +140,7 @@ class FakeSessions implements ISessions {
+   readonly refreshProjections = vi.fn<ISessions['refreshProjections']>(() => Promise.resolve())
+   readonly retain = vi.fn<ISessions['retain']>((target) => {
+     const release = vi.fn<() => void>()
+-    const sessionId = typeof target === 'string' ? target : target.childSessionId
++    const sessionId = typeof target === 'string' ? target : 'sessionId' in target ? target.sessionId : target.childSessionId
+     const binding = { sessionId } as SessionReference['binding']
+     const reference: SessionReference = {
+       sessionId,
+@@ -302,6 +302,19 @@ function bench(options: BenchOptions = {}) {
+ }
+ 
+ describe('UiWorkspaceService', () => {
++  it('allows an owned New Session handler to consume navigation until released', () => {
++    const b = bench()
++    const handler = vi.fn(() => true)
++    const off = b.uiWorkspace.interceptStartSession(handler)
++    b.uiWorkspace.startSession()
++    expect(handler).toHaveBeenCalledOnce()
++    expect(b.selectPanel).not.toHaveBeenCalled()
++    off()
++    b.uiWorkspace.startSession()
++    expect(handler).toHaveBeenCalledOnce()
++    expect(b.selectPanel).toHaveBeenCalledWith(null)
++  })
++
+   it('prepares and selects the default Workspace after both startup baselines', async () => {
+     const b = bench({ configureWorkspaces: (workspaces) => {
+       workspaces.initializeDefault.mockImplementation(async () => {
 diff --git a/packages/preset/agent-preset-registry/README.i18n.yaml b/packages/preset/agent-preset-registry/README.i18n.yaml
 index 411d7b4a02..63e7467709 100644
 --- a/packages/preset/agent-preset-registry/README.i18n.yaml

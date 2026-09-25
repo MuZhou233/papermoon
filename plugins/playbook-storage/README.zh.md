@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-本模块保存项目、Playbook、可变草稿、共享的不可变修订版本及发布记录，提供独立的 Node API 和 Cordis 服务插件。[人工编辑器](../playbook-editor/README.zh.md)通过 PaperMoon profile 叠加配置挂载它，原版 Web 不挂载。
+本模块保存项目、Playbook、可变草稿、共享的不可变修订版本及发布记录，提供独立的 Node API 和 Cordis 服务插件。PaperMoon 扩展组合包挂载本服务及[人工编辑器](../playbook-editor/README.zh.md)，原版 Web 不挂载。
 
 ## 归属与内容
 

@@ -204,7 +204,10 @@ test('inspects worldlines in the full trajectory without changing execution posi
   await expect(input).toHaveText('Unsent input')
   await expect(page.getByRole('button',{name:'Reroll',exact:true})).toHaveCount(2)
   await expectInputBeforeThought(4, 'Second input')
-  const recorded = readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(request => !request.purpose)
+  const recordedRequests = () => readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(request => !request.purpose)
+  // A visible reroll turn precedes dispatch. Compare only after its request reaches the adapter.
+  await expect.poll(() => recordedRequests().length).toBe(4)
+  const recorded = recordedRequests()
   const sameInput = recorded.filter(request => request.messages.some((message: { source: { kind: string }; content: { text?: string }[] }) => message.source.kind === 'user' && message.content.some(part => part.text === 'Second input')))
   const fresh = sameInput.at(-1).messages.filter((message: { source: { kind: string }; content: { text?: string }[] }) => message.source.kind === 'user' && message.content.some(part => part.text === 'Second input')).at(-1)
   expect(fresh.source.kind).toBe('user')

@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-本包定义程序与多语言文案，变换内容快照，并将业务操作接入[Playbook 存储](../playbook-storage/README.zh.md)。它提供内部 TypeScript API 和可加载的 Cordis 服务，[人工编辑器](../playbook-editor/README.zh.md)通过 PaperMoon profile 叠加配置挂载它，原版 Web 不挂载。
+本包定义程序与多语言文案，变换内容快照，并将业务操作接入[Playbook 存储](../playbook-storage/README.zh.md)。它提供内部 TypeScript API 和可加载的 Cordis 服务，PaperMoon 扩展组合包挂载本服务及[人工编辑器](../playbook-editor/README.zh.md)，原版 Web 不挂载。
 
 ## 职责与入口
 

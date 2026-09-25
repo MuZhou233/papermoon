@@ -1,10 +1,25 @@
 diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
-index c1f577ec93..f007ed40a4 100644
+index c1f577ec93..a3b13a5c29 100644
 --- a/packages/api/session-controller/README.i18n.yaml
 +++ b/packages/api/session-controller/README.i18n.yaml
-@@ -24,8 +24,8 @@
-   en: 266ab2b1e2fec542
-   zh: b3450ae28a1e0baf
+@@ -15,17 +15,17 @@
+   en: 1fdf707322fb6996
+   zh: 0204f7e9d4aa3cce
+ /session-controller/use-this-package:
+-  en: b1a66e01de414924
+-  zh: 7c01f66b94b01ff9
++  en: 9abbe12cc43cab4d
++  zh: 28b7b7b5a9d8daac
+ /session-controller/client-references:
+-  en: 41bdda1ac32df558
+-  zh: aa5d0e325924066b
++  en: 7d317c9bcaccde83
++  zh: 58db4b54701715b3
+ /session-controller/session-media-references:
+-  en: 266ab2b1e2fec542
+-  zh: b3450ae28a1e0baf
++  en: 3ccfd5d3f687b580
++  zh: 87f03ee3fdbd364e
  /session-controller/configuration:
 -  en: 5c4c4224074e38a8
 -  zh: e0b0edac65c88ff4
@@ -19,13 +34,40 @@ index c1f577ec93..f007ed40a4 100644
  /session-controller/known-limitations-and-deferred-work/dev-note:
 -  en: 68e0dfe4588c5b88
 -  zh: db51b435611bded1
-+  en: 2c5da8f1aaf2a8c5
-+  zh: 86b62bcb67918273
++  en: d45c37c97f1cee88
++  zh: c03cc3215b5f69cd
 diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
-index d1ece35b6b..047f86ed2c 100644
+index d1ece35b6b..601ed86145 100644
 --- a/packages/api/session-controller/README.md
 +++ b/packages/api/session-controller/README.md
-@@ -96,6 +96,9 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
+@@ -25,6 +25,8 @@ English | [中文](README.zh.md)
+ <a id="use-this-package"></a>
+ ## Use this package
+ 
++Ordinary list, search and cold Agent adoption require a session workspace root (`cwd`). Plugin-owned sessions without that root remain managed by their own Agent handles and persistence consumers. Their owner may call `sessionController.expose(agent, { readOnly, beforePrompt? })` to enable native history, status and prompt/model controls for that live Agent. Exposure ends with its owner or returned disposer, adds no catalog row and never enables cold resume. Readonly exposure rejects mutations; writable exposure allows text-owner admission, model selection and cancellation, but rejects rename, fork and queue edits. Private model selection leaves global defaults unchanged.
++
+ History pages and follow opening snapshots carry one `{ type: 'event', event: SessionWireEvent }` record per durable Session event. The Client retains each accepted record as one durable `SessionEventLikeEntry`; Assistant token boundaries remain inside the compact stream on `assistant/message` or `assistant/attempt`. Tool arguments, result content, failures, and `tool/result.data.meta` pass through unchanged; the controller does not resolve a Tool definition, run a presenter, or attach UI data.
+ 
+ The Client journal validates current Session event envelopes before publishing follow snapshots, live entries, or history pages. It reuses the browser-safe Session validators for required surface markers, exact replacement endpoints, earlier unique source seqs, embedded Assistant provider metadata, request-header omissions, and tool-error consistency. Invalid records fail without field stripping or normalization; range membership and source existence remain durable-log checks on the Host.
+@@ -69,7 +71,7 @@ The controller composes `ArchivedSessionGate` through `ctx.plugin`: it loads onc
+ <a id="client-references"></a>
+ ## Client references
+ 
+-`sessions.retain(target, { source, signal? })` immediately acquires one exact Client generation and starts its shared initial history opening. The target is a known Session id or a durable direct-parent subagent address; the Host validates an explicit address when history opens. The returned reference supports idempotent `release()` and `Symbol.dispose`; its `ready` Promise follows the shared `Session.open()` result and resolves to the exact binding when that attempt settles, including when a Remote failure is represented by `openState: 'error'`. It rejects when `Session.open()` rejects, its waiter is cancelled, or the reference is released early. Cancelling one waiter does not cancel another owner's opening. `sessions.using(target, options, operation)` waits for that settlement, holds its reference until the callback settles, and propagates rejected readiness and callback failures.
++`sessions.retain(target, { source, signal? })` immediately acquires one exact Client generation and starts its shared initial history opening. The target is a known Session id, an explicit `{ kind: 'session', sessionId }` address discovered by a plugin, or a durable direct-parent subagent address; the Host validates an explicit address when history opens. The returned reference supports idempotent `release()` and `Symbol.dispose`; its `ready` Promise follows the shared `Session.open()` result and resolves to the exact binding when that attempt settles, including when a Remote failure is represented by `openState: 'error'`. It rejects when `Session.open()` rejects, its waiter is cancelled, or the reference is released early. Cancelling one waiter does not cancel another owner's opening. `sessions.using(target, options, operation)` waits for that settlement, holds its reference until the callback settles, and propagates rejected readiness and callback failures.
+ 
+ References keep local Session data, scoped Contexts, and history streams alive, not Host Agents. Ordinary Session retention never adds a catalog row. Retained subagents with a known direct-parent address keep a fallback row and notify list readers even before the parent catalog arrives; these rows do not join Host-list membership. Fork-title assignment sends rename directly and applies the returned title projection without retaining the child or opening its history. Final release withdraws the generation before teardown; later acquisition can create a new generation with the same id. `binding(id)` and `scope(id)` only borrow an existing generation. `retainInfo(id)` observes stable read-only source counts independently of catalog membership and performs no history I/O. Consumer source keys are declaration-merge extensible; navigation and completion acknowledgement belong to UI consumers, not this Controller. See [Client Session references](../../../.agents/notes/implemented/architecture/2026-09-15-client-session-references.md) for ownership and teardown rules. An unknown-mode subagent address permits history reads with direct-parent validation. Successful descriptor restoration determines the displayed mode; failures remain local to the child, and control requests still require a confirmed continuable identity.
+ 
+@@ -80,7 +82,7 @@ References keep local Session data, scoped Contexts, and history streams alive,
+ 
+ GUI model selection requires the exact provider/model pair in the available catalog; unavailable choices reject with `session/model-unavailable`. Prompt admission retains the saved route without a catalog availability gate, so request execution reports missing credentials or unavailable models. `initializeDefaultModel()` saves the first available account model after login when no other provider has a configured API key; credential checks use configured references independently of model availability. A provider with no available models rejects initialization with `session/provider-models-unavailable`. Availability never substitutes another model or rewrites a Session selection.
+ 
+-A successful `selectModel` response acknowledges the Session-local selection without waiting for the default profile setting to save. Default saves run in the background in submission order; a failure logs a warning and leaves the Session selection intact. New Sessions read the last successfully saved default.
++A successful `selectModel` response acknowledges the Session-local selection without waiting for the default profile setting to save. For ordinary workspace Sessions, default saves run in the background in submission order; a failure logs a warning and leaves the Session selection intact. New Sessions read the last successfully saved default.
+ 
+ -----
+ 
+@@ -96,6 +98,9 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
  -----
  
  <a id="model-experience"></a>
@@ -35,7 +77,7 @@ index d1ece35b6b..047f86ed2c 100644
  ## Model Experience
  
  None, as invoked Agent commands own any model-visible effect.
-@@ -127,3 +130,9 @@ None.
+@@ -127,3 +132,11 @@ None.
  </details>
  
  **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.
@@ -45,11 +87,40 @@ index d1ece35b6b..047f86ed2c 100644
 +Prompt admission receives an optional expected historyVersion. Consumers validate it under the existing maintenance guard. An admission listener may return null for an already durably accepted request, preventing another enqueue. Client snapshots carry historySelection independently of the loaded event window and load selected history after opening.
 +
 +Host integrations submit user input through submitUserInput with a fresh request identity, durable attachments and consumer admission data. This entry is not a Remote method. It shares attachment admission, session/prompt-admission and enqueue with ordinary prompt. After validation, session/prompt-accepted persists acceptance before enqueue; failure prevents enqueue but cannot undo facts already saved. Retries use the same request identity and do not repeat admission.
++
++Explicit plugin-owned Session references publish local `byId` metadata for native main-page discovery, while `ids` continues to express ordinary Host-list membership. Releasing the final reference removes this fallback metadata. The controller does not expose private Sessions in list/search or adopt them cold.
 diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
-index ae4c924b1f..0dadc84752 100644
+index ae4c924b1f..b048ca7dff 100644
 --- a/packages/api/session-controller/README.zh.md
 +++ b/packages/api/session-controller/README.zh.md
-@@ -96,6 +96,9 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不
+@@ -25,6 +25,8 @@ kind: "package-reference"
+ <a id="use-this-package"></a>
+ ## 使用本包
+ 
++普通列表、搜索和冷 Agent 接管要求会话具有工作区根目录（`cwd`）。没有根目录的插件会话由自己的 Agent 句柄和持久化消费者管理。所属插件可调用 `sessionController.expose(agent, { readOnly, beforePrompt? })`，为运行中的 Agent 开放原生历史、状态及输入／模型控件。插件卸载或调用返回的释放函数后，开放立即结束，不添加目录行，也不允许冷恢复。只读开放拒绝修改；可写开放允许所属插件校验输入、选择模型和取消，拒绝重命名、派生与队列编辑。私有模型选择不改变全局默认值。
++
+ 历史页与 follow opening 快照为每个持久 Session 事件携带一条 `{ type: 'event', event: SessionWireEvent }` record。Client 把每条已接受 record 保留为一个持久 `SessionEventLikeEntry`；Assistant token 边界保留在 `assistant/message` 或 `assistant/attempt` 的紧凑流内。工具参数、结果内容、失败信息和 `tool/result.data.meta` 原样通过；控制器不解析工具定义、不运行展示转换器，也不附加 UI 数据。
+ 
+ Client journal 在发布 follow 快照、live entry 或历史页之前验证当前 Session 事件 envelope。它复用浏览器安全的 Session validator，检查必需的 surface marker、精确的 replacement endpoint、更早且唯一的 source seq、内嵌 Assistant 提供方元数据、request header 可选字段的省略规则以及工具错误一致性。无效 record 直接失败，不删除字段或归一化；范围成员与来源存在性仍由 Host 的持久日志检查。
+@@ -69,7 +71,7 @@ Client 的首次 `follow`、重连首屏与 `loadOlder()` 至少请求 50 条以
+ <a id="client-references"></a>
+ ## Client 引用
+ 
+-`sessions.retain(target, { source, signal? })` 立即获取一个精确 Client generation 的引用，并启动其共享的首次历史打开。目标是已知 Session id 或持久的直接父子 subagent 地址；Host 在打开历史时校验显式地址。返回引用支持幂等的 `release()` 和 `Symbol.dispose`；其 `ready` Promise 跟随共享的 `Session.open()` 结果，并在该次尝试结算时解析为确切 binding，包括 Remote failure 以 `openState: 'error'` 表示的情况。仅当 `Session.open()` 拒绝、等待方取消或引用提前释放时，`ready` 才拒绝。取消一个等待方不会取消其他 owner 的打开。`sessions.using(target, options, operation)` 等待该次结算，持有引用直到回调结束，并传播被拒绝的就绪与回调失败。
++`sessions.retain(target, { source, signal? })` 立即获取一个精确 Client generation 的引用，并启动其共享的首次历史打开。目标是已知 Session id、插件获取的显式 `{ kind: 'session', sessionId }` 地址，或持久的直接父子 subagent 地址；Host 在打开历史时校验显式地址。返回引用支持幂等的 `release()` 和 `Symbol.dispose`；其 `ready` Promise 跟随共享的 `Session.open()` 结果，并在该次尝试结算时解析为确切 binding，包括 Remote failure 以 `openState: 'error'` 表示的情况。仅当 `Session.open()` 拒绝、等待方取消或引用提前释放时，`ready` 才拒绝。取消一个等待方不会取消其他 owner 的打开。`sessions.using(target, options, operation)` 等待该次结算，持有引用直到回调结束，并传播被拒绝的就绪与回调失败。
+ 
+ 引用保活本地会话数据、作用域 Context 和历史流，不保活 Host Agent。普通 Session 不因保留引用而添加目录行。已保留且具有明确直接父子地址的 subagent 即使尚未收到父目录，也会保留兜底行并通知列表读取方；这些行不加入 Host 列表成员集合。Fork 标题设置直接发送 rename 并应用返回的标题投影，不 retain 子会话，也不打开其历史。最后一个引用释放时，generation 先退出可访问映射，再执行清理；后续获取可以为同一 id 创建新 generation。`binding(id)` 和 `scope(id)` 只借用已有 generation。`retainInfo(id)` 独立于目录成员关系观察稳定的只读来源计数，不执行历史 I/O。消费方来源键可通过声明合并扩展；导航和完成确认属于 UI 消费方，不属于本控制器。所有权与清理规则见 [Client 会话引用](../../../.agents/notes/implemented/architecture/2026-09-15-client-session-references.zh.md)。 模式未知的子代理地址允许读取历史，但仍校验直接父级。成功恢复 descriptor 后确定展示模式；失败只影响该子会话，控制请求仍要求已确认的 continuable 身份。
+ 
+@@ -80,7 +82,7 @@ Client 的首次 `follow`、重连首屏与 `loadOlder()` 至少请求 50 条以
+ 
+ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不可用的选择以 `session/model-unavailable` 拒绝。提示词准入保留已保存的路由，不按目录可用性阻断发送，由请求执行报告凭据缺失或模型不可用。`initializeDefaultModel()` 在账号登录后、其他提供方均未配置 API key 时，将第一个可用账号模型保存为默认模型；凭据检查使用已配置的引用，不依赖模型是否可用。提供方没有可用模型时，初始化以 `session/provider-models-unavailable` 拒绝。可用性变化不会替换模型或改写会话选择。
+ 
+-`selectModel` 成功返回表示会话级模型选择已生效，不等待默认 profile 设置保存。默认设置在后台按提交顺序保存；保存失败会记录警告，并保留会话选择。新会话读取最近一次成功保存的默认值。
++`selectModel` 成功返回表示会话级模型选择已生效，不等待默认 profile 设置保存。普通工作区 Session 的默认设置在后台按提交顺序保存；保存失败会记录警告，并保留会话选择。新会话读取最近一次成功保存的默认值。
+ 
+ -----
+ 
+@@ -96,6 +98,9 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不
  -----
  
  <a id="model-experience"></a>
@@ -59,7 +130,7 @@ index ae4c924b1f..0dadc84752 100644
  ## 模型体验
  
  无；任何模型可见效果都由被调用的 Agent 命令负责。
-@@ -127,3 +130,9 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不
+@@ -127,3 +132,11 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不
  </details>
  
  **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。
@@ -69,6 +140,20 @@ index ae4c924b1f..0dadc84752 100644
 +提示词接纳接收可选的预期 historyVersion，消费者在现有维护保护中校验。接纳监听器可以为已经持久接纳的请求返回 null，避免再次入队。客户端快照独立携带 historySelection，不受已加载事件窗口限制；打开后加载选中的历史。
 +
 +Host 集成通过 submitUserInput 提交用户输入，使用新请求身份、已持久保存的附件及调用方接纳资料。该入口不暴露为 Remote 方法。它与普通 prompt 共用附件接纳、session/prompt-admission 和入队处理。校验通过后，session/prompt-accepted 在入队前持久记录接纳结果；此阶段失败会阻止入队，但不能撤销已经保存的事实。重试使用相同请求身份，不重复接纳。
++
++插件持有的显式 Session 引用在客户端 `byId` 中提供元数据，供原生主页面发现；`ids` 仍只表示普通 Host 列表成员。最后一个引用释放后移除临时元数据。控制器不把私有会话放入列表或搜索，也不冷接管它们。
+diff --git a/packages/api/session-controller/src/agent.ts b/packages/api/session-controller/src/agent.ts
+index 3f0fa77944..ae619ccc82 100644
+--- a/packages/api/session-controller/src/agent.ts
++++ b/packages/api/session-controller/src/agent.ts
+@@ -399,6 +399,7 @@ export class ApiSessionAgentController {
+   private liveAgent(sessionId: SessionId): ApiSessionAgentResult | undefined {
+     const agent = this.ctx.agents.get(sessionId)
+     if (agent === undefined) return undefined
++    if (agent.session.header.cwd === undefined && !this.ctx.get('sessionController', false)?.isExposed(agent)) return { error: new RemoteError('session/not-found', 'session is not an ordinary workspace conversation', { sessionId }) }
+     return hasApiSessionSubagentOwner(this.ctx, agent.session, agent)
+       ? { error: apiSessionSubagentOwnershipError(sessionId) }
+       : { agent }
 diff --git a/packages/api/session-controller/src/client/contract/events.ts b/packages/api/session-controller/src/client/contract/events.ts
 index bc825f08fd..05cd9f5676 100644
 --- a/packages/api/session-controller/src/client/contract/events.ts
@@ -123,6 +208,114 @@ index bc825f08fd..05cd9f5676 100644
      notifySubscribers(this.listeners, '[session-controller] event feed')
    }
  }
+diff --git a/packages/api/session-controller/src/client/contract/sessions.ts b/packages/api/session-controller/src/client/contract/sessions.ts
+index 8f016ab711..ce0088f847 100644
+--- a/packages/api/session-controller/src/client/contract/sessions.ts
++++ b/packages/api/session-controller/src/client/contract/sessions.ts
+@@ -18,8 +18,8 @@ import type { SessionReferenceSource } from '../index.ts'
+ 
+ export type { AgentContext } from '../scope.ts'
+ 
+-/** Known Session identity or durable direct-parent subagent address; an address owns no lifetime. */
+-export type SessionTarget = SessionId | SubagentAddress
++/** Known identity, explicit host-validated Session address, or direct-parent subagent address. */
++export type SessionTarget = SessionId | { readonly kind: 'session'; readonly sessionId: SessionId } | SubagentAddress
+ 
+ /** One independent use of an exact Client generation, without Host Agent ownership. */
+ export interface SessionReference extends Disposable {
+@@ -51,7 +51,7 @@ export interface ISessions {
+   readonly list: ObservableSnapshot<SessionListState>
+   /**
+    * Retain an exact Client generation and start its shared initial history opening.
+-   * @param target - known identity or durable direct-parent address.
++   * @param target - known identity or explicit address; direct Session addresses need no catalog row and are validated by the Host.
+    * @param options - required consumer source and optional independent waiter cancellation.
+    * @returns an owned reference immediately; await `reference.ready` when the initial open attempt must settle first.
+    */
+diff --git a/packages/api/session-controller/src/client/sessions/manager.ts b/packages/api/session-controller/src/client/sessions/manager.ts
+index 50af09df13..3c72e4d107 100644
+--- a/packages/api/session-controller/src/client/sessions/manager.ts
++++ b/packages/api/session-controller/src/client/sessions/manager.ts
+@@ -133,8 +133,8 @@ export class SessionManager {
+    * @returns the resolved identity with its explicit or catalog-derived history route installed.
+    */
+   resolveTarget(target: SessionTarget): SessionId {
+-    const id = typeof target === 'string' ? target : target.childSessionId
+-    const address = typeof target === 'string' ? this.subagentAddress(id) : target
++    const id = typeof target === 'string' ? target : 'sessionId' in target ? target.sessionId : target.childSessionId
++    const address = typeof target === 'string' ? this.subagentAddress(id) : 'sessionId' in target ? undefined : target
+     if (typeof target === 'string'
+       && !this.sessions.has(id)
+       && !this.summaries.some(summary => summary.sessionId === id)
+diff --git a/packages/api/session-controller/src/client/sessions/service.ts b/packages/api/session-controller/src/client/sessions/service.ts
+index 48d8f6a533..f5cd3aa1e2 100644
+--- a/packages/api/session-controller/src/client/sessions/service.ts
++++ b/packages/api/session-controller/src/client/sessions/service.ts
+@@ -54,7 +54,7 @@ export interface SessionSummary {
+ export interface SessionListState {
+   /** Host list order; every id has a matching byId row in the same snapshot. */
+   ids: SessionId[]
+-  /** Host/catalog rows plus retained subagent fallbacks; only `ids` expresses Host-list membership. */
++  /** Host/catalog rows plus retained Session fallbacks; only `ids` expresses Host-list membership. */
+   byId: Record<SessionId, SessionSummary>
+   /** Arrival lifecycle projected 1:1 from the manager snapshot (see SessionListPhase): empty-with-ready means "truly no sessions". */
+   phase: SessionListPhase
+@@ -241,6 +241,7 @@ export class ClientSessions implements ISessions {
+   /** The object-layer instance cluster and frame dispatch entry. */
+   private readonly manager: SessionManager
+   private readonly scopes = new Map<SessionId, ScopeRecord>()
++  private readonly explicit = new WeakSet<ScopeRecord>()
+   /** Stable per-id sources retained for the Client root lifetime, including across generation replacement. */
+   private readonly retainObservers = new Map<SessionId, RetentionObserver>()
+   private readonly scopeDrops = new Set<Promise<void>>()
+@@ -284,7 +285,7 @@ export class ClientSessions implements ISessions {
+     signal?.throwIfAborted()
+     if (this.closed) throw new Error('Session Controller is disposed')
+     const id = this.manager.resolveTarget(target)
+-    const reference = this.retainScope(id, source)
++    const reference = this.retainScope(id, source, typeof target !== 'string' && 'sessionId' in target)
+     try {
+       reference.attachOpening(this.manager.get(id).open(), signal)
+       return reference
+@@ -528,8 +529,9 @@ export class ClientSessions implements ISessions {
+     return this.scopes.get(id)?.binding
+   }
+ 
+-  private retainScope(id: SessionId, source: SessionReferenceSource): ClientSessionReference {
++  private retainScope(id: SessionId, source: SessionReferenceSource, explicit = false): ClientSessionReference {
+     const record = this.scopes.get(id) ?? this.materializeScope(id)
++    if (explicit) this.explicit.add(record)
+     const previous = record.retention
+     record.retention = Object.freeze({
+       referenceCount: previous.referenceCount + 1,
+@@ -546,7 +548,7 @@ export class ClientSessions implements ISessions {
+       if (count === 0) this.retireScope(id, record)
+       else this.publishRetention(id)
+     })
+-    if (this.list.getSnapshot().byId[id] === undefined && this.manager.subagentAddress(id) !== undefined) {
++    if (this.list.getSnapshot().byId[id] === undefined && (this.explicit.has(record) || this.manager.subagentAddress(id) !== undefined)) {
+       this.projectList()
+     }
+     this.publishRetention(id)
+@@ -657,7 +659,7 @@ export class ClientSessions implements ISessions {
+     for (const [id, record] of this.scopes) {
+       if (byId[id] !== undefined) continue
+       const address = this.manager.subagentAddress(id)
+-      if (address === undefined) continue
++      if (address === undefined && !this.explicit.has(record)) continue
+       const previous = previousById[id]
+       const snapshot = record.session.getSnapshot()
+       const projectionValues = this.manager.projectionValues(id)
+@@ -668,8 +670,7 @@ export class ClientSessions implements ISessions {
+         running: snapshot.running,
+         retainedBy: record.retention.retainedBy,
+         blank: snapshot.blank,
+-        parentId: address.parentSessionId,
+-        origin: 'subagent',
++        ...(address === undefined ? {} : { parentId: address.parentSessionId, origin: 'subagent' as const }),
+         ...(projectionValues === undefined ? {} : { projectionValues }),
+         ...(title === undefined ? {} : { title, displayTitle: title }),
+       }
 diff --git a/packages/api/session-controller/src/client/sessions/session.ts b/packages/api/session-controller/src/client/sessions/session.ts
 index 284abc5656..08fb0f935d 100644
 --- a/packages/api/session-controller/src/client/sessions/session.ts
@@ -199,7 +392,7 @@ index 284abc5656..08fb0f935d 100644
      // A new follow baseline replaces confirmed optimistic inputs with Host-owned rows.
      // Receipt-backed inputs are accepted, not failed, even if their history is outside this window.
 diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
-index 7e900b92ae..c5a8a7e6e8 100644
+index 7e900b92ae..67552b55c6 100644
 --- a/packages/api/session-controller/src/commands.ts
 +++ b/packages/api/session-controller/src/commands.ts
 @@ -7,7 +7,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
@@ -288,6 +481,15 @@ index 7e900b92ae..c5a8a7e6e8 100644
      if (workspace !== undefined) {
        try {
          await workspace.attachSession(sessionId)
+@@ -168,7 +206,7 @@ export class SessionCommandController {
+             : { reasoningEffort: resolved.reasoningEffort }),
+         }
+         this.agents.selectForNextRequest(agent, selected)
+-        void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
++        if (agent.session.header.cwd !== undefined) void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
+           this.ctx.logger.warn(
+             `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
+           )
 @@ -308,7 +346,21 @@ export class SessionCommandController {
     * @param request - Session identity, prompt content, source metadata, and delivery mode.
     * @returns acknowledgement that the Agent accepted the prompt.
@@ -393,8 +595,21 @@ index 7e900b92ae..c5a8a7e6e8 100644
      return source.kind === 'user' && 'rpcId' in source && source.rpcId === requestId
    })
  }
+diff --git a/packages/api/session-controller/src/history.ts b/packages/api/session-controller/src/history.ts
+index 07fbbfe6be..ba42f1f45e 100644
+--- a/packages/api/session-controller/src/history.ts
++++ b/packages/api/session-controller/src/history.ts
+@@ -251,7 +251,7 @@ export class SessionHistoryController {
+         signal,
+         projectionMode: withProjections || address.kind === 'subagent' ? 'all' : 'none',
+       })
+-      if (observation.header.cwd === undefined) {
++      if (observation.header.cwd === undefined && !this.ctx.get('sessionController', false)?.isExposed(this.ctx.agents.get(sessionId))) {
+         observation[Symbol.dispose]()
+         rejectNotFound(address)
+       }
 diff --git a/packages/api/session-controller/src/index.ts b/packages/api/session-controller/src/index.ts
-index 3fe15221fb..f8ed26cfac 100644
+index 3fe15221fb..8dc12f1c9e 100644
 --- a/packages/api/session-controller/src/index.ts
 +++ b/packages/api/session-controller/src/index.ts
 @@ -18,7 +18,8 @@ import {
@@ -407,7 +622,125 @@ index 3fe15221fb..f8ed26cfac 100644
  import { SessionControlController } from './control.ts'
  import { SessionHistoryController } from './history.ts'
  import { SessionFileReferences } from './file-references.ts'
-@@ -428,6 +429,15 @@ export class SessionController extends TypertRemoteService {
+@@ -126,6 +127,10 @@ export class SessionController extends TypertRemoteService {
+   private readonly revealPath: (path: string, signal: AbortSignal) => Promise<void>
+   private readonly canOpenPath: () => boolean
+   private readonly promotions = new Set<Promise<void>>()
++  private readonly exposed = new Map<Agent, {
++    readonly readOnly: boolean
++    readonly beforePrompt?: (request: SessionPromptRequest) => Promise<void>
++  }>()
+ 
+   /**
+    * @param ctx - Host context containing the Session capability assembly.
+@@ -165,25 +170,30 @@ export class SessionController extends TypertRemoteService {
+     ctx.plugin(ArchivedSessionGate)
+ 
+     ctx.on('session/created', (session) => {
++      if (session.header.cwd === undefined) return
+       ctx.emit('api-session/added', this.listState.summaryFor(session))
+     })
+     ctx.on('session/disposed', (session) => {
++      if (session.header.cwd === undefined) return
+       ctx.emit('api-session/removed', session.id)
+     })
+     const publishAgentAvailability = ({ agent }: { agent: Agent }): undefined => {
+-      if (ctx.sessions.get(agent.id) === agent.session) {
++      if (agent.session.header.cwd !== undefined && ctx.sessions.get(agent.id) === agent.session) {
+         ctx.emit('api-session/added', this.listState.summaryFor(agent.session))
+       }
+     }
+     ctx.on('agent/created', publishAgentAvailability)
+     ctx.on('agent/disposed', publishAgentAvailability)
+     ctx.on('agent/status', ({ agent, status }) => {
++      if (agent.session.header.cwd === undefined && !this.isExposed(agent)) return
+       ctx.emit('api-session/status', agent.id, status === 'running')
+     })
+     ctx.on('agent/error', ({ agent, error }) => {
++      if (agent.session.header.cwd === undefined && !this.isExposed(agent)) return
+       ctx.emit('api-session/error', agent.id, errorChain(error))
+     })
+     ctx.on('session/event', (session, event) => {
++      if (session.header.cwd === undefined && !this.isExposed(ctx.agents.get(session.id))) return
+       if (event.type === 'request/header') {
+         const agent = ctx.agents.get(session.id)
+         if (agent?.session === session) this.agents.consumeSelection(
+@@ -198,6 +208,40 @@ export class SessionController extends TypertRemoteService {
+     })
+   }
+ 
++  /**
++   * Expose a plugin-owned live Agent to native conversation clients without cataloguing it.
++   * The plugin must restore its Agent before a client retains the Session; cold reads never resume it.
++   * @param agent - privately owned Agent without a workspace root.
++   * @param options - read-only posture and optional admission check for each native prompt.
++   * @returns a disposer; Agent teardown also revokes access.
++   */
++  expose(agent: Agent, options: { readOnly: boolean; beforePrompt?: (request: SessionPromptRequest) => Promise<void> }): () => void {
++    if (agent.session.header.cwd !== undefined || this.ctx.agents.get(agent.id) !== agent || this.exposed.has(agent)) {
++      throw new Error('session exposure requires an unexposed live private Agent')
++    }
++    this.exposed.set(agent, options)
++    this.agents.selectionFor(agent)
++    const dispose = () => { this.exposed.delete(agent) }
++    agent.ctx.effect(() => dispose, 'session-controller: private exposure')
++    return dispose
++  }
++
++  /** Check whether a live private Session has an active UI owner.
++   * @param agent - Current live Agent.
++   * @returns Whether the owner's explicit exposure remains active.
++   */
++  isExposed(agent: Agent | undefined): boolean {
++    return agent !== undefined && this.ctx.agents.get(agent.id) === agent && this.exposed.has(agent)
++  }
++
++  private assertPrivateCommand(sessionId: SessionId, command: 'prompt' | 'selectModel' | 'cancel' | 'other'): void {
++    const agent = this.ctx.agents.get(sessionId)
++    const policy = agent === undefined ? undefined : this.exposed.get(agent)
++    if (policy !== undefined && (policy.readOnly || command === 'other')) {
++      throw new RemoteError('session/agent-busy', 'operation is unavailable for this plugin-owned session', { reason: 'private session policy' })
++    }
++  }
++
+   private promote(observation: SessionObservation): void {
+     const sessionId = observation.header.id
+     const task = (async () => {
+@@ -281,6 +325,7 @@ export class SessionController extends TypertRemoteService {
+    */
+   @Remote('selectModel')
+   selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
++    this.assertPrivateCommand(request.sessionId, 'selectModel')
+     return this.commands.selectModel(request)
+   }
+ 
+@@ -401,6 +446,7 @@ export class SessionController extends TypertRemoteService {
+    */
+   @Remote('rename')
+   rename(request: SessionRenameRequest): Promise<SessionRenameValue> {
++    this.assertPrivateCommand(request.sessionId, 'other')
+     return this.commands.rename(request)
+   }
+ 
+@@ -413,6 +459,7 @@ export class SessionController extends TypertRemoteService {
+    */
+   @Remote('fork')
+   fork(request: SessionForkRequest): Promise<SessionForkValue> {
++    this.assertPrivateCommand(request.sessionId, 'other')
+     return this.commands.fork(request)
+   }
+ 
+@@ -423,11 +470,24 @@ export class SessionController extends TypertRemoteService {
+    * @returns acknowledgement that the Agent accepted the prompt.
+    */
+   @Remote('prompt')
+-  prompt(request: SessionPromptRequest, signal: AbortSignal): Promise<SessionPromptValue> {
++  async prompt(request: SessionPromptRequest, signal: AbortSignal): Promise<SessionPromptValue> {
++    signal.throwIfAborted()
++    this.assertPrivateCommand(request.sessionId, 'prompt')
++    const agent = this.ctx.agents.get(request.sessionId)
++    if (agent !== undefined) await this.exposed.get(agent)?.beforePrompt?.(request)
+     signal.throwIfAborted()
      return this.commands.prompt(request)
    }
  
@@ -423,8 +756,24 @@ index 3fe15221fb..f8ed26cfac 100644
    /**
     * Read one image proven reachable from the addressed Session log.
     * @param request - Session and attachment identities used for authorization.
+@@ -445,6 +505,7 @@ export class SessionController extends TypertRemoteService {
+    */
+   @Remote('updateQueue')
+   updateQueue(request: SessionUpdateQueueRequest): Promise<SessionUpdateQueueValue> {
++    this.assertPrivateCommand(request.sessionId, 'other')
+     return this.commands.updateQueue(request)
+   }
+ 
+@@ -455,6 +516,7 @@ export class SessionController extends TypertRemoteService {
+    */
+   @Remote('cancel')
+   cancel(request: SessionCancelRequest): SessionCancelValue {
++    this.assertPrivateCommand(request.sessionId, 'cancel')
+     return this.commands.cancel(request)
+   }
+ 
 diff --git a/packages/api/session-controller/src/list.ts b/packages/api/session-controller/src/list.ts
-index 54ebe1b334..fed06a8c79 100644
+index 54ebe1b334..3c6529fdbb 100644
 --- a/packages/api/session-controller/src/list.ts
 +++ b/packages/api/session-controller/src/list.ts
 @@ -20,10 +20,11 @@ import type {
@@ -468,6 +817,20 @@ index 54ebe1b334..fed06a8c79 100644
      })
      ctx.inject(['attachments'], (attachmentCtx) => {
        ctx.sessionProjections.register<'imageLimits', null>({
+@@ -130,12 +133,12 @@ export class ApiSessionList {
+     const items: SessionSummary[] = []
+     const cold: SessionHeader[] = []
+     for (const record of records) {
++      if (record.header.cwd === undefined) continue
+       const live = this.ctx.sessions.get(record.header.id)
+       if (live !== undefined) {
+         items.push(this.summaryFor(live))
+         continue
+       }
+-      if (record.header.cwd === undefined) continue
+       cold.push(record.header)
+     }
+     for (const header of cold) items.push(this.summarizeCold(header))
 @@ -165,6 +168,18 @@ export class ApiSessionList {
     * @returns authorized bounded Session search results.
     */
@@ -551,6 +914,25 @@ index a8f0d7e450..8590859c02 100644
    }
  }
  
+diff --git a/packages/api/session-controller/tests/agent.host.spec.ts b/packages/api/session-controller/tests/agent.host.spec.ts
+index 4756ae45b0..f7e6f32b53 100644
+--- a/packages/api/session-controller/tests/agent.host.spec.ts
++++ b/packages/api/session-controller/tests/agent.host.spec.ts
+@@ -76,6 +76,14 @@ function unpublishedAgent(ctx: Context, meta: SessionHeader): Agent {
+ }
+ 
+ describe('ApiSession identity failures', () => {
++  it('does not adopt a live plugin-owned session without a workspace root', async () => {
++    const { ctx, agents } = await harness()
++    const owned = agent(ctx, header('plugin-owned', null))
++    await ctx.agents.register(owned)
++    expect(await agents.resolveAgent(owned.id)).toMatchObject({ error: { code: 'session/not-found' } })
++    expect(ctx.agents.get(owned.id)).toBe(owned)
++  })
++
+   it('describes cwd conflicts with and without a recorded cwd', () => {
+     expect(new ApiSessionCwdConflict(SessionId('missing-cwd'), '/wanted', undefined).message)
+       .toContain('records no cwd')
 diff --git a/packages/api/session-controller/tests/commands-create-fork.host.spec.ts b/packages/api/session-controller/tests/commands-create-fork.host.spec.ts
 index 87bdc5a399..2d9dc44b2c 100644
 --- a/packages/api/session-controller/tests/commands-create-fork.host.spec.ts
@@ -714,8 +1096,32 @@ index 14527cccec..41cd02b4d8 100644
 +    } finally { await ctx.fiber.dispose() }
 +  })
 +})
+diff --git a/packages/api/session-controller/tests/reference-ownership.client.spec.ts b/packages/api/session-controller/tests/reference-ownership.client.spec.ts
+index 16de92ef02..54e3279844 100644
+--- a/packages/api/session-controller/tests/reference-ownership.client.spec.ts
++++ b/packages/api/session-controller/tests/reference-ownership.client.spec.ts
+@@ -45,6 +45,19 @@ async function bench(mock: RemoteMock, start: () => Promise<TestClient>, listed
+ }
+ 
+ describe('Client reference sources', () => {
++  it('opens an explicit private address with retention metadata outside ordinary list membership', async ({ mock, start }) => {
++    const b = await bench(mock, start, false)
++    using reference = b.svc.retain({ kind: 'session', sessionId: ID }, { source: viewSource })
++    await reference.ready
++    expect(reference.binding.session.getSnapshot().openState).toBe('open')
++    expect(mock.log.requests(FOLLOW)).toHaveLength(1)
++    expect(b.svc.list.getSnapshot().ids).not.toContain(ID)
++    expect(b.svc.list.getSnapshot().byId[ID]?.retainedBy).toEqual({ referenceTestView: 1 })
++    reference.release()
++    expect(b.svc.list.getSnapshot().byId[ID]).toBeUndefined()
++    expect(b.svc.binding(ID)).toBeUndefined()
++  })
++
+   it('observes unknown identities without creating a scope, reference, or history request', async ({ mock, start }) => {
+     const b = await bench(mock, start, false)
+     const source = b.svc.retainInfo(ID)
 diff --git a/packages/api/session-controller/tests/session-cold.host.spec.ts b/packages/api/session-controller/tests/session-cold.host.spec.ts
-index aefd8b9288..7b10c85be7 100644
+index aefd8b9288..3c74ac7c81 100644
 --- a/packages/api/session-controller/tests/session-cold.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-cold.host.spec.ts
 @@ -670,6 +670,7 @@ describe('subagent ownership fence', () => {
@@ -734,6 +1140,15 @@ index aefd8b9288..7b10c85be7 100644
      } as unknown as Agent
      await ctx.agents.register(agent)
      const remote = createSessionTestRemote(ctx, {
+@@ -805,7 +807,7 @@ describe('sessions.prompt synchronous rejection', () => {
+     const ctx = new Context()
+     await ctx.plugin(SessionStore)
+     await ctx.plugin(AgentRegistry)
+-    const session = ctx.sessions.create(sid('session-empty-prompt'))
++    const session = ctx.sessions.create(sid('session-empty-prompt'), { meta: { cwd: '/tmp' } })
+     const followup = vi.fn()
+     const steer = vi.fn()
+     await ctx.agents.register({
 @@ -813,6 +815,7 @@ describe('sessions.prompt synchronous rejection', () => {
        session,
        inbox: inboxFor(),
@@ -742,6 +1157,15 @@ index aefd8b9288..7b10c85be7 100644
        ctx,
        followup,
        steer,
+@@ -901,7 +904,7 @@ describe('sessions.prompt synchronous rejection', () => {
+     const ctx = new Context()
+     await ctx.plugin(SessionStore)
+     await ctx.plugin(AgentRegistry)
+-    const session = ctx.sessions.create(sid('session-throwing'))
++    const session = ctx.sessions.create(sid('session-throwing'), { meta: { cwd: '/tmp' } })
+     // A live structural stub whose delivery verbs throw synchronously, the
+     // shape a disposed loop presents at this gateway boundary.
+     await ctx.agents.register({
 @@ -909,6 +912,7 @@ describe('sessions.prompt synchronous rejection', () => {
        session,
        inbox: inboxFor(),
@@ -751,7 +1175,7 @@ index aefd8b9288..7b10c85be7 100644
        followup: () => { throw new Error('agent "session-throwing" lifecycle disposed') },
        steer: () => { throw new Error('agent "session-throwing" lifecycle disposed') },
 diff --git a/packages/api/session-controller/tests/session-list-blank.host.spec.ts b/packages/api/session-controller/tests/session-list-blank.host.spec.ts
-index fce236d3e3..f032448342 100644
+index fce236d3e3..41d67c92bc 100644
 --- a/packages/api/session-controller/tests/session-list-blank.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-list-blank.host.spec.ts
 @@ -1,11 +1,4 @@
@@ -767,7 +1191,24 @@ index fce236d3e3..f032448342 100644
  
  import { describe, expect, it } from 'vitest'
  import { Context } from '@deepseek-ai/cordis'
-@@ -72,3 +65,16 @@ describe('summary blank = conversation not started', () => {
+@@ -56,7 +49,7 @@ async function listBlank(remote: TestSessionRemote, id: string): Promise<boolean
+ describe('summary blank = conversation not started', () => {
+   it('standalone events (command lifecycle, plan/mode, title) keep the session blank', async () => {
+     const { ctx, remote, attach } = await harness()
+-    const session = ctx.sessions.create()
++    const session = ctx.sessions.create(undefined, { meta: { cwd: '/tmp' } })
+     await attach(session)
+     expect(await listBlank(remote, session.id)).toBe(true)
+     appendStandalone(session)
+@@ -65,10 +58,31 @@ describe('summary blank = conversation not started', () => {
+ 
+   it('the first turn clears blank', async () => {
+     const { ctx, remote, attach } = await harness()
+-    const session = ctx.sessions.create()
++    const session = ctx.sessions.create(undefined, { meta: { cwd: '/tmp' } })
+     await attach(session)
+     appendStandalone(session)
+     session.append('turn/start', { turn: 0 })
      expect(await listBlank(remote, session.id)).toBe(false)
    })
  })
@@ -775,7 +1216,7 @@ index fce236d3e3..f032448342 100644
 +it('initialization remains visible and carries a purpose without a user prompt', async () => {
 +  const { ctx, remote, attach } = await harness()
 +  try {
-+    const session = ctx.sessions.create()
++    const session = ctx.sessions.create(undefined, { meta: { cwd: '/tmp' } })
 +    await attach(session)
 +    session.append('session/configuration', { key: 'opening', value: {}, presentation: { initialized: true, label: 'Reading' } })
 +    const result = await remote.list({})
@@ -783,6 +1224,64 @@ index fce236d3e3..f032448342 100644
 +    expect(result.value.items.find(item => item.sessionId === session.id)).toMatchObject({ blank: false, projections: { values: { sessionListMetadata: { label: 'Reading', lastPromptAt: null } } } })
 +    expect(session.snapshotEvents().some(event => event.type === 'turn/start')).toBe(false)
 +  } finally { await ctx.fiber.dispose() }
++})
++
++it('excludes live plugin-owned sessions without a workspace root', async () => {
++  const { ctx, remote, attach } = await harness()
++  const session = ctx.sessions.create()
++  await attach(session)
++  expect(await listBlank(remote, session.id)).toBeUndefined()
++  await ctx.fiber.dispose()
++})
+diff --git a/packages/api/session-controller/tests/session-models.host.spec.ts b/packages/api/session-controller/tests/session-models.host.spec.ts
+index e852460e93..f6eec6283c 100644
+--- a/packages/api/session-controller/tests/session-models.host.spec.ts
++++ b/packages/api/session-controller/tests/session-models.host.spec.ts
+@@ -88,7 +88,7 @@ async function harness(logged?: {
+   model: string
+   reasoningEffort?: ReasoningEffortId
+   adapterDefaults?: LlmCallConfigAdapterDefaults
+-}, ctx = new Context()): Promise<{
++}, ctx = new Context(), privateSession = false): Promise<{
+   ctx: Context
+   agent: Agent
+   sessionId: SessionId
+@@ -116,7 +116,7 @@ async function harness(logged?: {
+     { provider: 'duplicate', id: 'same', name: 'Same' },
+     { provider: 'duplicate', id: 'same', name: 'Same Again' },
+   ]))
+-  const session = ctx.sessions.create()
++  const session = ctx.sessions.create(undefined, privateSession ? {} : { meta: { cwd: '/tmp' } })
+   if (logged !== undefined) {
+     const { adapterDefaults, ...config } = logged
+     session.append('request/header', {
+@@ -907,3 +907,27 @@ it.each([new Error('catalog disconnected'), 'catalog disconnected'])('reports ca
+       .rejects.toMatchObject({ code: 'session/model-unavailable', message: 'catalog disconnected' })
+   } finally { read.mockRestore(); await ctx.fiber.dispose() }
+ })
++
++it('exposes only a live private owner, keeps model defaults unchanged, and revokes access', async () => {
++  const { ctx, agent, sessionId } = await harness(undefined, new Context(), true)
++  onTestFinished(() => ctx.fiber.dispose())
++  const save = vi.fn()
++  const controller = createSessionTestController(ctx, { cwd: '/tmp', defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), saveDefaultModelSelection: save })
++  expect(await controller.resolveAgent(sessionId)).toMatchObject({ error: { code: 'session/not-found' } })
++  const gate = vi.fn(async () => { throw new Error('owner refused input') })
++  const release = controller.expose(agent, { readOnly: false, beforePrompt: gate })
++  const exposed = await controller.resolveAgent(sessionId)
++  expect('agent' in exposed && exposed.agent === agent).toBe(true)
++  expect((await controller.list({}, new AbortController().signal)).items.map(item => item.sessionId)).not.toContain(sessionId)
++  await controller.selectModel({ sessionId, provider: 'deepseek-official', model: 'deepseek-reasoner' })
++  expect(save).not.toHaveBeenCalled()
++  await expect(controller.prompt(promptRequest({ sessionId, content: [{ type: 'text', text: 'hello' }] }), new AbortController().signal)).rejects.toThrow('owner refused input')
++  expect(gate).toHaveBeenCalledOnce()
++  expect(() => controller.fork({ sessionId })).toThrow('operation is unavailable')
++  release()
++  expect(await controller.resolveAgent(sessionId)).toMatchObject({ error: { code: 'session/not-found' } })
++  const readonly = controller.expose(agent, { readOnly: true })
++  expect(() => controller.selectModel({ sessionId, provider: 'deepseek-official', model: 'deepseek-chat' })).toThrow('operation is unavailable')
++  await expect(controller.prompt(promptRequest({ sessionId, content: [{ type: 'text', text: 'hello' }] }), new AbortController().signal)).rejects.toThrow('operation is unavailable')
++  readonly()
 +})
 diff --git a/packages/api/session-controller/tests/session-projections.host.spec.ts b/packages/api/session-controller/tests/session-projections.host.spec.ts
 index ed4f4a6b0c..b022e75ed2 100644
@@ -818,3 +1317,18 @@ index 1e38cd9788..25275e4c3e 100644
          },
          { kind: 'surface', values: ['current'] },
        ],
+diff --git a/packages/test-support/client-runtime/src/sessions.ts b/packages/test-support/client-runtime/src/sessions.ts
+index 5ad261b5b0..c3f6922b7b 100644
+--- a/packages/test-support/client-runtime/src/sessions.ts
++++ b/packages/test-support/client-runtime/src/sessions.ts
+@@ -700,8 +700,8 @@ export class TestSessions implements ISessions {
+   }
+ 
+   private resolveTarget(target: SessionTarget): SessionId {
+-    const id = typeof target === 'string' ? target : target.childSessionId
+-    if (typeof target !== 'string') {
++    const id = typeof target === 'string' ? target : 'sessionId' in target ? target.sessionId : target.childSessionId
++    if (typeof target !== 'string' && !('sessionId' in target)) {
+       this.addresses.set(id, target)
+     }
+     this.require(id)

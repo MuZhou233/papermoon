@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This module stores projects, playbooks, mutable drafts, shared immutable revisions and publication records. It supplies a Node-only API and a Cordis service plugin. The [manual editor](../playbook-editor/README.md) mounts it through the PaperMoon profile overlay; original Web does not.
+This module stores projects, playbooks, mutable drafts, shared immutable revisions and publication records. It supplies a Node-only API and a Cordis service plugin. The PaperMoon extension bundle mounts this service alongside the [manual editor](../playbook-editor/README.md); original Web does not.
 
 ## Ownership and content
 

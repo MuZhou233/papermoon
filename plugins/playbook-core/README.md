@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This package defines authored programs and multilingual text, transforms content snapshots, and adapts business operations to [playbook storage](../playbook-storage/README.md). It exposes internal TypeScript APIs and a loadable Cordis service. The [manual editor](../playbook-editor/README.md) mounts it through the PaperMoon profile overlay; original Web does not.
+This package defines authored programs and multilingual text, transforms content snapshots, and adapts business operations to [playbook storage](../playbook-storage/README.md). It exposes internal TypeScript APIs and a loadable Cordis service. The PaperMoon extension bundle mounts this service alongside the [manual editor](../playbook-editor/README.md); original Web does not.
 
 ## Responsibilities and entries
 

@@ -1,4 +1,5 @@
 /** Root commands keep PaperMoon's workspace distinct from the DSH installation. */
+import { preparePaperMoonProfile } from './profile.ts'
 import { existsSync } from 'node:fs'
 import { constants } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -42,7 +43,9 @@ export async function main(args: string[], root = repositoryRoot, signal?: Abort
     case 'start-dsh': {
       const bin = join(submodule(root), 'apps/cli/lib/bin.js')
       if (!existsSync(bin)) throw new Error('DSH is not built; run pnpm build first')
-      await runProcess(process.execPath, [bin, '--profile', 'web', ...(command === 'start' ? ['--patch', join(root, 'profiles/papermoon/cordis.patch.yml')] : []), ...rest], root, launchEnvironment(root, process.env), signal)
+      const environment = launchEnvironment(root, process.env)
+      if (command === 'start') preparePaperMoonProfile(root, environment.DSH_HOME!)
+      await runProcess(process.execPath, [bin, '--profile', command === 'start' ? 'papermoon' : 'web', ...rest], root, environment, signal)
       break
     }
     case 'check': await checkPatches(root, signal); break

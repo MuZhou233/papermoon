@@ -1,0 +1,244 @@
+diff --git a/packages/client/ui-settings-general/README.i18n.yaml b/packages/client/ui-settings-general/README.i18n.yaml
+index 1b6dd64dde..bba7242348 100644
+--- a/packages/client/ui-settings-general/README.i18n.yaml
++++ b/packages/client/ui-settings-general/README.i18n.yaml
+@@ -15,8 +15,8 @@
+   en: aeb9c4bfdb19bc56
+   zh: 45a29bea90cff239
+ /deepseek-ai-dsh-client-ui-settings-general/use-this-package:
+-  en: da896a9cf06fe5a5
+-  zh: 27545af457695988
++  en: 25c858ede20af901
++  zh: 5ec6cbfc69f6f5dc
+ /deepseek-ai-dsh-client-ui-settings-general/use-this-package/the-general-section:
+   en: 8b8a7c6287bb303b
+   zh: 19535112531aedd5
+diff --git a/packages/client/ui-settings-general/README.md b/packages/client/ui-settings-general/README.md
+index 95b38c7103..c8511b10cf 100644
+--- a/packages/client/ui-settings-general/README.md
++++ b/packages/client/ui-settings-general/README.md
+@@ -27,6 +27,8 @@ The Settings panel uses a shared 760 × 500 layout, bounded by the viewport. Lon
+ <a id="use-this-package"></a>
+ ## Use this package
+ 
++`ctx.settingsNavigation.open(section)` opens a registered settings section and returns false while the shell is unavailable. `subscribe(listener)` observes the section actually mounted in the dialog, and receives undefined when it closes. Subscriptions belong to the calling fiber. This distinguishes a navigation request from displayed configuration without DOM inspection.
++
+ Users reach the shell through the sidebar's bottom Settings control; feature plugins contribute their pages and onboarding steps through the slot ledgers this shell projects. In both the expanded sidebar and collapsed rail, the control exposes the localized Settings label as its accessible name. A pale-yellow **Disconnected** action beside Settings indicates browser offline suspension; its permanent retry glyph marks the retry action, which the Chinese outage copy also names (连接异常，刷新重试). Every recovery attempt shows the shared ongoing loader beside **Reconnecting** with one to three dots advancing every 500ms, and an attempt stays visible for at least 800ms so brief retries do not flicker. Selecting either yellow state starts an immediate retry; press feedback stays within the warning palette. Recovery changes the region to pale-green **Connected** for two seconds from the moment the green pill becomes visible. The pill fades in on appearance, fades out over 150ms on removal, and sizes to its current label. Initial startup and uninterrupted healthy operation remain silent. The shell renders the modal panel, the navigation built from `settings.section` entries, and exactly one mounted onboarding step at a time.
+ 
+ When the section navigation exceeds the panel's available height, the list scrolls independently of the settings content and keeps the Settings title fixed.
+diff --git a/packages/client/ui-settings-general/README.zh.md b/packages/client/ui-settings-general/README.zh.md
+index 6874f1e5f8..6aee143414 100644
+--- a/packages/client/ui-settings-general/README.zh.md
++++ b/packages/client/ui-settings-general/README.zh.md
+@@ -27,6 +27,8 @@ kind: "package-reference"
+ <a id="use-this-package"></a>
+ ## 使用本包
+ 
++`ctx.settingsNavigation.open(section)` 打开已注册的设置分区，外壳不可用时返回 false。`subscribe(listener)` 观察对话框实际挂载的分区，关闭时收到 undefined，订阅随调用方 fiber 释放。它区分导航请求与配置的实际展示，无需检查 DOM。
++
+ 用户通过侧边栏底部的 Settings 控件进入外壳；功能插件通过本外壳所投影的 slot 账本贡献自己的页面与引导步骤。在展开侧边栏和收起轨道中，该控件都会把本地化的 Settings 文案作为其可访问名称。Settings 右侧浅黄色的**连接异常**操作表示浏览器离线暂停；其常驻重试图形与中文文案「连接异常，刷新重试」都指明重试动作。每次恢复尝试都显示共享 ongoing loading 加**重新连接中**，其后一至三个点每 500ms 前进一次，且每次尝试至少可见 800ms，短暂重试不会闪动。选中任一黄色状态都会立即发起重试；按压反馈留在黄色色阶内。恢复后该区域变为浅绿色的**连接成功**，从绿色药丸可见起驻留 2 秒再消失。药丸出现时淡入、移除时以 150ms 淡出，宽度随当前文案自适应。首次启动与未曾中断的健康连接保持静默。外壳渲染模态面板、由 `settings.section` 条目构建的导航，以及每次只挂载一个的引导步骤。
+ 
+ 当分区导航超出面板可用高度时，列表独立于设置内容滚动，并保持「设置」标题固定。
+diff --git a/packages/client/ui-settings-general/src/client/SettingsRoot.tsx b/packages/client/ui-settings-general/src/client/SettingsRoot.tsx
+index 761ae2dc0f..64f200ee6e 100644
+--- a/packages/client/ui-settings-general/src/client/SettingsRoot.tsx
++++ b/packages/client/ui-settings-general/src/client/SettingsRoot.tsx
+@@ -44,6 +44,7 @@ type PanelProps = {
+   activeId: string | undefined
+   onSelect: (id: string) => void
+   onClose: () => void
++  reportSection: (id: string | undefined) => void
+ }
+ 
+ /**
+@@ -51,10 +52,11 @@ type PanelProps = {
+  * header button, a mask click, and document-level Escape (mounted only while
+  * open, so the listener lifetime is the panel's).
+  */
+-function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
++function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose, reportSection }: PanelProps) {
+   // Entries can unmount underneath the requested id, so the render-time
+   // projection falls back to the first row when the id is gone.
+   const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
++  useEffect(() => { reportSection(active); return () => { reportSection(undefined) } }, [active, reportSection])
+   const titleId = useId()
+ 
+   const panel = useRef<HTMLDivElement>(null)
+@@ -111,7 +113,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
+  */
+ export function SettingsRoot(props: SettingsRootComponentProps) {
+   const {
+-    wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
++    wide, reconnect, reportSection, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
+     useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts,
+   } = props
+   const { open, activeId } = useStore(state => state)
+@@ -246,6 +248,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
+       {open && (
+         <SettingsPanel
+           rows={rows}
++          reportSection={reportSection}
+           renderSlot={renderSlot}
+           activeId={activeId}
+           onSelect={actions.select}
+diff --git a/packages/client/ui-settings-general/src/client/index.ts b/packages/client/ui-settings-general/src/client/index.ts
+index 59209b8169..0a7f93c65c 100644
+--- a/packages/client/ui-settings-general/src/client/index.ts
++++ b/packages/client/ui-settings-general/src/client/index.ts
+@@ -1,3 +1,4 @@
++export type { ISettingsNavigation } from './navigation.ts'
+ /**
+  * Settings shell and ownerless-copy plugin, browser half: renders the
+  * `sidebar.settings` occupant — panel chrome, section navigation, and the
+@@ -25,6 +26,7 @@ import type {
+   SettingsOnboardingStep, SettingsRootInjected, SettingsSectionRow,
+ } from './shell-contract.ts'
+ import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
++import { SettingsNavigation } from './navigation.ts'
+ import { createSettingsShellStore } from './shell-store.ts'
+ import { SettingsRoot } from './SettingsRoot.tsx'
+ import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
+@@ -119,7 +121,9 @@ export function apply(ctx: ClientContext): void {
+   let rows: readonly SettingsSectionRow[] = []
+   let onboardingVersion = -1
+   let onboardingSteps: readonly SettingsOnboardingStep[] = []
++  const navigation = new SettingsNavigation(ctx)
+   const shellInjected = (): SettingsRootInjected => ({
++    reportSection: (id) => { navigation.displayed(id) },
+     openDesktopUpdate: () => { desktopUpdate.open() },
+     reconnect: () => { connection.reconnect() },
+     hooks: {
+@@ -175,6 +179,7 @@ export function apply(ctx: ClientContext): void {
+   ctx.slots.inject('sidebar.settings', () => {
+     const shellHandle = createSettingsShellStore()
+     const shellInstance = shellHandle.create()
++    const disposeNavigation = navigation.bind((id) => { shellInstance.actions.openSection(id) })
+     const shellStore: typeof shellHandle = { ...shellHandle, create: () => shellInstance }
+     const disposeCommand = ctx.shortcuts.register({
+       id: 'settings.open' as ShortcutCommandId, label: () => t('shortcut.open'), aliases: ['settings', 'preferences'],
+@@ -210,7 +215,7 @@ export function apply(ctx: ClientContext): void {
+       },
+       inject: shellInjected,
+     }, SettingsRoot)
+-    return () => { disposeCommand(); disposeSlot() }
++    return () => { disposeNavigation(); disposeCommand(); disposeSlot() }
+   })
+ 
+   ctx.slots.inject('settings.trigger', () =>
+diff --git a/packages/client/ui-settings-general/src/client/navigation.ts b/packages/client/ui-settings-general/src/client/navigation.ts
+new file mode 100644
+index 0000000000..116f36198a
+--- /dev/null
++++ b/packages/client/ui-settings-general/src/client/navigation.ts
+@@ -0,0 +1,48 @@
++/** Settings navigation and mounted-section observations shared by entry points. */
++import { Service, type Context } from '@deepseek-ai/cordis'
++
++/** Shared navigation and display acknowledgements for the settings dialog. */
++export interface ISettingsNavigation {
++  /** Open a registered section.
++   * @param section - Registered section identifier.
++   * @returns False while the shell is unavailable; true after asking it to open.
++   */
++  open(section: string): boolean
++  /** Observe actual mounts, including navigation within an already open dialog.
++   * @param listener - Receives the mounted section, or undefined on close.
++   * @returns Effect-owned subscription disposer.
++   */
++  subscribe(listener: (section: string | undefined) => void): () => void
++}
++declare module '@deepseek-ai/cordis' {
++  interface Context {
++    /** Settings dialog navigation without DOM queries or simulated clicks. */
++    settingsNavigation: ISettingsNavigation
++  }
++}
++export class SettingsNavigation extends Service implements ISettingsNavigation {
++  private opener: ((section: string) => void) | undefined
++  private readonly listeners = new Set<(section: string | undefined) => void>()
++  constructor(ctx: Context) { super(ctx, 'settingsNavigation') }
++  open(section: string): boolean {
++    if (!this.opener) return false
++    this.opener(section)
++    return true
++  }
++  subscribe(listener: (section: string | undefined) => void): () => void {
++    const dispose = this.ctx.effect(() => {
++      this.listeners.add(listener)
++      return () => { this.listeners.delete(listener) }
++    }, 'settingsNavigation.subscribe')
++    return () => { void dispose() }
++  }
++  /** Bind one mounted settings shell; teardown makes navigation unavailable. */
++  bind(opener: (section: string) => void): () => void {
++    this.opener = opener
++    return () => { if (this.opener === opener) this.opener = undefined }
++  }
++  /** Called after the dialog commits its selected section to the screen. */
++  displayed(section: string | undefined): void {
++    for (const listener of this.listeners) listener(section)
++  }
++}
+diff --git a/packages/client/ui-settings-general/src/client/shell-contract.ts b/packages/client/ui-settings-general/src/client/shell-contract.ts
+index 8589dfe28a..9f564270ac 100644
+--- a/packages/client/ui-settings-general/src/client/shell-contract.ts
++++ b/packages/client/ui-settings-general/src/client/shell-contract.ts
+@@ -39,6 +39,8 @@ export interface SettingsOnboardingStep {
+  * sources, while the reconnect command remains a plain callback.
+  */
+ export type SettingsRootInjected = {
++  /** Report the section actually mounted by the settings dialog. */
++  reportSection: (id: string | undefined) => void
+   /** Request the current shell-owned update action. */
+   openDesktopUpdate: () => void
+   /** Request a fresh logical generation and physical WebSocket immediately. */
+diff --git a/packages/client/ui-settings-general/tests/settings-root.client.spec.tsx b/packages/client/ui-settings-general/tests/settings-root.client.spec.tsx
+index dcf874bcf7..e67e193efd 100644
+--- a/packages/client/ui-settings-general/tests/settings-root.client.spec.tsx
++++ b/packages/client/ui-settings-general/tests/settings-root.client.spec.tsx
+@@ -97,6 +97,7 @@ function mount({
+   }
+   const unusedHook = (() => { throw new Error('unused by SettingsRoot') }) as never
+   const shell = createSettingsShellStore().create()
++  const reportSection = vi.fn()
+   const props: SettingsRootComponentProps = {
+     useStore: bindSnapshotSelector(shell), actions: shell.actions,
+     useShortcuts: select => select(shortcuts),
+@@ -107,6 +108,7 @@ function mount({
+     wide,
+     reconnect,
+     openDesktopUpdate: () => {},
++    reportSection,
+     useDesktopUpdate: select => select(desktopUpdate),
+     t: makeTranslate(dictionary),
+     useConnectionState: (select) => {
+@@ -158,7 +160,10 @@ function mount({
+     act(() => { sessions.byId[activeId] = { ...session, blank: next } })
+     view.rerender(<SettingsRoot {...props} />)
+   }
+-  return { view, renderSlot, bump, listeners, reconnect, setConnectionState, setDesktopUpdate, setShortcuts, setOnboardingActive }
++  return {
++    view, renderSlot, reportSection, bump, listeners, reconnect,
++    setConnectionState, setDesktopUpdate, setShortcuts, setOnboardingActive,
++  }
+ }
+ 
+ function openPanel() {
+@@ -169,6 +174,17 @@ function openPanel() {
+ }
+ 
+ describe('SettingsRoot trigger', () => {
++  it('acknowledges only a displayed section and clears it when the dialog closes', () => {
++    const f = mount({ steps: [] })
++    expect(f.reportSection).not.toHaveBeenCalled()
++    openPanel()
++    expect(f.reportSection).toHaveBeenLastCalledWith('general')
++    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
++    expect(f.reportSection).toHaveBeenLastCalledWith('models')
++    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
++    expect(f.reportSection).toHaveBeenLastCalledWith(undefined)
++  })
++
+   it('shows installation instead of expected backend reconnection and restores connection feedback after failure', () => {
+     const presentation = { phase: 'installing' as const, version: '1.0.1' }
+     const f = mount({ dictionary: zh, connectionState: 'connecting',

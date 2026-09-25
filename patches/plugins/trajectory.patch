@@ -1,8 +1,16 @@
 diff --git a/packages/client/ui-trajectory/README.i18n.yaml b/packages/client/ui-trajectory/README.i18n.yaml
-index 75060f69f4..9cb47a546e 100644
+index 75060f69f4..8eb26e7a51 100644
 --- a/packages/client/ui-trajectory/README.i18n.yaml
 +++ b/packages/client/ui-trajectory/README.i18n.yaml
-@@ -24,14 +24,14 @@
+@@ -18,20 +18,20 @@
+   en: 4bd17d05b8385675
+   zh: 5174e27f754f2a03
+ /deepseek-ai-dsh-client-ui-trajectory/use-this-package/inspecting-records:
+-  en: 89758270607a5fd4
+-  zh: 0efba26195ef1f80
++  en: f3bf69c66ab28cca
++  zh: 38f4430435886604
+ /deepseek-ai-dsh-client-ui-trajectory/use-this-package/the-timing-overview:
    en: 0331f90cbd904862
    zh: bdc2d4ed1c3c1f5e
  /deepseek-ai-dsh-client-ui-trajectory/understand-the-implementation:
@@ -30,10 +38,19 @@ index 75060f69f4..9cb47a546e 100644
 +  en: 4fffae521a3b73a7
 +  zh: 199532c028bd266a
 diff --git a/packages/client/ui-trajectory/README.md b/packages/client/ui-trajectory/README.md
-index ca4a84a44f..7a67145146 100644
+index ca4a84a44f..732b2e4bbd 100644
 --- a/packages/client/ui-trajectory/README.md
 +++ b/packages/client/ui-trajectory/README.md
-@@ -48,6 +48,10 @@ A fixed Overview above the ledger projects real record start/duration timing fro
+@@ -37,6 +37,8 @@ Summary and Preview share one ordered attachment list after the message text, pr
+ 
+ Thinking in the inspector uses compact Markdown at the inspector's fixed 13px size and 20px line height, independent of the content-size setting. Headings add bold weight without increasing size or line height. Assistant output keeps its regular Markdown typography.
+ 
++Native ledger rows expose `data-source-seq` when one Session event owns the record. Use it within the addressed Session view to locate an actual mounted record; collapsed summaries omit it. Background projection, unloaded history and virtualized-away rows do not establish that the record is displayed.
++
+ ### The timing overview
+ 
+ Historical replies retain TTFT, generation duration, and throughput when their recorded streams contain token timestamps. TTFT measures from the Step start to its first token, including output from an earlier retry attempt; an unloaded Step start or a stream without tokens leaves the corresponding metric unavailable.
+@@ -48,6 +50,10 @@ A fixed Overview above the ledger projects real record start/duration timing fro
  <a id="understand-the-implementation"></a>
  ## Understand the implementation
  
@@ -44,7 +61,7 @@ index ca4a84a44f..7a67145146 100644
  <details>
  <summary>Implementation internals — click to expand</summary>
  
-@@ -65,7 +69,7 @@ Long ledgers initially derive React data from 50 target Nodes ending at the moun
+@@ -65,7 +71,7 @@ Long ledgers initially derive React data from 50 target Nodes ending at the moun
  
  ### Layout
  
@@ -53,17 +70,34 @@ index ca4a84a44f..7a67145146 100644
  
  </details>
  
-@@ -113,4 +117,4 @@ None.
+@@ -98,7 +104,6 @@ None; this package neither assembles nor sends a provider request.
+ 
+ - **Tool-change presentation** — Tool-only developer messages name a single added or removed tool inline without expansion. Multiple changes show added/removed counts and expand to comma-separated tool lists, one line per change kind. Mixed content uses the generic context presentation.
+ 
+-
+ These limits define what the view can show while work is in flight; they are current package constraints.
+ 
+ - **In-flight Time stays blank** — `partial` and `runningCalls` rows show their running state without a fabricated duration, so the Overview renders a start marker rather than inventing a live span. Record and timeline selection are local to Trajectory, with no anchor deep links.
+@@ -113,4 +118,4 @@ None.
  
  </details>
  
 -**Runtime invariant:** No companion is published. It is a pure-consumer plugin: it emits no Cordis events and owns no mutable cross-plugin state; its view-slot registration is a plain effect whose disposal the slot ledger's own specs and this package's behavior specs observe directly.
 +**Runtime invariant:** No companion is published. The registry has one effect-owned map, and readonly projections derive from that map and the supplied events. It has no independently maintained execution or persistence state to reconcile. Registration, disposal and projection behavior are covered by the package tests.
 diff --git a/packages/client/ui-trajectory/README.zh.md b/packages/client/ui-trajectory/README.zh.md
-index 1b22723b23..4e22b86b0a 100644
+index 1b22723b23..4eaf1a8568 100644
 --- a/packages/client/ui-trajectory/README.zh.md
 +++ b/packages/client/ui-trajectory/README.zh.md
-@@ -48,6 +48,10 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
+@@ -37,6 +37,8 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
+ 
+ 检查器中的思考内容使用紧凑 Markdown，沿用检查器固定的 13px 字号和 20px 行高，不受内容字号设置影响。标题只加粗，不放大字号或行高。助手输出保留常规 Markdown 排版。
+ 
++当记录由单个 Session 事件拥有时，原生记录行提供 `data-source-seq`。在目标 Session 视图内使用它定位实际挂载的记录；折叠摘要不提供该属性。后台投影、未加载历史及虚拟化后未挂载的行均不代表记录已经显示。
++
+ ### 时间概览
+ 
+ 当记录的流包含 token 时间戳时，历史回复会保留 TTFT、生成耗时与吞吐量。TTFT 从步骤开始计量到首个 token，包括更早重试尝试中的输出；步骤起点尚未加载或流中没有 token 时，对应指标保持不可用。
+@@ -48,6 +50,10 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
  <a id="understand-the-implementation"></a>
  ## 理解实现
  
@@ -74,7 +108,7 @@ index 1b22723b23..4e22b86b0a 100644
  <details>
  <summary>实现细节——点击展开</summary>
  
-@@ -65,7 +69,7 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
+@@ -65,7 +71,7 @@ Trajectory 标签页让你以按轮次组织的事件记录表和交互式时间
  
  ### 布局
  
@@ -83,7 +117,15 @@ index 1b22723b23..4e22b86b0a 100644
  
  </details>
  
-@@ -113,4 +117,4 @@ Trajectory 要求会话壳把 composer 作为浮层置于全高记录表上方
+@@ -98,7 +104,6 @@ Trajectory 要求会话壳把 composer 作为浮层置于全高记录表上方
+ 
+ - **工具变更展示** — 仅包含工具变更的 developer 消息在单个工具新增或移除时直接显示工具名，不提供展开操作。多个变更显示新增、移除数量，展开后按变更类型分别以逗号分隔显示一行工具列表。混合内容使用通用上下文展示。
+ 
+-
+ 这些限制定义工作仍在进行时视图能显示什么；它们是当前包约束。
+ 
+ - **进行中时 Time 保持空白**：`partial` 与 `runningCalls` 行会显示运行状态，但不会虚构耗时，因此 Overview 区域只渲染开始标记，而不会杜撰实时跨度。记录选择与时间线选择位于 Trajectory 内部，不提供锚点深链接。
+@@ -113,4 +118,4 @@ Trajectory 要求会话壳把 composer 作为浮层置于全高记录表上方
  
  </details>
  
@@ -102,7 +144,7 @@ index 96fa4fd5b3..63c002f2a8 100644
    "publishConfig": {
      "access": "public"
 diff --git a/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx b/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx
-index 9eeeb5c2ab..744c0ffb97 100644
+index 9eeeb5c2ab..f6f256cb50 100644
 --- a/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx
 +++ b/packages/client/ui-trajectory/src/client/TrajectoryTable.tsx
 @@ -131,6 +131,7 @@ const KIND_ICON: Record<TrajectoryCellKind, ReactNode> = {
@@ -161,7 +203,15 @@ index 9eeeb5c2ab..744c0ffb97 100644
    const selectRequest = (
      request: SelectedRequest,
      tab: 'overview' | 'timing' = 'overview',
-@@ -2818,14 +2839,14 @@ export function TrajectoryTable({
+@@ -2718,6 +2739,7 @@ export function TrajectoryTable({
+                           })}
+                       aria-selected={!isCollapsedSummary && !isRequestOnly && selectedIndex === record.cell.index}
+                       data-kind={record.cell.kind}
++                      data-source-seq={isCollapsedSummary ? undefined : record.cell.sourceSeq}
+                       data-trajectory-row-key={trajectoryVirtualRecordKey(record)}
+                       data-virtual-position={virtualizationEnabled ? position : undefined}
+                       data-record-index={!isCollapsedSummary && !isRequestOnly
+@@ -2818,14 +2840,14 @@ export function TrajectoryTable({
                              className={sectionActive
                                ? `${css.turnLabel} ${css.turnLabelActive}`
                                : css.turnLabel}
@@ -179,7 +229,7 @@ index 9eeeb5c2ab..744c0ffb97 100644
                                    </span>
                                    <span className={css.turnLabelCompact} aria-hidden="true">
                                      #{record.turn}
-@@ -3057,8 +3078,8 @@ export function TrajectoryTable({
+@@ -3057,8 +3079,8 @@ export function TrajectoryTable({
                        </span>
                        <span className={css.detailsLocation}>
                          {selected.cell.kind === 'compacted'
@@ -190,7 +240,7 @@ index 9eeeb5c2ab..744c0ffb97 100644
                        </span>
                      </>
                    )}
-@@ -3219,6 +3240,7 @@ export function TrajectoryTable({
+@@ -3219,6 +3241,7 @@ export function TrajectoryTable({
                  </div>
                </>
              )}
@@ -198,7 +248,7 @@ index 9eeeb5c2ab..744c0ffb97 100644
              {selectedRequestInfo !== undefined && activeTab === 'options' && (
                <RequestOptions options={selectedRequestOptions} stringWrapping={stringWrapping} t={t} />
              )}
-@@ -3300,6 +3322,7 @@ export function TrajectoryTable({
+@@ -3300,6 +3323,7 @@ export function TrajectoryTable({
                  )}
                </>
              )}
@@ -207,7 +257,7 @@ index 9eeeb5c2ab..744c0ffb97 100644
                && selected !== undefined
                && selected.cell.kind !== 'compacted'
 diff --git a/packages/client/ui-trajectory/src/client/TrajectoryView.tsx b/packages/client/ui-trajectory/src/client/TrajectoryView.tsx
-index 6c2cd98ec8..be2e8834aa 100644
+index 6c2cd98ec8..42d8651f98 100644
 --- a/packages/client/ui-trajectory/src/client/TrajectoryView.tsx
 +++ b/packages/client/ui-trajectory/src/client/TrajectoryView.tsx
 @@ -27,6 +27,7 @@ import {
@@ -218,7 +268,7 @@ index 6c2cd98ec8..be2e8834aa 100644
  import css from './views.module.css'
  
  const EMPTY_TURN_IDS: ReadonlySet<number> = new Set()
-@@ -133,7 +134,7 @@ export function TrajectoryView({
+@@ -133,18 +134,42 @@ export function TrajectoryView({
    useSession, useTrajectory, useDuration, loadOlder, loadImage, setActualDuration,
    viewRequest, completeViewRequest, renderSlot, t, jsonStringWrapping,
  }: ConvViewProps
@@ -226,11 +276,49 @@ index 6c2cd98ec8..be2e8834aa 100644
 +  & PropsRenderSlots<'conversation.trajectory.images' | 'conversation.trajectory.navigation' | 'conversation.trajectory.toolbar'>
    & InjectFace<TrajectoryViewInjected>
    & PropsLocale<'trajectory'>) {
++  return <TrajectoryContent
++    completeInspection={useTrajectory(snapshot => snapshot)} actualDuration={useDuration(value => value)}
++    normalHistoryLoading={useSession(snapshot => snapshot.openState === 'loading')}
++    normalOlderLoading={useSession(snapshot => snapshot.loadingOlder)} normalHasMore={useSession(snapshot => snapshot.hasMore)}
++    {...{ loadOlder, loadImage, setActualDuration, viewRequest, completeViewRequest, renderSlot, t, jsonStringWrapping }}
++  />
++}
++
++/** Shared rendering body; ordinary Sessions and explicit readonly ledgers supply their own data. */
++export type TrajectoryContentProps = Pick<ConvViewProps, 'viewRequest' | 'completeViewRequest'>
++  & Pick<InjectFace<TrajectoryViewInjected>, 'loadOlder' | 'loadImage' | 'setActualDuration'>
++  & PropsLocale<'trajectory'> & {
++    jsonStringWrapping?: TrajectoryViewInjected['jsonStringWrapping']
++    completeInspection: TrajectorySnapshot
++    actualDuration: boolean
++    normalHistoryLoading: boolean
++    normalOlderLoading: boolean
++    normalHasMore: boolean
++    renderSlot?: PropsRenderSlots<'conversation.trajectory.images' | 'conversation.trajectory.navigation' | 'conversation.trajectory.toolbar'>['renderSlot']
++  }
++
++export function TrajectoryContent({
++  completeInspection, actualDuration, normalHistoryLoading, normalOlderLoading, normalHasMore,
++  loadOlder, loadImage, setActualDuration, viewRequest, completeViewRequest, renderSlot, t, jsonStringWrapping,
++}: TrajectoryContentProps) {
    const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(EMPTY_TURN_IDS)
-@@ -159,6 +160,13 @@ export function TrajectoryView({
+   const renderImages = useCallback<RenderMessageImages>(
+-    owner => renderSlot('conversation.trajectory.images', { ...owner, loadImage }),
++    owner => renderSlot?.('conversation.trajectory.images', { ...owner, loadImage }) ?? null,
+     [loadImage, renderSlot],
+   )
+   const [collapsedAssistants, setCollapsedAssistants] =
+     useState<ReadonlySet<string>>(EMPTY_RECORD_IDS)
+   const [timelineSelection, setTimelineSelection] = useState<TrajectoryTimeRange | null>(null)
+-  const actualDuration = useDuration(value => value)
+   const [actualTime, setActualTime] = useState(false)
+   const [searchQuery, setSearchQuery] = useState('')
+   const [searchIndex] = useState(() => new TrajectorySearchIndex())
+@@ -158,7 +183,13 @@ export function TrajectoryView({
+   const [timelineRecordFocus, setTimelineRecordFocus] = useState<{
      readonly index: number
    } | null>(null)
-   const completeInspection = useTrajectory(snapshot => snapshot)
+-  const completeInspection = useTrajectory(snapshot => snapshot)
 +  const external = completeInspection.inspection
 +  useEffect(() => {
 +    setTimelineSelection(null)
@@ -241,7 +329,7 @@ index 6c2cd98ec8..be2e8834aa 100644
    const latestNodeSeq = completeInspection.eventNodes.at(-1)?.seq
    const [historyTailSeq, setHistoryTailSeq] = useState(latestNodeSeq)
    const [historyNodeLimit, setHistoryNodeLimit] = useState(HISTORY_PAGE_NODES)
-@@ -176,7 +184,7 @@ export function TrajectoryView({
+@@ -176,7 +207,7 @@ export function TrajectoryView({
      }
    }, [historyTailIndex, historyTailSeq, latestNodeSeq])
    const inspection = useMemo<TrajectorySnapshot>(() => {
@@ -250,7 +338,7 @@ index 6c2cd98ec8..be2e8834aa 100644
      const eventNodes = completeInspection.eventNodes.slice(historyStartIndex)
      const firstSeq = eventNodes[0]?.seq ?? 0
      return {
-@@ -186,10 +194,13 @@ export function TrajectoryView({
+@@ -186,10 +217,10 @@ export function TrajectoryView({
          request.startSeq >= firstSeq || (request.resultSeq ?? -1) >= firstSeq),
      }
    }, [completeInspection, historyStartIndex])
@@ -258,9 +346,6 @@ index 6c2cd98ec8..be2e8834aa 100644
 -  const olderHistoryLoading = useSession(snapshot => snapshot.loadingOlder)
 -  const sessionHasOlderHistory = useSession(snapshot => snapshot.hasMore)
 -  const hasResidentOlderHistory = historyStartIndex > 0
-+  const normalHistoryLoading = useSession(snapshot => snapshot.openState === 'loading')
-+  const normalOlderLoading = useSession(snapshot => snapshot.loadingOlder)
-+  const normalHasMore = useSession(snapshot => snapshot.hasMore)
 +  const historyLoading = external?.loading ?? normalHistoryLoading
 +  const olderHistoryLoading = external ? false : normalOlderLoading
 +  const sessionHasOlderHistory = external ? !!external.hasMore : normalHasMore
@@ -268,7 +353,7 @@ index 6c2cd98ec8..be2e8834aa 100644
    const hasOlderHistory = hasResidentOlderHistory
      || sessionHasOlderHistory
    const nodes = inspection.eventNodes
-@@ -321,15 +332,22 @@ export function TrajectoryView({
+@@ -321,15 +352,22 @@ export function TrajectoryView({
          ? null
          : { turn: partialTurn, step: partialStep, blocks: [] },
        runningCalls,
@@ -295,7 +380,7 @@ index 6c2cd98ec8..be2e8834aa 100644
    const timelinePartialSignature = partialStructureSignature(partial)
    const timelinePartial = useMemo<TrajectorySnapshot['partial']>(() => partial === null
      ? null
-@@ -343,6 +361,7 @@ export function TrajectoryView({
+@@ -343,6 +381,7 @@ export function TrajectoryView({
      () => appendTrajectoryPartialLayout(finalized.turns, timelinePartial, finalized.lastIndex, t),
      [finalized, timelinePartial, t],
    )
@@ -303,7 +388,7 @@ index 6c2cd98ec8..be2e8834aa 100644
    const timelineMode: TrajectoryTimelineMode = actualDuration
      ? actualTime ? 'actual' : 'duration'
      : actualTime ? 'time' : 'sequence'
-@@ -403,8 +422,8 @@ export function TrajectoryView({
+@@ -403,8 +442,8 @@ export function TrajectoryView({
    const timelineFocusIndexes = useMemo(
      () => timelineRange === null
        ? null
@@ -314,7 +399,7 @@ index 6c2cd98ec8..be2e8834aa 100644
    )
    const handleRecordSelect = useCallback((index: number) => {
      if (
-@@ -502,75 +521,81 @@ export function TrajectoryView({
+@@ -502,75 +541,81 @@ export function TrajectoryView({
    }
  
    const loadEarlierHistory = useCallback(async () => {
@@ -366,14 +451,19 @@ index 6c2cd98ec8..be2e8834aa 100644
 -            ...jsonStringWrapping,
 -            label: t('record.wrapLines'),
 +    <div className={css.workspace} data-conversation-composer-overlay="">
-+      {renderSlot('conversation.trajectory.navigation', { viewRequest, completeViewRequest })}
++      {renderSlot?.('conversation.trajectory.navigation', { viewRequest, completeViewRequest })}
 +      <div className={css.root}>
-+        {renderSlot('conversation.trajectory.toolbar', {})}
++        {renderSlot?.('conversation.trajectory.toolbar', {})}
 +        {external?.error && <p role="alert">{external.error}</p>}
 +        <TrajectoryToolbar
 +          actualDuration={actualDuration}
 +          onActualDurationChange={(nextActualDuration) => {
 +            setActualDuration(nextActualDuration)
++            setTimelineSelection(null)
++          }}
++          actualTime={actualTime}
++          onActualTimeChange={(nextActualTime) => {
++            setActualTime(nextActualTime)
 +            setTimelineSelection(null)
            }}
 -          renderImages={renderImages}
@@ -381,11 +471,6 @@ index 6c2cd98ec8..be2e8834aa 100644
 -          turns={timelineTurns}
 -          streamingCells={streamingCells}
 -          timelineFocusIndexes={timelineFocusIndexes}
-+          actualTime={actualTime}
-+          onActualTimeChange={(nextActualTime) => {
-+            setActualTime(nextActualTime)
-+            setTimelineSelection(null)
-+          }}
 +          allTurnsCollapsed={allTurnsCollapsed}
 +          onToggleAllTurns={toggleAllTurns}
 +          allAssistantsCollapsed={allAssistantsCollapsed}
@@ -1110,8 +1195,20 @@ index 0000000000..0b8fe4fe98
 +    await ctx.fiber.dispose()
 +  }
 +})
+diff --git a/packages/client/ui-trajectory/tests/table.client.spec.tsx b/packages/client/ui-trajectory/tests/table.client.spec.tsx
+index 7d054adc9b..235535dc7a 100644
+--- a/packages/client/ui-trajectory/tests/table.client.spec.tsx
++++ b/packages/client/ui-trajectory/tests/table.client.spec.tsx
+@@ -134,6 +134,7 @@ describe('TrajectoryTable', () => {
+       { kind: 'system', text: 'Initial System Prompt', systemPromptDetail: '# Known instructions' },
+     ])
+     render(<TrajectoryTable turns={turns} {...FOLD_PROPS} />)
++    expect(screen.getByRole('row', { name: /SYSTEM/ }).getAttribute('data-source-seq')).toBe('10')
+     fireEvent.click(screen.getByRole('row', { name: /SYSTEM/ }))
+     expect(screen.getByRole('heading', { name: 'Known instructions' })).toBeTruthy()
+     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['System Prompt'])
 diff --git a/packages/client/ui-trajectory/tests/views.client.spec.tsx b/packages/client/ui-trajectory/tests/views.client.spec.tsx
-index 04d4040a6e..5d7672c23f 100644
+index 04d4040a6e..56e512db52 100644
 --- a/packages/client/ui-trajectory/tests/views.client.spec.tsx
 +++ b/packages/client/ui-trajectory/tests/views.client.spec.tsx
 @@ -7,6 +7,7 @@
@@ -1130,7 +1227,15 @@ index 04d4040a6e..5d7672c23f 100644
          }
        })()
        : injected
-@@ -1535,3 +1537,25 @@ describe('node half', () => {
+@@ -412,6 +414,7 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
+         t={tConversation}
+       />
+       <ConversationSession
++        displayView={() => () => {}}
+         {...standardProps}
+         SessionProvider={({ children }) => children}
+         useStore={bindSnapshotSelector(conversation)}
+@@ -1535,3 +1538,25 @@ describe('node half', () => {
      expect(() => { nodeApply() }).not.toThrow()
    })
  })

@@ -1,28 +1,29 @@
 - insert:
     - id: papermoon-playbook-storage
-      name: '../../plugins/playbook-storage/lib/plugin.js'
+      name: '@papermoon/playbook-storage/plugin'
       config:
         path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/playbook.sqlite'"
     - id: papermoon-playbook-core
-      name: '../../plugins/playbook-core/lib/plugin.js'
+      name: '@papermoon/playbook-core/plugin'
     - id: papermoon-playbook-compiler
-      name: '../../plugins/playbook-compiler/lib/plugin.js'
+      name: '@papermoon/playbook-compiler/plugin'
       config:
         directory: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/compiled-playbooks'"
     - id: papermoon-playbook-editor
-      name: '../../plugins/playbook-editor/lib/index.js'
+      name: '@papermoon/playbook-editor'
     - id: papermoon-writers
-      name: '../../plugins/writers/lib/index.js'
+      # The pure package root is not a Cordis plugin; a file entry lets DSH discover its client half.
+      name: './node_modules/@papermoon/writers/lib/index.js'
       config:
         path: !!js "(process.env.PAPERMOON_DATA_DIR || '.papermoon') + '/writers.sqlite'"
     - id: papermoon-playbook-workspaces
-      name: '../../plugins/playbook-workspaces/lib/index.js'
+      name: '@papermoon/playbook-workspaces'
       config:
         cwd: !!js process.cwd()
     - id: papermoon-performances
-      name: '../../plugins/performances/lib/index.js'
+      name: '@papermoon/performances'
     - id: papermoon-writer-sessions
-      name: '../../plugins/writer-sessions/lib/index.js'
+      name: '@papermoon/writer-sessions'
       config:
         cwd: !!js process.cwd()
 - insert:
@@ -42,3 +43,8 @@
         description: PaperMoon text performance
         order: 16
         plugins: []
+- insert:
+    - id: papermoon-text-conversations
+      name: '@papermoon/text-conversations'
+    - id: papermoon-ui-guidance
+      name: '@papermoon/ui-guidance'

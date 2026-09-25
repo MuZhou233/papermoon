@@ -65,7 +65,7 @@ describe('launcher process ownership', () => {
     vi.stubEnv('DSH_HOME', ''); vi.stubEnv('DSH_AGENTS_HOME', '')
     const failed = await main(['start', '--', '--port', '0', '--no-open'], root).catch((error: unknown) => error)
     expect(processExitCode(failed)).toBe(23)
-    expect(JSON.parse(readFileSync(join(root, 'launch.json'), 'utf8'))).toEqual({cwd: root, args: ['--profile', 'web', '--patch', join(root, 'profiles/papermoon/cordis.patch.yml'), '--port', '0', '--no-open'], home: join(root, '.papermoon/dsh'), agents: join(root, '.papermoon/agents')})
+    expect(JSON.parse(readFileSync(join(root, 'launch.json'), 'utf8'))).toEqual({cwd: root, args: ['--profile', 'papermoon', '--port', '0', '--no-open'], home: join(root, '.papermoon/dsh'), agents: join(root, '.papermoon/agents')})
     await main(['start-dsh'], root).catch(() => {})
     expect(JSON.parse(readFileSync(join(root, 'launch.json'), 'utf8')).args).toEqual(['--profile', 'web'])
     expect(processExitCode(new ProcessFailure({code: null, signal: 'SIGTERM', cancelled: false}, 'fixture'))).toBe(143)

@@ -6,15 +6,39 @@ These requirements belong to [hello world](README.md) and follow the [shared int
 
 ## Experience and UI
 
-After configuration inspection, show a prepared conversation containing the user message `hi` and a hardcoded model reply. Display the two roles using DSH's visual style. Clearly label this as an example so the user does not mistake it for a reply from their configured model.
+After the introduction subsection, show a prepared conversation containing the user message `hi` and the fixed reply specified below. Use the actual DSH conversation page to display both roles. Clearly label this as an example in the sidebar guidance so the user does not mistake it for a reply from their configured model.
 
 Keep the example's input box visible but locked: users cannot type, paste or edit text in it, and sending is disabled. The example uses the [chapter's system prompt](README.md#conversation-context).
 
 The Story Mode package supplies the example content. Displaying it does not send a model request or validate credentials. It is separate from the later exercise session and must not enter that session's conversation history or request context.
 
+## Exact text
+
+The example’s user message is:
+
+```text
+hi
+```
+
+The fixed assistant reply is:
+
+```text
+Hi! How can I help you today?
+```
+
+Both messages remain unchanged across interface languages. The example conversation and its trajectory use these same messages. The [chapter overview](README.md#chapter-text) owns the conversation title, and its [conversation context](README.md#conversation-context) owns the exact system prompt.
+
+The sidebar guidance is:
+
+> Example · This reply was written in advance, without calling a model. The input is locked.
+
+The locked native input uses this placeholder:
+
+> Read-only conversation
+
 ## Advancement
 
-Provide Continue alongside the example. Showing the reply or waiting does not advance the step. The user's click completes this subsection and opens [the example trajectory step](03-example-trajectory.md).
+Provide Continue in the focused sidebar subsection. Showing the reply or waiting does not advance the step. The user's click completes this subsection and opens [the example trajectory step](03-example-trajectory.md).
 
 ## Acceptance scenarios
 

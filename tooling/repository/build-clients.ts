@@ -2,7 +2,7 @@
 import { build } from 'esbuild'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-for (const plugin of ['playbook-editor', 'writers', 'writer-sessions', 'performances']) {
+for (const plugin of ['playbook-editor', 'writers', 'writer-sessions', 'performances', 'text-conversations', 'ui-guidance', 'story-mode']) {
   const out = resolve(`plugins/${plugin}/lib`)
   await mkdir(out, { recursive: true })
   await build({
@@ -15,6 +15,7 @@ for (const plugin of ['playbook-editor', 'writers', 'writer-sessions', 'performa
     packages: 'external',
     external: ['@papermoon/*'],
   })
+  if (plugin === 'text-conversations') continue
   const result = await build({
     entryPoints: [`plugins/${plugin}/src/client/index.tsx`],
     outfile: out + '/client.js',
@@ -29,7 +30,7 @@ for (const plugin of ['playbook-editor', 'writers', 'writer-sessions', 'performa
   })
   const js = result.outputFiles.find((f) => f.path.endsWith('.js'))!.text,
     css = result.outputFiles.find((f) => f.path.endsWith('.css'))?.text ?? ''
-  const factory = `window.__ModuleLoader__.load({id:"@papermoon/${plugin}",factory:function(require){const module={exports:{}};const exports=module.exports;const style=document.createElement('style');style.textContent=${JSON.stringify(css)};document.head.append(style);
+  const factory = `window.__ModuleLoader__.load({id:"@papermoon/${plugin}",factory:function(require){const module={exports:{}};const exports=module.exports;const style=document.createElement('style');style.dataset.plugin="@papermoon/${plugin}";style.textContent=${JSON.stringify(css)};document.head.append(style);
 ${js}
 return module.exports;}});
 `

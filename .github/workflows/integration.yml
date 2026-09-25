@@ -13,6 +13,9 @@ on:
       - plugins/playbook-core/package.json
       - plugins/writer-sessions/**
       - plugins/performances/**
+      - plugins/story-mode/**
+      - plugins/text-conversations/**
+      - plugins/ui-guidance/**
       - plugins/playbook-workspaces/**
       - plugins/playbook-compiler/**
       - plugins/writers/src/**
@@ -55,6 +58,9 @@ on:
       - plugins/playbook-core/package.json
       - plugins/writer-sessions/**
       - plugins/performances/**
+      - plugins/story-mode/**
+      - plugins/text-conversations/**
+      - plugins/ui-guidance/**
       - plugins/playbook-workspaces/**
       - plugins/playbook-compiler/**
       - plugins/writers/src/**
@@ -117,3 +123,4 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:editor
       - run: pnpm test:writer-sessions
+      - run: pnpm test:story-mode

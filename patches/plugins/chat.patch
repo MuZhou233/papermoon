@@ -892,3 +892,15 @@ index 2f98938274..596de09399 100644
    it('clears preparation from a closed group while retaining its recorded activity', () => {
      const preparing: ChatNode<'tool-call'> = {
        ...tool('call', 2, 'write'),
+diff --git a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
+index 728efbf906..ca2420e2e9 100644
+--- a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
++++ b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
+@@ -341,6 +341,7 @@ function panelProps(data: WorkflowRunChatData, sessions = listState(), openSessi
+     inspectCall: () => {},
+     forkAt: () => {},
+     loadImage: () => Promise.reject(new Error('not used')),
++    renderUserActions: () => null,
+     renderMessageImages: () => null,
+     fileMentions: () => undefined,
+     openSession,

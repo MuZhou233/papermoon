@@ -38,7 +38,7 @@ PaperMoon 默认打开 Playbook 总览。卡片展示 Playbook、所属项目和
 
 ## 构建与验证
 
-运行 pnpm build:plugins 生成 Host 模块和浏览器工厂。构建时复用宿主 React 模块，将 PaperMoon 样式放入延迟执行的工厂，不使用 DSH 私有构建工具。[根启动器](../../docs/development.zh.md)提供组合配置和数据位置。
+运行 pnpm build:plugins 生成 Host 模块和浏览器工厂。构建时复用宿主 React 模块，将 PaperMoon 样式放入延迟执行的工厂，不使用 DSH 私有构建工具。[根启动器](../../docs/development.zh.md)选择原生 profile 组合包并提供数据位置。
 
 运行 pnpm test:editor，以隔离的数据库、凭据目录和随机端口执行浏览器场景。测试创建并停止自己的 Web 进程，验证真实插件加载器与认证，不调用模型。主库检查分别覆盖接口和本地草稿状态。导航和编辑体验是否适合日常使用，仍由用户反馈判断。
 

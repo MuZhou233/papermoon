@@ -38,7 +38,7 @@ The browser registers the main page and sidebar entry through DSH slots. The [Pa
 
 ## Build and verification
 
-Run pnpm build:plugins to emit the Host module and browser factory. The build externalizes the host's React modules and embeds PaperMoon styles inside the lazy factory. It consumes no private DSH build tooling. The [root launcher](../../docs/development.md) supplies the composition overlay and data location.
+Run pnpm build:plugins to emit the Host module and browser factory. The build externalizes the host's React modules and embeds PaperMoon styles inside the lazy factory. It consumes no private DSH build tooling. The [root launcher](../../docs/development.md) selects the native profile bundles and supplies the data location.
 
 Run pnpm test:editor for browser scenarios using an isolated database, credentials directory and random port. The test owns and stops its Web process, exercises the real plugin loader and authentication, and calls no model. Main checks cover the interface and local draft state separately. User feedback determines whether the navigation and editing experience are ready for everyday use.
 

@@ -16,6 +16,7 @@
 | `pnpm check:plugins:dsh` | 使用真实 DSH Cordis 检查存储、核心、编剧服务的生命周期及独立 scope 工具 |
 | `pnpm start -- --port 3081 --no-open` | 在 Web 上启动 PaperMoon；参数分别通过 argv 传递 |
 | `pnpm start:dsh -- --port 3081 --no-open` | 启动原版 Web，不加载产品插件 |
+| `pnpm test:story-mode` | 使用本地确定性适配器验证第零章 |
 | `pnpm test:editor` | 在 Chromium 中通过临时 Web 进程验证编辑器和编剧管理 |
 | `pnpm test:writer-sessions` | 用确定性适配器验证编剧接纳、原文请求和恢复 |
 | `pnpm check` | 主库类型、lint、测试、文档与 Note 检查 |
@@ -27,7 +28,7 @@
 
 setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保留命令。自动化脚本也使用前一种写法。
 
-[PaperMoon 组合配置](../profiles/papermoon/cordis.patch.yml)通过官方 profile 叠加机制挂载存储、核心、编译器、编辑器、编剧管理和编剧会话插件。它是配置，不是源码补丁。启动不会重建插件；修改主库插件或 UI 源码后，运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
+[PaperMoon 组合配置](../profiles/papermoon/README.zh.md)通过原生 DSH 组合包在 `papermoon` profile 中挂载产品扩展。故事模式初始开启，可在插件页切换；关闭后仍可找到已安装的组合包。Profile 配置位于 `$DSH_HOME/profiles/papermoon/`，原 `web` profile 保持不变，由 `pnpm start:dsh` 使用。新 profile 通过设置页配置，启动不会复制原 profile 的设置，也不会重建插件；修改主库插件或 UI 源码后运行 `pnpm build:plugins`。浏览器测试需要已构建的 DSH 产物及 Chromium，可用 `pnpm exec playwright install chromium` 安装浏览器。
 
 ## 编辑与升级
 
