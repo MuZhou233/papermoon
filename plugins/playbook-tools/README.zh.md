@@ -2,6 +2,8 @@
 
 [English](README.md) | 中文
 
+工具实现[共用创作能力](../../docs/playbook-authoring.zh.md#能力模块与编剧)。工厂按仓库当前范围筛选模块与帮助主题，执行时再次校验权限。状态、内容、历史与差异共用相同授权边界。
+
 ## 用途
 
 `@papermoon/playbook-tools` 封装[逻辑核心](../playbook-core/README.zh.md)，供面向模型的接口调用。`createPlaybookTools(repository, playbookId)` 创建绑定单个 Playbook 的可执行工具集。`toolCatalog()` 提供与注册时相同的名称、说明、参数声明、结果声明和读写分类。两个 API 均不创建 Session，也不调用模型。
@@ -10,6 +12,8 @@
 
 | 分组 | 工具 | 操作 |
 |---|---|---|
+| 系统 | `playbook_system_read`, `playbook_system_write` | 系统原文与模式读取、读取保护下的正文替换 |
+| 开场 | `playbook_opening_read`, `playbook_opening_edit` | 稳定消息 ID、新增／删除／正文／角色／排序操作及空列表保存 |
 | 状态 | `playbook_status` | Playbook 与草稿身份、序号、语言及数量 |
 | 程序 | `playbook_program_list`, `playbook_program_read`, `playbook_program_search`, `playbook_program_edit` | 文件查询、完整源码读取、字面搜索和原子程序修改 |
 | 文案 | `playbook_text_list`, `playbook_text_read`, `playbook_text_search`, `playbook_text_edit` | 条目查询、指定语言读取、搜索、语言、用途说明、译文及元数据 |
@@ -50,3 +54,7 @@ createPlaybookTools 的第四个参数、registerPlaybookTools 的第五个参�
 playbook_commit 使用[提交时编译](../playbook-compiler/README.zh.md#提交与冻结修订版本)，返回 committed、编译诊断及冻结附件摘要，接受 targets 和 allowCompilationFailure，默认要求成功。playbook_compile 只检查草稿，两者都不授予文件读取权限，且要求编译服务；未提供服务时，可执行工具集中不包含它们。模型侧历史和恢复仍限于绑定 Playbook，人工参考选择可以引用其他保留的修订版本。
 
 playbook_simulate 固定当前草稿，编译后在临时状态中依次执行声明的函数。它返回原始结果、诊断与调用前后状态，不写入产物、修订版本或真实演绎状态。它依赖编译服务，支持取消，不授予修改所需的读取权限。functions 帮助主题说明闭包工厂、JSDoc 和调用语义。
+
+## 纯文本读取保护
+
+系统与开场读取为编剧会话授予对应部分的读取记录。写入保留原文，并针对已观察的当前内容检查序号。开场排序须列出每个消息 ID 且各一次，新消息默认采用 `assistant`。批量失败时整批保持原状，空开场操作批次仍保存当前列表。故事推进由明确的编排操作负责，工具权限排除绑定、进度和章节 tag 修改。

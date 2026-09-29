@@ -57,7 +57,7 @@ try {
     }
   }
   root.llm.registerAdapter(['deterministic'], new Adapter())
-  const project = core.createProject({ name: 'Runtime' }), playbook = core.createPlaybook({ projectId: project.id, name: 'Playbook', defaultLanguage: 'en' })
+  const project = core.createProject({ name: 'Runtime' }), playbook = core.createPlaybook({ projectId: project.id, name: 'Playbook', defaultLanguage: 'en', systemMode: 'script', openingMode: 'script' })
   core.editDraft({ playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'main.js', source: 'before' }, { kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"Compiled opening",messages:[]}' }] })
   const writer = writers.create({ ...createWriterTemplate('Writer'), systemPrompt: '  {{literal}}\n', messages: [
     { id: 'one', name: 'One', role: 'user', content: '' }, { id: 'two', role: 'user', content: 'second' },
@@ -78,7 +78,7 @@ try {
   assert.ok(JSON.stringify(events).includes('Compiled opening'))
   assert.deepEqual(requests[0].messages.map(message => message.role), ['system', 'user', 'user', 'assistant', 'assistant', 'user'])
   assert.deepEqual(requests[0].messages.map(message => message.content.map(block => block.text).join('')), ['  {{literal}}\n', '', 'second', 'acknowledged', '{{untouched}}', 'Write'])
-  assert.equal(requests[0].tools.length, 16)
+  assert.equal(requests[0].tools.length, 20)
   for (const name of ['playbook_program_edit', 'playbook_text_edit']) assert.equal(Object.hasOwn(requests[0].tools.find(tool => tool.name === name).parameters.properties, 'expectedSequence'), false)
   assert.equal(core.readSnapshot({ kind: 'draft', playbookId: playbook.id }).content.texts.entries.get('opening').translations.get('en').text, 'A separate text edit')
   assert.equal(root.tools.schemas().length, 0)

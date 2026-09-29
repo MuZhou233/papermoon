@@ -23,12 +23,17 @@ const ref = z.discriminatedUnion('kind', [
 ])
 const selection = z.discriminatedUnion('kind', [
   object({ kind: z.literal('all') }),
+  object({ kind: z.literal('systemPrompt') }),
+  object({ kind: z.literal('opening') }),
   object({ kind: z.literal('program') }),
   object({ kind: z.literal('catalog') }),
   object({ kind: z.literal('file'), path: text }),
   object({ kind: z.literal('text'), key: text }),
 ])
 export const operation = z.discriminatedUnion('kind', [
+  object({ kind: z.literal('set-system-prompt'), text }),
+  object({ kind: z.literal('set-opening-messages'), messages: z.array(object({ id: name, role: z.enum(['user', 'assistant']), content: text })) }),
+  object({ kind: z.literal('set-authoring-mode'), target: z.enum(['systemPrompt', 'opening']), mode: z.enum(['plain', 'script']) }),
   object({ kind: z.literal('create-file'), path: text, source: text }),
   object({ kind: z.literal('replace-file'), path: text, source: text }),
   object({ kind: z.literal('delete-file'), path: text }),
@@ -120,7 +125,7 @@ export const schemas = {
     after: text.optional(),
     limit: page.limit,
     scope: z
-      .enum(['all', 'settings', 'program', 'languages', 'texts'])
+      .enum(['all', 'settings', 'program', 'languages', 'texts', 'systemPrompt', 'opening'])
       .optional(),
   }),
 }

@@ -1,4 +1,4 @@
-# Agent Note: Story Mode effort guidance
+# Agent Note: Story Mode effort selection
 
 Status: implemented
 
@@ -6,18 +6,16 @@ English | [中文](2026-09-25-story-mode-effort-guidance.zh.md)
 
 ## Problem
 
-Chapter 0 previously required locking effort to the selected model's lowest option. That requirement called for determining a minimum across model capabilities and enforcing it in requests. The revised experience leaves effort selection to the user and supplies guidance instead.
+The former minimum-effort rule required inferring an order across models and enforcing it in requests. Different models expose different options and behavior, while the chapter's goal is to let users explore their own character.
 
 ## Decision
 
-The [fourth subsection](../../../../docs/story-mode/00/04-first-message.md#model-selection-and-effort-guidance) now owns advisory effort guidance. This replaces the effort constraint recorded in the [Story Mode decision](../architecture/2026-09-24-playbook-and-story-mode.md), while preserving free model selection and isolation from ordinary sessions and global defaults. This Note owns the reason for replacing the lock; the [layering decision](../architecture/2026-09-25-story-mode-layers.md) records the runtime integration.
-
-The chapter reads model capabilities and the effective selection through general mechanisms. It no longer requires a lowest-effort inference API, locked effort controls or request overrides. The chapter owns when to show its recommendation; the trajectory displays the request's actual values.
+The [first-character lesson](../../../../docs/story-mode/fogbound-earthshine/01/05-reasoning-effort-and-first-performance.md) explains reasoning effort and lets users choose any supported option. Models with no adjustable effort remain usable. The chapter reads native model capabilities and validates supported selections; the current performance owns the choice and global defaults remain unchanged. The [layering decision](../architecture/2026-09-25-story-mode-layers.md) owns integration.
 
 ## Alternatives considered
 
-Keeping the lock would ensure that every exercise used the lowest supported effort, but would retain the enforcement and minimum-selection work removed by the revised requirement. Automatically choosing the recommended value would still change the user's selection. A recommendation lets the user decide without making that choice a condition of sending or completion.
+A minimum lock would require additional ordering and enforcement. Automatic selection would change the user's preference. Explaining the possible effects while allowing supported choices makes the lesson's model behavior observable without adding a particular effort level to completion conditions.
 
 ## Consequences
 
-Requirements and acceptance scenarios cover guidance appearing and disappearing, model and effort changes, and successful completion without following the recommendation. The example input remains locked, and both conversations retain their shared system prompt.
+Tests cover supported and unavailable choices and the no-adjustable-effort path. The first durable complete body reply and successful chapter submission determine completion. Current requirements own the complete bilingual explanation and exact UI wording; retired advice and chapter-specific tests remain in Git.

@@ -1,5 +1,3 @@
 - insert:
     - id: papermoon-story-mode
       name: '@papermoon/story-mode'
-      config:
-        path: !!js "process.env.DSH_HOME + '/story-mode/hello-world.json'"

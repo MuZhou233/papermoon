@@ -63,7 +63,7 @@ index 41e5ec6321..8ce16736dd 100644
  ]
  
 diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
-index 1f0ffab903..ddc90afa6a 100644
+index 1f0ffab903..a6425707c5 100644
 --- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
 +++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
 @@ -176,7 +176,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
@@ -533,7 +533,59 @@ index 1f0ffab903..ddc90afa6a 100644
    },
    {
      key: 'plugins.bundle.activation',
-@@ -2851,7 +3111,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+@@ -2152,6 +2412,42 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'rightbar\', () => ctx.slots.register(\n      { name: \'rightbar\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+     source: 'packages/client/ui-layout/src/client/index.ts:87',
+   },
++  {
++    key: 'rightbar.page',
++    kind: 'single',
++    scope: 'root',
++    summary: 'Page-owned surface selected by the root panel.',
++    doc: 'Page-owned surface selected by the root panel.',
++    registerOptions: [],
++    ownerProps: [
++      'export interface PageSurface {\n  readonly panelId: string\n  readonly contextId: string\n  readonly controller: DockIntents & PageSidebarSurface\n  readonly snapshot: DockSnapshot\n}',
++      '/** Right column owner share: resolved normal geometry and opening eligibility. */\nexport interface RightbarOwnerProps {\n  /** Resolved normal panel width in px, not the saved preference; zero if it cannot fit. */\n  width: number\n  /** Current frame width in px. */\n  viewportWidth: number\n  /**\n   * Whether a normal right panel can retain 300px beside a 400px center.\n   * Before a narrow opening, includes the space from collapsing the left sidebar.\n   */\n  canShow: boolean\n}',
++    ],
++    ownerPropsReferences: [
++      'DockIntents',
++      'DockSnapshot',
++      'PageSidebarSurface',
++    ],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionStatus: UseSessionStatus',
++      'useSessionRetainInfo: UseSessionRetainInfo',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'rightbar\' (client-ui-sidebar-right), so it exists while that entry is mounted',
++    occupants: [
++      'client-ui-sidebar-right PageRightbar',
++    ],
++    replaceRisk: 'shadows-shipped-ui',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'rightbar.page\', () => ctx.slots.register(\n      { name: \'rightbar.page\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:43',
++  },
+   {
+     key: 'rightbar.session',
+     kind: 'single',
+@@ -2192,7 +2488,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'shadows-shipped-ui',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'rightbar.session\', () => ctx.slots.register(\n      { name: \'rightbar.session\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:43',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:63',
+   },
+   {
+     key: 'root',
+@@ -2851,7 +3147,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
      ],
      replaceRisk: 'none',
      example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'shell.quota-notice\', () => ctx.slots.register(\n      { name: \'shell.quota-notice\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
@@ -542,8 +594,236 @@ index 1f0ffab903..ddc90afa6a 100644
    },
    {
      key: 'sidebar',
+@@ -3084,6 +3380,182 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.panellist\', () => ctx.slots.register(\n      { name: \'sidebar.panellist\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+     source: 'packages/client/ui-sidebar/src/client/contract/slots.ts:35',
+   },
++  {
++    key: 'sidebar.right.notice',
++    kind: 'list',
++    scope: 'session',
++    summary: 'Register session update controls before the collapsed right-column expand button.',
++    doc: 'Register session update controls before the collapsed right-column expand button.\nEvery mounted registration is rendered in list order; absence leaves the ordinary expansion control.',
++    registerOptions: [
++      {
++        name: 'id',
++        requirement: 'required',
++        type: 'string',
++        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
++      },
++      {
++        name: 'order',
++        requirement: 'optional',
++        type: 'number',
++        doc: 'Position among the entries, ascending (default 0).',
++      },
++      {
++        name: 'label',
++        requirement: 'optional',
++        type: 'string | (() => string)',
++        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionStatus: UseSessionStatus',
++      'useSessionRetainInfo: UseSessionRetainInfo',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'useChat: UseChat',
++      'useConversation: UseConversation',
++      'useInput: SnapshotSelectorHook<InputState>',
++      'inputActions: InputActions',
++      'useSession: SessionSnapshotSelector',
++      'sessionId: SessionId',
++      'useProjection: UseProjection',
++      'useTrajectory: UseTrajectory',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'conversation.session.header.corner\' (client-ui-sidebar-right), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.notice\', () => ctx.slots.register(\n      { name: \'sidebar.right.notice\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:50',
++  },
++  {
++    key: 'sidebar.right.page.notice',
++    kind: 'list',
++    scope: 'root',
++    summary: 'Register page update controls before expansion.',
++    doc: 'Register page update controls before expansion. Components receive the active contextId,\nevery registration is rendered in list order, and absence leaves the expansion control alone.',
++    registerOptions: [
++      {
++        name: 'id',
++        requirement: 'required',
++        type: 'string',
++        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
++      },
++      {
++        name: 'order',
++        requirement: 'optional',
++        type: 'number',
++        doc: 'Position among the entries, ascending (default 0).',
++      },
++      {
++        name: 'label',
++        requirement: 'optional',
++        type: 'string | (() => string)',
++        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionStatus: UseSessionStatus',
++      'useSessionRetainInfo: UseSessionRetainInfo',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++    ],
++    keyDomain: '',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'rightbar.page\' (client-ui-sidebar-right), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.page.notice\', () => ctx.slots.register(\n      { name: \'sidebar.right.page.notice\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:60',
++  },
++  {
++    key: 'sidebar.right.page.tab',
++    kind: 'keyed',
++    scope: 'root',
++    summary: 'Page-aware tab body; resource identity remains independent of Sessions.',
++    doc: 'Page-aware tab body; resource identity remains independent of Sessions.',
++    registerOptions: [
++      {
++        name: 'key',
++        requirement: 'required',
++        type: 'string',
++        doc: 'Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.',
++      },
++    ],
++    ownerProps: [
++      '/**\n * One open tab.\n *\n * `kind` selects the embedder\'s content family and is never interpreted here.\n * `contentId` is the identity `openContent` de-duplicates against, so two tabs\n * sharing it are deliberate copies of one thing.\n */\nexport interface TabRecord {\n  readonly id: TabId\n  readonly kind: string\n  readonly contentId: string\n  readonly title: string\n}',
++    ],
++    ownerPropsReferences: [
++      'TabId',
++    ],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionStatus: UseSessionStatus',
++      'useSessionRetainInfo: UseSessionRetainInfo',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++    ],
++    keyDomain: 'open: any string the owner dispatches (no compile-time key set), none are taken yet',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'rightbar.page\' (client-ui-sidebar-right), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.page.tab\', () => ctx.slots.register(\n      { name: \'sidebar.right.page.tab\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:45',
++  },
++  {
++    key: 'sidebar.right.page.tab.title',
++    kind: 'keyed',
++    scope: 'root',
++    summary: 'Register by tab kind to render its page title with contextId and tab.',
++    doc: 'Register by tab kind to render its page title with contextId and tab.\nThe keyed registration replaces that kind\'s title; absence leaves the docking renderer\'s title handling.',
++    registerOptions: [
++      {
++        name: 'key',
++        requirement: 'required',
++        type: 'string',
++        doc: 'Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.',
++      },
++    ],
++    ownerProps: [
++      '/**\n * One open tab.\n *\n * `kind` selects the embedder\'s content family and is never interpreted here.\n * `contentId` is the identity `openContent` de-duplicates against, so two tabs\n * sharing it are deliberate copies of one thing.\n */\nexport interface TabRecord {\n  readonly id: TabId\n  readonly kind: string\n  readonly contentId: string\n  readonly title: string\n}',
++    ],
++    ownerPropsReferences: [
++      'TabId',
++    ],
++    standardProps: [
++      'useResource: UseResource',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++      'usePanelInfo: UsePanelInfo',
++      'useSessions: UseSessions',
++      'useSessionStatus: UseSessionStatus',
++      'useSessionRetainInfo: UseSessionRetainInfo',
++      'useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>',
++    ],
++    keyDomain: 'open: any string the owner dispatches (no compile-time key set), none are taken yet',
++    hookContext: '',
++    slotInject: '',
++    declaredBy: 'an entry in \'rightbar.page\' (client-ui-sidebar-right), so it exists while that entry is mounted',
++    occupants: [],
++    replaceRisk: 'none',
++    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.page.tab.title\', () => ctx.slots.register(\n      { name: \'sidebar.right.page.tab.title\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:55',
++  },
+   {
+     key: 'sidebar.right.pane.tab',
+     kind: 'keyed',
+@@ -3134,7 +3606,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.pane.tab\', () => ctx.slots.register(\n      { name: \'sidebar.right.pane.tab\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:59',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:79',
+   },
+   {
+     key: 'sidebar.right.pane.tab.title',
+@@ -3184,7 +3656,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.pane.tab.title\', () => ctx.slots.register(\n      { name: \'sidebar.right.pane.tab.title\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:73',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:93',
+   },
+   {
+     key: 'sidebar.right.tab.document',
+@@ -3489,7 +3961,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     occupants: [],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.tab.guide\', () => ctx.slots.register(\n      { name: \'sidebar.right.tab.guide\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:84',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:104',
+   },
+   {
+     key: 'sidebar.right.tab.guide.entry',
+@@ -3535,7 +4007,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.tab.guide.entry\', () => ctx.slots.register(\n      { name: \'sidebar.right.tab.guide.entry\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:91',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:111',
+   },
+   {
+     key: 'sidebar.right.tab.menu.item',
+@@ -3593,7 +4065,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     occupants: [],
+     replaceRisk: 'none',
+     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar.right.tab.menu.item\', () => ctx.slots.register(\n      { name: \'sidebar.right.tab.menu.item\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+-    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:103',
++    source: 'packages/client/ui-sidebar-right/src/client/contract/slots.ts:123',
+   },
+   {
+     key: 'sidebar.session.row.hover',
 diff --git a/packages/extensions/tool-cordis/src/api-catalog.ts b/packages/extensions/tool-cordis/src/api-catalog.ts
-index 501831b9cc..90580e43e0 100644
+index 501831b9cc..a4e55fb170 100644
 --- a/packages/extensions/tool-cordis/src/api-catalog.ts
 +++ b/packages/extensions/tool-cordis/src/api-catalog.ts
 @@ -1857,6 +1857,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
@@ -676,10 +956,18 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'session/disposed',
      mode: 'emit',
-@@ -4137,6 +4205,22 @@ export const EVENT_API: readonly EventApiEntry[] = [
+@@ -4137,6 +4205,30 @@ export const EVENT_API: readonly EventApiEntry[] = [
      description: 'Awaited parallel durability checkpoint: every listener runs and the caller awaits all of them, with no waterfall veto. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`) reuses the session\'s owner scope.',
      parameters: [{ name: 'session', description: 'the session whose buffered events must reach durable storage.' }],
    },
++  {
++    name: 'session/model-selecting',
++    mode: 'waterfall',
++    signature: '\'session/model-selecting\'(agent: Agent, selection: SessionSelectModelRequest, next: () => Promise<boolean>): Promise<boolean>',
++    summary: 'Admit a Session model selection and decide whether to remember it globally.',
++    description: 'Admit a Session model selection and decide whether to remember it globally.',
++    parameters: [{ name: 'agent', description: 'target Agent.' }, { name: 'selection', description: 'requested model and effort.' }],
++  },
 +  {
 +    name: 'session/prompt-accepted',
 +    mode: 'serial',
@@ -699,7 +987,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'settings/document-updated',
      mode: 'emit',
-@@ -4553,6 +4637,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -4553,6 +4645,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
      name: 'AttachmentId',
      declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
    },
@@ -710,7 +998,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'AuthorizationEntry',
      declaration: 'export interface AuthorizationEntry {\n    key: CredentialKey;\n    label: string;\n    methods: readonly AuthorizationMethod[];\n    inFlight: boolean;\n}',
-@@ -4785,6 +4873,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -4785,6 +4881,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
      name: 'ContentBlockType',
      declaration: 'export type ContentBlockType = keyof ContentBlockMap;',
    },
@@ -725,7 +1013,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'ContinuableCreateRequest',
      declaration: 'export interface ContinuableCreateRequest {\n    readonly sessionId: SessionId;\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n}',
-@@ -5241,6 +5337,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -5241,6 +5345,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
      name: 'HostConnectionRpc',
      declaration: 'export interface HostConnectionRpc {\n    handle(channel: string, handler: ConnectionRpcHandler): () => Promise<void>;\n    intercept(channel: \'/api\', matches: ConnectionRpcEndpointMatcher, handler: ConnectionRpcHandler): () => Promise<void>;\n}',
    },
@@ -736,7 +1024,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'ImageAttachmentLimits',
      declaration: 'export interface ImageAttachmentLimits {\n    maxImageBytes: number;\n    maxImagesPerMessage: number;\n    maxMessageImageBytes: number;\n    maxImagePixels: number;\n    maxImageDimension: number;\n    mediaTypes: readonly ImageMediaType[];\n}',
-@@ -5459,7 +5559,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -5459,7 +5567,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'JsonSchemaNode',
@@ -745,7 +1033,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'JsonSchemaScalar',
-@@ -5707,11 +5807,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -5707,11 +5815,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'MessageRoleMap',
@@ -759,7 +1047,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'ModelCatalog',
-@@ -5923,7 +6023,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -5923,7 +6031,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'PreStepDecision',
@@ -768,7 +1056,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'PreToolDecision',
-@@ -6109,10 +6209,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -6109,10 +6217,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
      name: 'RequestErrorAction',
      declaration: 'export type RequestErrorAction = {\n    kind: \'retry\';\n} | undefined;',
    },
@@ -779,7 +1067,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'RequestImageAttachment',
      declaration: 'export interface RequestImageAttachment {\n    variantId: ImageVariantId;\n    attachment: ImageAttachmentRef;\n    data: Uint8Array;\n    mediaType: ImageMediaType;\n    bytes: number;\n    width: number;\n    height: number;\n    depth: \'uchar\';\n    space: \'srgb\';\n    hasAlpha: boolean;\n}',
-@@ -6323,7 +6419,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -6323,7 +6427,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'Session',
@@ -788,7 +1076,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'SessionAccess',
-@@ -6411,7 +6507,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -6411,7 +6515,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'SessionEventMap',
@@ -797,7 +1085,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'SessionEventMetadataFilter',
-@@ -6529,6 +6625,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -6529,6 +6633,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
      name: 'SessionHeader',
      declaration: 'export interface SessionHeader {\n    readonly version: typeof SESSION_FORMAT_VERSION;\n    readonly id: SessionId;\n    readonly createdAt: number;\n    readonly cwd?: string;\n    readonly parentSession?: SessionId;\n    readonly isSeeded: boolean;\n    readonly origin?: \'subagent\';\n    readonly delegationDepth?: number;\n    readonly agentPreset?: string;\n}',
    },
@@ -808,7 +1096,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'SessionHistoryRecord',
      declaration: 'export type SessionHistoryRecord = SessionEventEntry;',
-@@ -6659,7 +6759,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -6659,7 +6767,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'SessionPromptRequest',
@@ -817,7 +1105,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'SessionPromptValue',
-@@ -7267,7 +7367,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -7267,7 +7375,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'SurfaceEventType',
@@ -826,7 +1114,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'SurfaceIntent',
-@@ -7899,7 +7999,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -7899,7 +8007,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'Workspace',
@@ -835,7 +1123,7 @@ index 501831b9cc..90580e43e0 100644
    },
    {
      name: 'WorkspaceArchiveSessionRequest',
-@@ -8021,6 +8121,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -8021,6 +8129,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
      name: 'WorkspaceRenameRequest',
      declaration: 'export interface WorkspaceRenameRequest {\n    readonly workspaceId: WorkspaceId;\n    readonly title: string;\n}',
    },
@@ -850,7 +1138,7 @@ index 501831b9cc..90580e43e0 100644
    {
      name: 'WorkspaceUnarchiveSessionRequest',
      declaration: 'export interface WorkspaceUnarchiveSessionRequest {\n    readonly sessionId: SessionId;\n}',
-@@ -8035,7 +8143,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+@@ -8035,7 +8151,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
    },
    {
      name: 'WorkspaceView',
@@ -962,7 +1250,7 @@ index 0000000000..9c2655989a
 +  }, 60_000)
 +})
 diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
-index facc1d7222..ce6d620f0b 100644
+index facc1d7222..a29ea21eac 100644
 --- a/scripts/gen-cordis-catalog.ts
 +++ b/scripts/gen-cordis-catalog.ts
 @@ -9,6 +9,8 @@
@@ -986,7 +1274,15 @@ index facc1d7222..ce6d620f0b 100644
    uiWorkspace: 'client-side Workspace navigation adapter — packages/client/ui-workspace/README.md owns the API',
    settingsSchema: 'client-side schema introspection service — packages/client/ui-settings/README.md owns the API',
    configForms: 'client-side shared entry forms — packages/client/ui-settings/README.md owns the API',
-@@ -398,6 +404,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
+@@ -197,6 +203,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+   workspaces: 'client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API',
+   resources: 'client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API',
+   sidebarRight: 'client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API',
++  sidebarRightPages: 'client-side page docking contexts — packages/client/ui-sidebar-right/README.md owns the API',
+   sidebarRightTabs: 'client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API',
+   documentPreviews: 'client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API',
+ }
+@@ -398,6 +405,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
    SessionPage: 'session.md',
    SessionPageRequest: 'session.md',
    SessionPromptRequest: 'session.md',
@@ -994,7 +1290,7 @@ index facc1d7222..ce6d620f0b 100644
    SessionPromptValue: 'session.md',
    SessionRenameRequest: 'session.md',
    SessionRenameValue: 'session.md',
-@@ -752,6 +759,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
+@@ -752,6 +760,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
    DomainChanged: 'storage.md',
    DomainFacility: 'storage.md',
    Workspace: 'workspace.md',
@@ -1003,7 +1299,7 @@ index facc1d7222..ce6d620f0b 100644
    ArchiveSessionOptions: 'workspace.md',
    SessionActivity: 'workspace.md',
    SessionActivityRequest: 'workspace.md',
-@@ -1143,10 +1152,12 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
+@@ -1143,10 +1153,12 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
   * curated entry whose key/scope the projection no longer discovers, a declared
   * Context key or Events member the projection cannot see without a named walk
   * exemption, and a mapped page missing its markers are all aggregated errors.
@@ -1018,7 +1314,7 @@ index facc1d7222..ce6d620f0b 100644
    const services = [...model.services]
    const events = [...model.events]
  
-@@ -1212,14 +1223,16 @@ export function computeOutputs(): [string, string][] {
+@@ -1212,14 +1224,16 @@ export function computeOutputs(): [string, string][] {
  /** CLI entry: default regenerates every artifact, `--check` fails if any is
   * stale. Guarded behind an entry-point check so importing this module for
   * tests neither regenerates the committed files nor calls process.exit.
@@ -1039,7 +1335,7 @@ index facc1d7222..ce6d620f0b 100644
      const stale: string[] = []
      for (const [out, content] of outputs) {
        let committed: string | null = null
-@@ -1237,7 +1250,7 @@ export function main(): void {
+@@ -1237,7 +1251,7 @@ export function main(): void {
        console.log(`gen-cordis-catalog: ${outputs.length} generated file(s)/region(s) are up to date.`)
        process.exit(0)
      }

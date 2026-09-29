@@ -30,6 +30,7 @@ export interface Host {
   get(key: string): unknown
   provide(key: string, value: unknown): Dispose
   effect(body: () => Iterable<Dispose, void>, label?: string): unknown
+  on(name: 'session/model-selecting', listener: (agent: Agent, choice: { provider: string; model: string; reasoningEffort?: string }, next: () => Promise<boolean>) => Promise<boolean>): Dispose
   on(name: 'session/event', listener: (session: Agent['session'], event: LogRecord) => void): Dispose
   on(name: 'agent/created', listener: (payload: { agent: Agent }) => void): Dispose
   on(name: 'agent-preset/selected', listener: (sessionId: string, preset: string) => void): Dispose

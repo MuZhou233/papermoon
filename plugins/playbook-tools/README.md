@@ -2,6 +2,8 @@
 
 English | [中文](README.zh.md)
 
+Tools implement the [shared authoring capabilities](../../docs/playbook-authoring.md#capability-modules-and-writers). The factory filters modules and help topics through current repository scope. Execution rechecks permissions; status, content, history and differences share the same authorization boundary.
+
 ## Purpose
 
 `@papermoon/playbook-tools` wraps the [logic core](../playbook-core/README.md) for model-facing interfaces. `createPlaybookTools(repository, playbookId)` creates an executable tool set bound to one playbook. `toolCatalog()` exposes the same names, descriptions, parameter declarations, result declarations and read/write classification used by registration. Neither API creates a Session or calls a model.
@@ -10,6 +12,8 @@ English | [中文](README.zh.md)
 
 | Group | Tools | Operations |
 |---|---|---|
+| System | `playbook_system_read`, `playbook_system_write` | Literal system text and mode reads, observed whole-text replacement |
+| Opening | `playbook_opening_read`, `playbook_opening_edit` | Stable message IDs, add/remove/body/role/order operations and empty-list saves |
 | State | `playbook_status` | Playbook and draft identities, sequence, languages and counts |
 | Program | `playbook_program_list`, `playbook_program_read`, `playbook_program_search`, `playbook_program_edit` | File discovery, exact source reading, literal search and atomic program edits |
 | Text | `playbook_text_list`, `playbook_text_read`, `playbook_text_search`, `playbook_text_edit` | Entry discovery, exact-language reads, search, languages, descriptions, translations and metadata |
@@ -50,3 +54,7 @@ Pass an optional CompilationService as the fourth argument to createPlaybookTool
 playbook_commit uses [submission compilation](../playbook-compiler/README.md#submission-and-frozen-revisions), returning committed, compilation diagnostics and frozen attachment summaries. It accepts targets and allowCompilationFailure; the default requires success. playbook_compile checks drafts only. Neither operation grants file observations. Both tools require the compilation service and are absent from executable sets without it. Model-facing history and restoration remain limited to the bound playbook; manual reference selection may cite other retained revisions.
 
 playbook_simulate compiles a fixed current draft and invokes its declared functions in order on temporary state. It returns original values, diagnostics and before/after states without writing artifacts, revisions or live performance state. It requires the compilation service, honors cancellation and does not grant edit observations. The functions help topic documents closure factories, JSDoc and call semantics.
+
+## Plain-text observations
+
+System and opening reads grant component observations to writer sessions. Writes preserve literal text and use a sequence check against the observed current content. An opening order operation supplies every message ID exactly once; new messages default to `assistant`. Batch failure saves nothing. An empty opening batch still saves the current list. Story progression remains an explicit orchestration operation; tools cannot change bindings, progress or chapter tags.

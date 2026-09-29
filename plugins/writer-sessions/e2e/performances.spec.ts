@@ -20,7 +20,7 @@ test('frozen opening appears before a model request and survives reload, Fork an
   await page.goto(server.url)
   const project = await call(page, 'papermoon/createProject', { name: 'Performance project' })
   const playbook = await call(page, 'papermoon/createPlaybook', { projectId: project.id, name: 'Frozen opening', defaultLanguage: 'en' })
-  await call(page, 'papermoon/save', { playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"Exact {{literal}} system.",messages:[{name:"Opening",role:"assistant",content:"Assistant fixture text."},{name:"Background",role:"user",content:"Background fixture text."},{role:"user",content:""}]}' }] })
+  await call(page, 'papermoon/save', { playbookId: playbook.id, expectedSequence: 0, operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },{ kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"Exact {{literal}} system.",messages:[{name:"Opening",role:"assistant",content:"Assistant fixture text."},{name:"Background",role:"user",content:"Background fixture text."},{role:"user",content:""}]}' }] })
   const revision = await call(page, 'papermoon/commit', { playbookId: playbook.id, expectedSequence: 1, description: 'First playable revision' })
   expect(revision.committed).toBe(true)
   await page.goto(new URL('/#papermoon/' + playbook.id, server.url).href)
@@ -84,7 +84,7 @@ test('previews functions and inspects committed state through the native tool co
 return function increment(amount) { state.count += amount; return state.count; }
 }
 module.exports={systemPrompt:'Function fixture.',messages:[],state:{initial:{count:0},schema:{type:'object',properties:{count:{type:'number'}},required:['count'],additionalProperties:false}},functions:[factory]};`
-  await call(page, 'papermoon/save', { playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'playbook.js', source }] })
+  await call(page, 'papermoon/save', { playbookId: playbook.id, expectedSequence: 0, operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },{ kind: 'create-file', path: 'playbook.js', source }] })
   const revision = await call(page, 'papermoon/commit', { playbookId: playbook.id, expectedSequence: 1, description: 'Function revision' })
   expect(revision.committed).toBe(true)
   await page.goto(new URL('/#papermoon/' + playbook.id, server.url).href)
@@ -137,13 +137,14 @@ module.exports={systemPrompt:'Function fixture.',messages:[],state:{initial:{cou
 
 
 test('inspects worldlines in the full trajectory without changing execution position', async ({page})=>{
+  const priorRequests = readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(request => !request.purpose).length
   const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)))
   await page.addLocatorHandler(page.getByRole('button',{name:'Continue',exact:true}),async()=>{await page.getByRole('button',{name:'Continue',exact:true}).click()})
   await page.goto(server.url)
   const project=await call(page,'papermoon/createProject',{name:'Inspection project'})
   const playbook=await call(page,'papermoon/createPlaybook',{projectId:project.id,name:'Inspection playbook',defaultLanguage:'en'})
   const source=`module.exports={systemPrompt:'Context head',messages:[{role:'assistant',name:'Opening',content:'Frozen opening'}],composeContext({opening,input,history}){return {systemPrompt:opening.systemPrompt,messages:[...opening.messages.map(m=>({ref:m.id})),...history.slice().reverse().flatMap(n=>n.blocks.map(b=>({ref:b.id}))),{ref:input.id},{name:'Tail',role:'assistant',content:'Context tail '+history.length}]}}};`
-  await call(page,'papermoon/save',{playbookId:playbook.id,expectedSequence:0,operations:[{kind:'create-file',path:'playbook.js',source}]})
+  await call(page,'papermoon/save',{playbookId:playbook.id,expectedSequence:0,operations:[ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },{kind:'create-file',path:'playbook.js',source}]})
   await call(page,'papermoon/commit',{playbookId:playbook.id,expectedSequence:1,description:'Inspection'})
   await page.goto(new URL('/#papermoon/'+playbook.id,server.url).href)
   await page.getByRole('button',{name:'Start performance',exact:true}).click()
@@ -206,7 +207,7 @@ test('inspects worldlines in the full trajectory without changing execution posi
   await expectInputBeforeThought(4, 'Second input')
   const recordedRequests = () => readFileSync(join(server.directory, 'data/requests.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(request => !request.purpose)
   // A visible reroll turn precedes dispatch. Compare only after its request reaches the adapter.
-  await expect.poll(() => recordedRequests().length).toBe(4)
+  await expect.poll(() => recordedRequests().length).toBe(priorRequests + 4)
   const recorded = recordedRequests()
   const sameInput = recorded.filter(request => request.messages.some((message: { source: { kind: string }; content: { text?: string }[] }) => message.source.kind === 'user' && message.content.some(part => part.text === 'Second input')))
   const fresh = sameInput.at(-1).messages.filter((message: { source: { kind: string }; content: { text?: string }[] }) => message.source.kind === 'user' && message.content.some(part => part.text === 'Second input')).at(-1)

@@ -28,7 +28,8 @@ export interface StateDeclaration { readonly initial: JsonObject; readonly schem
 export interface ProgramBundle { readonly files: Record<string, string>; readonly texts: Record<string, string | null> }
 export interface Artifact {
   readonly format: 'papermoon.playbook'
-  readonly compiler: 'papermoon.playbook.commonjs'
+  readonly compiler: 'papermoon.playbook.commonjs' | 'papermoon.playbook.plain'
+  readonly sourceContext: OpeningContext
   readonly id: string
   readonly sourceHash: string
   readonly options: ResolvedOptions

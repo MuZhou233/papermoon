@@ -20,7 +20,7 @@ function factory({state}) {
 }
 module.exports={systemPrompt:'',messages:[],state:{initial:{value:0},schema:{type:'object',properties:{value:{type:'number'}},required:['value'],additionalProperties:false}},functions:[factory]};`
 export function content(program = source) {
-  return applyOperations(createContent({ defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source: program }])
+  return applyOperations(createContent({ systemMode: 'script', openingMode: 'script', defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source: program }])
 }
 const runtimes: PlaybookRuntime[] = []
 afterEach(async () => { await Promise.all(runtimes.splice(0).map(runtime => runtime.close())) })

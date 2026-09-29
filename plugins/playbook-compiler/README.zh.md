@@ -21,7 +21,7 @@ runtime 入口校验冻结产物，每次返回独立的起始上下文，不加
 
 ## 执行与限制
 
-每次编译或调用都新建 Worker、VM Context 和模块缓存。Acorn 检查受限 JavaScript，TypeScript 在编译时解析显式 JSDoc，vm.Script 执行严格模式的 CommonJS 包装。调用时核对工厂、函数与冻结声明的身份。只有显式状态跨调用保留，模块全局变量和闭包局部变量每次重新创建。
+每次脚本编译或调用都新建 Worker、VM Context 和模块缓存。Acorn 检查受限 JavaScript，TypeScript 在编译时解析显式 JSDoc，vm.Script 执行严格模式的 CommonJS 包装。调用时核对工厂、函数与冻结声明的身份。只有显式状态跨调用保留，模块全局变量和闭包局部变量每次重新创建。
 
 工厂接收受保护的状态引用。构造工厂时，属性写入、嵌套写入、删除和属性定义都会失败。实际函数执行时才允许修改候选状态。JSON Schema 由 Ajv 校验，不转换类型、不填充默认值、不删除属性。参数、返回值或候选状态无效时，持久化前即失败。状态 Schema 使用异步校验、不支持的关键字或无法解析的引用时，编译失败。
 
@@ -62,3 +62,9 @@ RevisionArtifacts 读取冻结报告和附件，不调用编译器。已提交�
 simulate 固定草稿，编译但不保存产物，然后在临时状态中依次调用函数。每步包含参数、调用前状态，以及原始返回值和结果状态，或错误诊断。Playbook 错误保留调用前状态，后续调用继续；取消或服务异常则停止。整次模拟有外层时限和结果总量限制，不保存草稿内容、修订版本或演绎状态。
 
 主库测试使用临时数据和确定性源码。pnpm check:compiler:built 在普通 Node 下验证构建后的 Worker 与独立产物读取。pnpm check:plugins:dsh 验证真实 Cordis 清理和 DSH 原生函数调用。浏览器测试覆盖预览、工具历史、只读状态、刷新和窄屏。检查不调用真实模型，不使用用户数据。[闭包决定](../../.agents/notes/implemented/architecture/2026-09-13-closure-functions.zh.md) 扩展了 [CommonJS 决定](../../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.zh.md)。
+
+## 纯文本与混合准备
+
+纯文本内容直接生成 `papermoon.playbook.plain` 产物，保留系统正文、消息顺序、角色及换行。它使用空函数／状态声明和标准上下文拼装，执行过程无需 Worker。脚本或混合内容使用 `papermoon.playbook.commonjs`；编译先将脚本上下文冻结到 `sourceContext`，再用创作原文替换选为纯文本的部分。脚本函数、状态及自定义拼装延续原有执行边界。
+
+修订编译负责 `opening/` 附件，其他模块可并列冻结各自命名空间中的教学或记录引用。读取方按成员身份选择编译键并校验冻结产物，附件位置不参与身份判断。

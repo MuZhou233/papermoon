@@ -17,7 +17,7 @@ try {
   const repository = root.get('papermoonPlaybookCore'), service = root.get('papermoonPlaybookCompiler')
   assert.ok(service)
   const project = repository.createProject({ name: 'Integration' })
-  const script = repository.createPlaybook({ projectId: project.id, name: 'Opening', defaultLanguage: 'en' })
+  const script = repository.createPlaybook({ systemMode: 'script', openingMode: 'script', projectId: project.id, name: 'Opening', defaultLanguage: 'en' })
   repository.editDraft({ playbookId: script.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"",messages:[]}' }] })
   const saved = await service.compile({ playbookId: script.id, ref: { kind: 'draft', sequence: 1 } })
   assert.equal(saved.ok, true)

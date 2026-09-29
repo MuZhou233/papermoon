@@ -6,7 +6,7 @@
   --pm-muted: var(--dsw-alias-label-tertiary, #727680);
   --pm-border: var(--dsw-alias-border-l3, #e3e3e8);
   --pm-hover: var(--dsw-alias-interactive-bg-hover, #eeeef2);
-  --pm-selection: var(--dsw-alias-brand-primary-alpha, #719ef044);
+  --pm-selection: color-mix(in srgb, var(--dsw-alias-state-business-primary) 25%, transparent);
   --pm-danger: var(--dsw-alias-status-error, #bf3445);
   color: var(--pm-fg);
 }

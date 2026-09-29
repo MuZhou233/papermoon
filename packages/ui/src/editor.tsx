@@ -11,43 +11,16 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import {
   syntaxHighlighting,
-  defaultHighlightStyle,
   bracketMatching,
   indentOnInput,
 } from '@codemirror/language'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
+import { xml } from '@codemirror/lang-xml'
 import { markdown } from '@codemirror/lang-markdown'
 import { MergeView } from '@codemirror/merge'
+import { editorTheme, editorHighlightStyle } from './editor-theme.ts'
 const external = Annotation.define<boolean>()
-const theme = EditorView.theme({
-  '&': {
-    height: '100%',
-    backgroundColor: 'var(--pm-bg)',
-    color: 'var(--pm-fg)',
-    fontSize: '13px',
-  },
-  '.cm-scroller': {
-    overflow: 'auto',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-  },
-  '.cm-content': { padding: '12px 0' },
-  '.cm-gutters': {
-    backgroundColor: 'var(--pm-bg)',
-    color: 'var(--pm-muted)',
-    border: 'none',
-  },
-  '.cm-activeLineGutter': { backgroundColor: 'var(--pm-hover)' },
-  '.cm-cursor': { borderLeftColor: 'var(--pm-fg)' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-    backgroundColor: 'var(--pm-selection)',
-  },
-  '.cm-panels, .cm-tooltip': {
-    backgroundColor: 'var(--pm-surface)',
-    color: 'var(--pm-fg)',
-  },
-  '.cm-searchMatch': { backgroundColor: 'var(--pm-selection)' },
-})
 function language(path: string) {
   return /\.[cm]?[jt]sx?$/.test(path)
     ? javascript({ typescript: /\.tsx?$/.test(path), jsx: path.endsWith('x') })
@@ -59,12 +32,12 @@ function language(path: string) {
 }
 function extensions(path: string, readonly: boolean) {
   return [
-    theme,
+    editorTheme,
     lineNumbers(),
     highlightActiveLineGutter(),
     history(),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-    syntaxHighlighting(defaultHighlightStyle),
+    syntaxHighlighting(editorHighlightStyle),
     bracketMatching(),
     indentOnInput(),
     highlightSelectionMatches(),
@@ -82,12 +55,14 @@ export function CodeEditor({
   onChange,
   zh = false,
   target,
+  highlight,
 }: {
   value: string
   path: string
   readOnly?: boolean
   onChange?: (text: string) => void
   zh?: boolean
+  highlight?: 'markdown' | 'xml'
   target?: { line?: number; column?: number; nonce: number }
 }) {
   const host = useRef<HTMLDivElement>(null),
@@ -104,6 +79,7 @@ export function CodeEditor({
     editor.focus()
   }, [target])
   const phrases = useRef(new Compartment())
+  const syntax = useRef(new Compartment())
   useLayoutEffect(() => {
     // A fixed separator preserves CRLF and mixed raw source on a no-edit round trip.
     const separator =
@@ -116,6 +92,7 @@ export function CodeEditor({
         doc: value,
         extensions: [
           ...extensions(path, readOnly),
+          syntax.current.of(highlight === 'xml' ? xml() : highlight === 'markdown' ? markdown() : []),
           EditorState.lineSeparator.of(separator),
           phrases.current.of(EditorState.phrases.of({})),
           EditorView.updateListener.of((update) => {
@@ -154,6 +131,9 @@ export function CodeEditor({
         annotations: [external.of(true)],
       })
   }, [value])
+  useEffect(() => {
+    view.current?.dispatch({ effects: syntax.current.reconfigure(highlight === 'xml' ? xml() : highlight === 'markdown' ? markdown() : []) })
+  }, [highlight])
   useEffect(() => {
     view.current?.dispatch({
       effects: phrases.current.reconfigure(

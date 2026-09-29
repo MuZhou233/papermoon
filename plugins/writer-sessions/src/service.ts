@@ -8,7 +8,7 @@ import { CONFIG_KEY, PRESET, WriterSessionError, writerState, initialContext, ty
 import type { Agent, Host, Services, Dispose, InputMessage } from './host.ts'
 export const configureSchema = z.strictObject({ sessionId: z.string().min(1), writerId: z.string().min(1), writerSequence: z.number().int().nonnegative() })
 export class WriterSessions {
-  private readonly runtimes = new Map<Agent, { playbookId?: string; observations: PlaybookObservations; dispose: Dispose }>()
+  private readonly runtimes = new Map<Agent, { playbookId?: string; signature: string; observations: PlaybookObservations; dispose: Dispose }>()
   constructor(private readonly host: Host, private readonly services: Services, readonly cwd: string) {}
   private target(playbookId: string) {
     try { return this.services.core.getPlaybook(playbookId as PlaybookId) }
@@ -81,7 +81,10 @@ export class WriterSessions {
     const state = writerState(agent.session), playbookId = state.fixed?.playbookId ?? state.preparation?.playbookId
     const existing = this.runtimes.get(agent)
     if (state.mode !== PRESET) { existing?.dispose(); this.runtimes.delete(agent); return }
-    if (existing?.playbookId === playbookId && existing) return
+    let available = true
+    let signature = ''
+    try { if (playbookId) signature = JSON.stringify(this.services.core.access(playbookId as PlaybookId)) } catch (error) { if (error && typeof error === 'object' && 'code' in error && error.code === 'not-found') { available = false; signature = 'deleted' } else throw error }
+    if (existing?.playbookId === playbookId && existing?.signature === signature) return
     existing?.dispose()
     const observations = new PlaybookObservations(), disposers: Dispose[] = []
     let disposed = false
@@ -93,7 +96,7 @@ export class WriterSessions {
         return fixed.writer.systemPrompt
       }))
       disposers.push(agent.ctx.tools.presentAs('native'))
-      if (playbookId) for (const tool of createPlaybookTools(this.services.core, playbookId as PlaybookId, observations, this.services.compiler))
+      if (playbookId && available) for (const tool of createPlaybookTools(this.services.core, playbookId as PlaybookId, observations, this.services.compiler))
         disposers.push(agent.ctx.tools.register({ ...tool, execute: async (...args) => {
           this.target(playbookId)
           if (writerState(agent.session).mode !== PRESET) throw new WriterSessionError('wrong-mode', 'writer mode is required')
@@ -108,10 +111,11 @@ export class WriterSessions {
         const candidates = initialContext(fixed.originSessionId, fixed.writer)
         return { ...decision, initialMessages: [...(decision.initialMessages ?? []), ...candidates] }
       }))
-      this.runtimes.set(agent, { playbookId, observations, dispose })
+      this.runtimes.set(agent, { playbookId, signature, observations, dispose })
       agent.ctx.effect(() => dispose, 'papermoon.writer-runtime')
     } catch (error) { dispose(); throw error }
   }
+  refreshAccess(id: PlaybookId) { for (const [agent, runtime] of this.runtimes) if (runtime.playbookId === id) this.attach(agent) }
   dispose(): void { for (const runtime of this.runtimes.values()) runtime.dispose() }
   private workspaces() { return new PlaybookWorkspaces(this.host, this.services.core, this.cwd) }
   playbooks() { return this.workspaces().playbooks() }

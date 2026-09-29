@@ -25,7 +25,7 @@ DSH runtime data defaults to `.papermoon/dsh` and `.papermoon/agents`. Explicit 
 
 ## Maintain
 
-[Story Mode](plugins/story-mode/README.md) provides [Chapter 0: hello world](docs/story-mode/00/README.md) from the sidebar, with an introduction, model configuration checks, an example, a real conversation and trajectory inspection. It can be disabled in Plugins. Playbooks define backgrounds, openings and interaction mechanisms; performances unfold from them. [Chapter requirements](docs/story-mode/README.md) guide subsequent development.
+[Story Mode](plugins/story-mode/README.md) provides independent Playbook saves for [Fogbound Earthshine](docs/story-mode/fogbound-earthshine/README.md). Its first chapter guides character creation through five sections, with staged editing, writer tools and a right-side guide. The first successful performance reply produces a tagged chapter version for read-only review. Playbooks define backgrounds, openings and interaction mechanisms; performances unfold from them. [Story Mode requirements](docs/story-mode/README.md) guide development.
 
 Plugins and tooling are maintained in this repository; the `dsh/` Git submodule pins the upstream version.
 

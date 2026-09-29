@@ -62,7 +62,13 @@
       "path": "src/PromptTrace.module.css",
       "source": "packages/client/ui-trajectory/src/client/TrajectoryTable.module.css",
       "sha256": "74bd596bc3f5e0a7b27d18fac32c58bf72763cb7a001869820dbb5902dae8692",
-      "adjustments": "Table rows, role colors, selection and detail-pane geometry adapted for static prompt context. No runtime events, tool inspection, metrics or Session state."
+      "adjustments": "Table rows, selection and detail-pane geometry adapted for static prompt context. Role styles are shared through MessageRole.module.css."
+    },
+    {
+      "path": "src/MessageRole.module.css",
+      "source": "packages/client/ui-trajectory/src/client/TrajectoryTable.module.css",
+      "sha256": "74bd596bc3f5e0a7b27d18fac32c58bf72763cb7a001869820dbb5902dae8692",
+      "adjustments": "Role badge geometry and colors extracted from the maintained PromptTrace adaptation and shared with editor controls; user uses the current trajectory table business palette."
     }
   ]
 }

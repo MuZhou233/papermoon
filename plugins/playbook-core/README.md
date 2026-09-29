@@ -16,7 +16,7 @@ Compilation, artifact persistence, session permissions, model tools, approval an
 
 ## Content and metadata
 
-A project contains playbooks. Each playbook has an independent draft and history directory; directory entries reference shared immutable revisions. A draft or revision body contains PlaybookContent: a format identity, content metadata, a program and a text catalog. Programs contain files. Text catalogs contain registered languages, a default language and text entries; each entry has an optional shared usage description and a map of translations.
+A project contains playbooks. Each playbook has an independent draft and history directory; directory entries reference shared immutable revisions. A draft or revision body contains PlaybookContent: a format identity, content metadata, system and opening components, a program and a text catalog. Programs contain files. Text catalogs contain registered languages, a default language and text entries; each entry has an optional shared usage description and a map of translations.
 
 Every entity has JSON object metadata, defaulting to an empty object when created. Content, program, file, catalog, language, entry and translation metadata travel with authored content and freeze in revisions. Project, playbook and draft management metadata remain on their owners. Revision, directory-entry and publication metadata are specified at creation and have no update API. Metadata updates replace the whole object; they do not merge nested values.
 
@@ -51,7 +51,7 @@ PlaybookRepository.editDraft loads one complete snapshot, transforms it in memor
 
 commitRevision requires a description that contains non-whitespace text and preserves its original text. It validates the content structure without compiling or requiring complete translations. The storage transaction copies the complete draft, appends a directory entry, updates the creation base and advances the draft sequence. Independent commits always create distinct revisions. metadata and historyMetadata describe the revision and its directory entry separately; references remain informational.
 
-restoreDraft selects all content, the entire program, the entire catalog, one file or one text entry. Full restoration changes the draft’s base revision. Partial restoration leaves that base unchanged and preserves unrelated content. Restored objects include their metadata. Missing source objects fail instead of deleting the target. Restoring a text entry does not register missing languages; callers must register them explicitly first. Restoration neither removes history nor commits a revision.
+restoreDraft selects all content, the system prompt, opening messages, the entire program, the entire catalog, one file or one text entry. Full restoration changes the draft’s base revision. Partial restoration leaves that base unchanged and preserves unrelated content. Restored objects include their metadata. Missing source objects fail instead of deleting the target. Restoring a text entry does not register missing languages; callers must register them explicitly first. Restoration neither removes history nor commits a revision.
 
 copyPlaybook retains storage’s explicit content, history and publication scopes. It validates the chosen content without compiling it and preserves database-side revision reuse. registerPublication records an existing playbook-directory membership and metadata; it has no compilation or approval prerequisite, and repeated registrations create independent records. Deletion and reference reclamation follow the storage API. Names need not be unique, and creating a project or playbook does not create sessions.
 
@@ -103,3 +103,11 @@ Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm check:docs` and `pnpm chec
 The [core decision](../../.agents/notes/implemented/architecture/2026-09-12-playbook-core.md) records the responsibilities and alternatives. [Development](../../docs/development.md) owns root commands.
 
 The repository passes generic revision attachments to storage and exposes readRevisionAttachment. Attachments stay outside the program/text KV content, restoration and business-content comparison. Their consumer owns interpretation; the core imports no compiler.
+
+## Authoring components and policy
+
+`PlaybookContent.systemPrompt` stores `{ mode, text }`; `opening` stores `{ mode, messages }`, with stable message IDs, `user`/`assistant` roles and ordered literal bodies. Both modes default to `plain`; `script` consumes the program output for that component. `set-system-prompt`, `set-opening-messages` and `set-authoring-mode` preserve inactive content. Codec validation, differences and restoration include these components. Incomplete syntax and empty drafts remain valid stored content.
+
+`access`, `require` and `authorize` resolve operations against registered policies. `view` projects authorized components; full snapshots, object queries, differences, metadata and history also check scope. `$managed` draft metadata contains a policy, immutable binding and module-owned state. `registerPolicy` returns an orchestration repository and a disposer. Its controller updates protected state with CAS; ordinary callers cannot replace it or create protected chapter tags. Missing policy denies protected operations. Subscribers refresh consumer registrations when saves or policies change.
+
+Controlled `commitRevision` accepts `sourceRevisionId`, `tag` and `draftMetadata` to freeze an existing version and update progress atomically while retaining current draft content. The owning plugin supplies its frozen instruction and record attachments. Tag retries return the same commit. Ordinary independent commits keep their existing behavior.

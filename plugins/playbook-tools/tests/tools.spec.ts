@@ -222,7 +222,7 @@ test('catalog includes only available operations and help is callable', async ()
   expect(toolCatalog().map((tool) => tool.name)).toEqual(
     tools.map((tool) => tool.name),
   )
-  expect(toolCatalog()).toHaveLength(16)
+  expect(toolCatalog()).toHaveLength(20)
   expect(
     tools
       .find((tool) => tool.name === 'playbook_program_read')!
@@ -294,4 +294,14 @@ test('missing revision errors locate each reference without changing the draft',
     await expect(call(name, args)).rejects.toMatchObject({ code: 'not-found', message: expect.stringContaining(`${parameter}: "missing"`) })
   }
   expect(repository.readSnapshot({ kind: 'draft', playbookId: playbook.id })).toEqual(before)
+})
+
+test('plain opening tools default roles and omit unavailable compiler help', async () => {
+  const f = fixture()
+  await f.call('playbook_opening_edit', { operations: [{ kind: 'add', id: 'hello', content: '<hello' }] })
+  expect(f.repository.readSnapshot({ kind: 'draft', playbookId: f.playbook.id }).content.opening.messages).toEqual([{ id: 'hello', role: 'assistant', content: '<hello' }])
+  const tools = createPlaybookTools(f.repository, f.playbook.id)
+  const help = tools.find(tool => tool.name === 'playbook_help')!
+  expect(JSON.stringify(help.parameters)).not.toContain('compilation')
+  await expect(help.execute({ topic: 'compilation' }, { signal: new AbortController().signal })).rejects.toThrow(/forbidden/)
 })

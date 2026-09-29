@@ -4,8 +4,9 @@ import type { schemas } from './catalog.ts'
 
 type ProgramOperation = ReturnType<typeof schemas.playbook_program_edit.parse>['operations'][number]
 type TextOperation = ReturnType<typeof schemas.playbook_text_edit.parse>['operations'][number]
-export type DraftToolOperation = ProgramOperation | TextOperation
+export type DraftToolOperation = ProgramOperation | TextOperation | Extract<import('@papermoon/playbook-core').ContentOperation, { kind: 'set-system-prompt' | 'set-opening-messages' }>
 type Target =
+  | { kind: 'systemPrompt' | 'opening' }
   | { kind: 'file'; path: string }
   | { kind: 'text'; key: string }
   | { kind: 'translation'; key: string; language: string }
@@ -25,6 +26,8 @@ function identity(value: unknown): string {
 function key(target: Target): string { return identity(target) }
 function value(content: PlaybookContent, target: Target): unknown {
   switch (target.kind) {
+    case 'systemPrompt': return content.systemPrompt
+    case 'opening': return content.opening
     case 'file': return content.program.files.get(target.path)
     case 'text': return content.texts.entries.get(target.key)
     case 'translation': return content.texts.entries.get(target.key)?.translations.get(target.language)
@@ -65,6 +68,7 @@ export class PlaybookObservations {
     for (const [language, current] of content.texts.languages)
       this.set({ kind: 'language', language }, current)
   }
+  authoring(content: PlaybookContent, part: 'systemPrompt' | 'opening') { this.set({ kind: part }, content[part]) }
   clear(selection?: { kind: 'all' | 'program' | 'catalog' } | { kind: 'file'; path: string } | { kind: 'text'; key: string }): void {
     if (!selection || selection.kind === 'all') { this.observed.clear(); return }
     for (const id of this.observed.keys()) {
@@ -96,6 +100,8 @@ export class PlaybookObservations {
     let clearTexts = false
     for (const op of operations) {
       switch (op.kind) {
+        case 'set-system-prompt': { const target = { kind: 'systemPrompt' as const }; check(target); mark(target); break }
+        case 'set-opening-messages': { const target = { kind: 'opening' as const }; check(target); mark(target); break }
         case 'create-file': mark({ kind: 'file', path: op.path }); break
         case 'replace-file': case 'replace-text': case 'delete-file': {
           const target = { kind: 'file' as const, path: op.path }; check(target); mark(target); break

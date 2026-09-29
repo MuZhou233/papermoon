@@ -5,7 +5,7 @@ import type { Artifact } from '@papermoon/playbook-compiler/types'
 import type { SessionLog } from '../../playbook-workspaces/src/host.ts'
 import { PRESET, CONFIG_KEY, PREPARATION_KEY, PRODUCER } from './constants.ts'
 const identity = z.string().min(1)
-const frozenSchema = z.strictObject({ originSessionId: identity, playbookId: identity, revisionId: identity, ordinal: z.number().int().positive(), playbookName: z.string(), projectName: z.string(), description: z.string(), attachmentKey: identity, artifact: z.unknown(), checksum: z.string().regex(/^[a-f0-9]{64}$/) })
+const frozenSchema = z.strictObject({ originSessionId: identity, managed: z.boolean(), playbookId: identity, revisionId: identity, ordinal: z.number().int().positive(), playbookName: z.string(), projectName: z.string(), description: z.string(), attachmentKey: identity, artifact: z.unknown(), checksum: z.string().regex(/^[a-f0-9]{64}$/) })
 export interface FrozenPerformance extends Omit<z.infer<typeof frozenSchema>, 'artifact'> { artifact: Artifact }
 export function validateFrozen(value: unknown): FrozenPerformance {
   const result = frozenSchema.parse(value), { checksum, ...payload } = result

@@ -12,7 +12,8 @@
     "plugins/conversation.patch",
     "plugins/trajectory.patch",
     "plugins/token-meter.patch",
-    "plugins/settings.patch"
+    "plugins/settings.patch",
+    "plugins/sidebar-right.patch"
   ],
   "checks": [
     {
@@ -54,7 +55,9 @@
         "packages/llm/llm/tests/content.spec.ts",
         "packages/client/ui-settings-general/tests",
         "packages/client/ui-conversation/tests/skeleton.client.spec.tsx",
-        "packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx"
+        "packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx",
+        "packages/client/ui-sidebar-right/tests",
+        "packages/test-support/client-runtime/tests/assembly-bundle-roster.client.spec.ts"
       ]
     },
     {

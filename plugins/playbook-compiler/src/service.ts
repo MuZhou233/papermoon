@@ -39,6 +39,7 @@ export class CompilationService {
   }
   private options(options: Pick<CompileOptions, 'entry' | 'language'>): CompileOptions { return { ...this.defaults, ...options } }
   compile(source: CompilationSource, options: Pick<CompileOptions, 'entry' | 'language'> = {}, signal?: AbortSignal): Promise<CompilationReceipt> {
+    this.repository.require(source.playbookId, 'compile')
     const snapshot = this.snapshot(source), controller = new AbortController()
     const abort = () => controller.abort()
     signal?.addEventListener('abort', abort, { once: true })
@@ -57,6 +58,7 @@ export class CompilationService {
   }
   /** Compile a fixed draft before one atomic revision commit; no prior artifact skips this evaluation. */
   submit(input: SubmissionInput, signal?: AbortSignal): Promise<SubmissionResult> {
+    this.repository.require(input.playbookId, 'commit')
     const snapshot = this.snapshot({ playbookId: input.playbookId, ref: { kind: 'draft', sequence: input.expectedSequence } })
     if (!input.description.trim()) throw new ArtifactError('invalid-input', 'revision description must not be blank')
     if (input.references) for (const id of input.references) this.repository.getRevision(id)
@@ -103,6 +105,7 @@ export class CompilationService {
   }
   /** Simulate one fixed draft using disposable state; no artifact file or revision is written. */
   simulate(source: CompilationSource, calls: readonly { name: string; args: JsonObject }[], options: Pick<CompileOptions, 'entry' | 'language'> = {}, signal?: AbortSignal) {
+    this.repository.require(source.playbookId, 'compile')
     const snapshot = this.snapshot(source), resolved = resolveOptions(snapshot.content, this.options(options))
     if (Buffer.byteLength(canonical(calls)) > resolved.limits.inputBytes) throw new ArtifactError('input-limit', 'simulation calls exceed inputBytes')
     const controller = new AbortController(), abort = () => controller.abort()
@@ -132,6 +135,7 @@ export class CompilationService {
     return work
   }
   async find(source: CompilationSource, options: Pick<CompileOptions, 'entry' | 'language'> = {}): Promise<CompilationReceipt | null> {
+    this.repository.require(source.playbookId, 'compile')
     const snapshot = this.snapshot(source)
     let input: ReturnType<typeof prepare>
     try { input = prepare(snapshot.content, this.options(options)) }

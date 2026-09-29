@@ -9,7 +9,7 @@ afterEach(async () => { await Promise.all(runtimes.splice(0).map(r => r.close())
 const input: CompositionInput = { opening: {systemPrompt:'Frozen', messages:[{id:'opening',role:'assistant'}]}, history:[{id:'old',outcome:'completed',blocks:[{id:'u1',role:'user'},{id:'a1',role:'assistant'}]},{id:'new',outcome:'error',blocks:[{id:'u2',role:'user'}]}], input:{id:'current',content:[{type:'text',text:'  {{literal}}\n'}]},state:{} }
 async function setup(body?: string) {
   const source = `module.exports={systemPrompt:'Frozen',messages:[{role:'assistant',content:'opening body'}]${body === undefined ? '' : ',composeContext:'+body}};`
-  const content = applyOperations(createContent({defaultLanguage:'en'}),[{kind:'create-file',path:'playbook.js',source}])
+  const content = applyOperations(createContent({ systemMode: 'script', openingMode: 'script',defaultLanguage:'en'}),[{kind:'create-file',path:'playbook.js',source}])
   const compiled = await compile(content)
   if (!compiled.ok) throw new Error(JSON.stringify(compiled))
   const runtime = new PlaybookRuntime(); runtimes.push(runtime)

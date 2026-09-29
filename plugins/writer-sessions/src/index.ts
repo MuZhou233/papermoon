@@ -21,6 +21,7 @@ export async function apply(ctx: Host, config: Config): Promise<void> {
   const service = new WriterSessions(ctx, { core, writers, compiler: ctx.get('papermoonPlaybookCompiler') as CompilationService }, config.cwd)
   ctx.effect(function* () {
     yield () => service.dispose()
+    yield core.subscribe(id => service.refreshAccess(id))
     yield ctx.provide('papermoonWriterSessions', service)
     const workspaces = ctx.get('papermoonPlaybookWorkspaces') as PlaybookWorkspaces
     yield workspaces.register(PRESET, session => { const state = writerState(session); return state.mode === PRESET ? state.fixed?.playbookId ?? state.preparation?.playbookId : undefined })

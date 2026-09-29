@@ -1,4 +1,5 @@
 /** Lossless JSON transport for business snapshots; no storage KV keys cross the interface. */
+import { capabilities, type Capability } from '@papermoon/playbook-core'
 import type {
   PlaybookContent,
   PlaybookSnapshot,
@@ -8,6 +9,8 @@ import type {
   Translation,
 } from '@papermoon/playbook-core'
 export interface ContentDTO {
+  systemPrompt: PlaybookContent['systemPrompt']
+  opening: PlaybookContent['opening']
   format: PlaybookContent['format']
   metadata: PlaybookContent['metadata']
   program: { metadata: PlaybookContent['metadata']; files: ProgramFile[] }
@@ -20,13 +23,14 @@ export interface ContentDTO {
     })[]
   }
 }
-export type SnapshotDTO =
+export type SnapshotDTO = { capabilities: readonly Capability[] } & (
   | (Omit<Extract<PlaybookSnapshot, { kind: 'draft' }>, 'content'> & {
       content: ContentDTO
     })
   | (Omit<Extract<PlaybookSnapshot, { kind: 'revision' }>, 'content'> & {
       content: ContentDTO
     })
+)
 export function toDTO(content: PlaybookContent): ContentDTO {
   return {
     ...content,
@@ -60,8 +64,8 @@ export function fromDTO(content: ContentDTO): PlaybookContent {
     },
   }
 }
-export function snapshotDTO(snapshot: PlaybookSnapshot): SnapshotDTO {
-  return { ...snapshot, content: toDTO(snapshot.content) }
+export function snapshotDTO(snapshot: PlaybookSnapshot, allowed: readonly Capability[] = capabilities): SnapshotDTO {
+  return { ...snapshot, content: toDTO(snapshot.content), capabilities: allowed }
 }
 
 export function recordDTO(

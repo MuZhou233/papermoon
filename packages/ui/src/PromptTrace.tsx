@@ -1,17 +1,21 @@
 import { useState, type KeyboardEvent } from 'react'
 import css from './PromptTrace.module.css'
+import { MessageRole } from './MessageRole.tsx'
 
 export interface PromptMessage {
   id: string
   role: 'system' | 'user' | 'assistant'
+  /** Caller-owned label for teaching before technical role names are introduced. */
+  roleLabel?: string
   name?: string
   content: string
 }
 
 /** Static initial-context rows with trajectory-style selection and literal content inspection. */
-export function PromptTrace({ messages, label, labels }: {
+export function PromptTrace({ messages, label, labels, compact = false }: {
   messages: readonly PromptMessage[]
   label: string
+  compact?: boolean
   labels: { number: string; role: string; content: string }
 }) {
   const [selectedId, setSelectedId] = useState(messages[0]?.id)
@@ -29,7 +33,7 @@ export function PromptTrace({ messages, label, labels }: {
     }
   }
   return (
-    <section className={css.root} aria-label={label}>
+    <section className={css.root} aria-label={label} data-prompt-trace data-compact={compact || undefined}>
       <div className={css.split}>
         <div className={css.tablePane}>
           <table className={css.table} aria-label={label}>
@@ -50,7 +54,7 @@ export function PromptTrace({ messages, label, labels }: {
                   onKeyDown={(event) => selectByKey(event, index)}
                 >
                   <td className={css.number}>{index + 1}</td>
-                  <td><span className={`${css.role} ${css[message.role]}`} data-prompt-role>{message.role}</span></td>
+                  <td><span data-prompt-role><MessageRole role={message.role}>{message.roleLabel ?? message.role}</MessageRole></span></td>
                   <td title={message.name}>
                     <span className={css.preview}>
                       {message.name && <span className={css.name} data-prompt-name>{message.name}</span>}
@@ -64,7 +68,7 @@ export function PromptTrace({ messages, label, labels }: {
         </div>
         {selected && <section className={css.details} aria-label={labels.content}>
           <header className={css.detailsHeader}>
-            <span className={`${css.role} ${css[selected.role]}`}>{selected.role}</span>
+            <MessageRole role={selected.role}>{selected.roleLabel ?? selected.role}</MessageRole>
             <span className={css.detailsTitle}>{selected.name}</span>
           </header>
           <pre className={css.content} data-prompt-content>{selected.content}</pre>

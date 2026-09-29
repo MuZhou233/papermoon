@@ -2,6 +2,8 @@
 
 English | [中文](README.zh.md)
 
+Writer tools follow the [shared capability scope](../../docs/playbook-authoring.md#capability-modules-and-writers) of their bound Playbook. Core changes refresh existing registrations. Resume, Fork, model preparation and execution resolve current authorization; a frozen writer prompt preserves its content while permissions follow the current stage. A missing target or policy leaves protected tools unavailable.
+
 ## Use
 
 Choose writer mode, a playbook workspace and a writer definition. Model and reasoning controls follow DSH settings. The first durably accepted input freezes the playbook, mode and complete writer snapshot, including when its model call fails or is canceled. Editing or deleting that definition does not change the accepted conversation. The frozen writer selector appears in the conversation header. Playbook workspace labels show only the playbook name; the target picker also shows the project name to distinguish playbooks with the same name.

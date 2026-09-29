@@ -20,11 +20,7 @@ The requirements also own exact product wording and translations. Describing a h
 
 The Story Mode plugin owns chapter definitions, progress orchestration, dedicated UI, guidance and preset content including Playbooks. General mechanisms remain in other packages so ordinary use benefits from chapter-driven development. This decision establishes naming and requirement records. The [layering and implementation decision](2026-09-25-story-mode-layers.md) records the subsequent runtime boundary.
 
-[Chapter 0: hello world](../../../../docs/story-mode/00/README.md) records the agreed experience requirements. The former DeepSeek API Key title placeholder first became a model-configuration subsection. Its requirements now describe a [Story Mode introduction](../../../../docs/story-mode/00/01-introduction.md) in the main content area, with operational guidance in the sidebar. Requiring a visit when a usable configuration already exists adds no preparation value, so the requirements gate advancement on any configured model, without changing the user’s selection or making a test request. The shared requirements remain in the directory entry document.
-
-The chapter introduces trajectory inspection with a prepared example before applying it to a real exercise, so users can learn the same interaction before making a model request. Story Mode supplies the example and guidance; general trajectory reading and display remain in other packages. The example locks its input, and both conversations share a minimal system prompt so the user can compare their request contexts. The exercise leaves model choice to the user. Its earlier effort constraint is superseded by the [effort-guidance decision](../simplification/2026-09-25-story-mode-effort-guidance.md); the chapter documents own the exact prompt and interaction rules.
-
-The chapter requirements separate learning progress from continued conversation. The first successful reply establishes the trajectory to inspect, while later messages remain available through the native conversation experience, including after chapter completion. Keeping that target stable lets users continue exploring without losing progress when a later request fails.
+Model preparation checks usable configuration and the user's selection; visiting settings has no independent learning value when a valid choice already exists. Native conversation and trajectory mechanisms remain reusable extension responsibilities. The [effort decision](../simplification/2026-09-25-story-mode-effort-guidance.md) preserves user choice. A durable first qualifying reply keeps completion stable during later conversation and failures.
 
 ## Alternatives considered
 
@@ -38,4 +34,4 @@ Accepting implementation text as the requirement would preserve unreviewed wordi
 
 ## Consequences
 
-Consumers and authored programs use the new names together. Existing data cannot be continued through the new interfaces and is never rewritten automatically. Bilingual documents, examples and checks follow the rename; no chapter-document exemption is added. Later chapters may change architecture while retaining the intended experience of earlier implemented chapters.
+The [storyline save decision](2026-09-28-storyline-playbook-saves.md) preserves naming and text authority. The [first-character decision](2026-09-29-plaintext-playbook-authoring.md) implements the five-section replacement; retired chapter code, configuration and tests have been removed under the current-format policy.

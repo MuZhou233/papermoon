@@ -10,6 +10,8 @@ DSH provides the general agent runtime and application infrastructure. PaperMoon
 
 Playbook names reusable authored backgrounds, openings and interaction mechanisms; Performance records an interaction. Story names the chapter-based [Story Mode](../plugins/story-mode/README.md). The [chapter documents](story-mode/README.md) own product requirements, while the [naming decision](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.md) preserves the terminology and format rationale.
 
+Story saves bind each Playbook to one storyline and retain progress in its protected draft metadata. Tagged chapter versions freeze performed content, teaching and bounded record references. The [save decision](../.agents/notes/implemented/architecture/2026-09-28-storyline-playbook-saves.md) records the rationale; [requirements](story-mode/design.md) own product behavior.
+
 PaperMoon has three layers. The platform provides stable foundations and adapts DSH into PaperMoon; every patch belongs to it. Extensions split reusable features into plugins, including Playbooks, writers, performances, [text conversations](../plugins/text-conversations/README.md) and [anchored guidance](../plugins/ui-guidance/README.md). Story Mode is a switchable plugin layer for chapter content and features used only in that mode. Dependencies point downward: shared functionality never belongs in Story Mode. These are responsibility boundaries, not a requirement to move directories. The [implementation decision](../.agents/notes/implemented/architecture/2026-09-25-story-mode-layers.md) records the extension choices.
 
 The main repository maintains plugins, tooling, documentation, dependencies and CI. The Gitlink at `dsh/` pins an official DSH commit; the submodule is not a package in the main workspace. Changes applied to DSH are stored as patches and retain its code and runtime constraints within PaperMoon's [patch maintenance scope](../patches/README.md). The tools that manage those patches follow main-repository standards. Validate each part with evidence appropriate to its effects.
@@ -37,6 +39,8 @@ Main checks read main-owned files and fixtures, excluding the submodule, depende
 ## Manual authoring
 
 The [editor plugin](../plugins/playbook-editor/README.md) owns user-facing operations and pages. The [UI library](../packages/ui/README.md) maintains attributed component copies and editor controls, sharing only DSH theme and host interfaces. The [interface decision](../.agents/notes/implemented/architecture/2026-09-12-manual-playbook-editor.md) records the integration and local-buffer design.
+
+The [authoring design](playbook-authoring.md) gives system prompts and openings independent plain-text or script modes. Core capability resolution, authorization and result projection serve editors, writers, history and performance. Story Mode registers stage policy; DSH hosts right-side tools for both pages and sessions.
 
 ## Writer definitions and tools
 

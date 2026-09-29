@@ -2,7 +2,7 @@
 import { encodeJson } from '@papermoon/playbook-storage/value'
 import type { Content, JsonObject, JsonValue } from '@papermoon/playbook-storage'
 import { CONTENT_FORMAT } from './model.ts'
-import type { ContentRecord, ContentSettings, Language, ProgramFile, PlaybookContent, TextEntry, Translation } from './model.ts'
+import type { ContentRecord, ContentSettings, SystemPrompt, Opening, Language, ProgramFile, PlaybookContent, TextEntry, Translation } from './model.ts'
 import { fail, PlaybookError } from './error.ts'
 
 export function identifier(value: string, location: string): void {
@@ -44,6 +44,22 @@ function storedMetadata(value: JsonValue | undefined, location: string): JsonObj
 /** Parse one record for targeted reads and SQL-filtered comparison; relations are checked by full decoding. */
 export function decodeRecord(recordKey: string, raw: JsonValue): ContentRecord {
   const value = jsonValue(raw, recordKey)
+  if (recordKey === 'systemPrompt' || recordKey === 'opening') {
+    const body = object(value, recordKey, recordKey === 'systemPrompt' ? ['mode', 'text'] : ['mode', 'messages'])
+    if (body.mode !== 'plain' && body.mode !== 'script') fail('invalid-content', recordKey, 'unknown authoring mode')
+    if (recordKey === 'systemPrompt') return { kind: 'systemPrompt', value: { mode: body.mode, text: string(body.text, recordKey) } }
+    if (!Array.isArray(body.messages)) fail('invalid-content', recordKey, 'messages must be an ordered list')
+    const ids = new Set<string>()
+    const messages = body.messages.map(raw => {
+      const item = object(raw, recordKey, ['id', 'role', 'content'])
+      const id = string(item.id, recordKey); identifier(id, recordKey)
+      if (ids.has(id)) fail('invalid-content', recordKey, 'message identities must be unique')
+      ids.add(id)
+      if (item.role !== 'user' && item.role !== 'assistant') fail('invalid-content', recordKey, 'unsupported message role')
+      return { id, role: item.role as 'user' | 'assistant', content: string(item.content, recordKey) }
+    })
+    return { kind: 'opening', value: { mode: body.mode, messages } }
+  }
   if (recordKey === 'content') {
     const header = object(value, recordKey, ['format', 'metadata', 'programMetadata', 'catalogMetadata', 'defaultLanguage'])
     if (header.format !== CONTENT_FORMAT) fail('invalid-content', recordKey, 'unexpected content format')
@@ -84,17 +100,20 @@ export function decodeRecord(recordKey: string, raw: JsonValue): ContentRecord {
 /** Decodes all records and cross-record relationships without adding missing defaults. */
 export function decodeContent(records: Content): PlaybookContent {
   try {
-    let header: ContentSettings | undefined
+    let header: ContentSettings | undefined, systemPrompt: SystemPrompt | undefined, opening: Opening | undefined
     const files = new Map<string, ProgramFile>(), languages = new Map<string, Language>(), entries = new Map<string, TextEntry>()
     for (const [recordKey, raw] of records) {
       const record = decodeRecord(recordKey, raw)
       switch (record.kind) {
+        case 'systemPrompt': systemPrompt = record.value; break
+        case 'opening': opening = record.value; break
         case 'settings': header = record.value; break
         case 'file': files.set(record.value.path, record.value); break
         case 'language': languages.set(record.value.id, record.value); break
         case 'text': entries.set(record.value.key, record.value); break
       }
     }
+    if (!systemPrompt || !opening) fail('invalid-content', 'authoring', 'both authoring components are required')
     if (!header) fail('invalid-content', 'content', 'content header is required')
     for (const path of files.keys()) {
       const parts = path.split('/')
@@ -104,7 +123,7 @@ export function decodeContent(records: Content): PlaybookContent {
     for (const entry of entries.values()) for (const id of entry.translations.keys()) {
       if (!languages.has(id)) fail('invalid-content', `text/${entry.key}/${id}`, 'translation language is not registered')
     }
-    return { format: CONTENT_FORMAT, metadata: header.metadata,
+    return { format: CONTENT_FORMAT, metadata: header.metadata, systemPrompt, opening,
       program: { files, metadata: header.programMetadata },
       texts: { defaultLanguage: header.defaultLanguage, languages, entries, metadata: header.catalogMetadata } }
   } catch (error) {
@@ -116,6 +135,8 @@ export function decodeContent(records: Content): PlaybookContent {
 /** Encodes detached JSON values and verifies the resulting complete business structure. */
 export function encodeContent(content: PlaybookContent): Content {
   const records = new Map<string, JsonValue>()
+  records.set('systemPrompt', jsonValue(content.systemPrompt, 'systemPrompt'))
+  records.set('opening', jsonValue(content.opening, 'opening'))
   records.set('content', jsonValue({ format: content.format, metadata: content.metadata,
     programMetadata: content.program.metadata, catalogMetadata: content.texts.metadata, defaultLanguage: content.texts.defaultLanguage }, 'content'))
   for (const [path, file] of content.program.files) {
@@ -135,9 +156,10 @@ export function encodeContent(content: PlaybookContent): Content {
   return records
 }
 
-export function createContent(input: { defaultLanguage: string; metadata?: JsonObject }): PlaybookContent {
+export function createContent(input: { defaultLanguage: string; metadata?: JsonObject; systemMode?: 'plain' | 'script'; openingMode?: 'plain' | 'script' }): PlaybookContent {
   identifier(input.defaultLanguage, 'defaultLanguage')
   return decodeContent(encodeContent({ format: CONTENT_FORMAT, metadata: input.metadata ?? {},
+    systemPrompt: { mode: input.systemMode ?? 'plain', text: '' }, opening: { mode: input.openingMode ?? 'plain', messages: [] },
     program: { metadata: {}, files: new Map() },
     texts: { metadata: {}, defaultLanguage: input.defaultLanguage,
       languages: new Map([[input.defaultLanguage, { id: input.defaultLanguage, metadata: {} }]]), entries: new Map() } }))

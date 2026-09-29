@@ -1,0 +1,597 @@
+diff --git a/packages/client/ui-sidebar-right/README.i18n.yaml b/packages/client/ui-sidebar-right/README.i18n.yaml
+index a101c8c61b..305b878e7f 100644
+--- a/packages/client/ui-sidebar-right/README.i18n.yaml
++++ b/packages/client/ui-sidebar-right/README.i18n.yaml
+@@ -3,14 +3,14 @@
+ # After editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-sidebar-right/README.md
+ /:
+-  en: 0960aa113255a3a8
+-  zh: 48e5173172a55a91
++  en: 39172356d432bf14
++  zh: d3bf8e590b9ced59
+ /deepseek-ai-dsh-client-ui-sidebar-right:
+   en: 0b446bc3fbd57fad
+   zh: e0b6491a6c43bee1
+ /deepseek-ai-dsh-client-ui-sidebar-right/summary:
+-  en: 8aafe5400014fdac
+-  zh: b2d7d0e8dc4f1291
++  en: 24e8ec74706dd8e6
++  zh: d5f831ae20b95be9
+ /deepseek-ai-dsh-client-ui-sidebar-right/table-of-contents:
+   en: ff17f27d8c5557d1
+   zh: 6efe4b3d4902a441
+@@ -23,12 +23,15 @@
+ /deepseek-ai-dsh-client-ui-sidebar-right/the-expand-button:
+   en: 28b0bc3d4050b0e0
+   zh: 733b44ad9309f49a
++/deepseek-ai-dsh-client-ui-sidebar-right/page-contexts:
++  en: d43cce16fde10488
++  zh: c9cbd4519cc198ab
+ /deepseek-ai-dsh-client-ui-sidebar-right/state:
+   en: 2b15cdf5f1383291
+   zh: 57018036d77363ba
+ /deepseek-ai-dsh-client-ui-sidebar-right/extension-seats:
+-  en: ef2af36136c4a919
+-  zh: 48d992e2c923a130
++  en: f524396608c26e0b
++  zh: 425ab9a79a4ccc3f
+ /deepseek-ai-dsh-client-ui-sidebar-right/ctx-sidebarright:
+   en: 8cffef22360aa177
+   zh: a09eef5bb7fdbd61
+diff --git a/packages/client/ui-sidebar-right/README.md b/packages/client/ui-sidebar-right/README.md
+index 846557709f..7328e5bb4a 100644
+--- a/packages/client/ui-sidebar-right/README.md
++++ b/packages/client/ui-sidebar-right/README.md
+@@ -1,5 +1,5 @@
+ ---
+-description: "The right Sidebar of the dsh web client: one docking surface per session, two presentations, the navigation controller ctx.sidebarRight, the tab-type registry ctx.sidebarRightTabs, and the Tab domain."
++description: "The right Sidebar of the dsh web client: docking surfaces for sessions and page contexts, two presentations, the navigation controller ctx.sidebarRight, the tab-type registry ctx.sidebarRightTabs, and the Tab domain."
+ kind: "package-reference"
+ ---
+ 
+@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
+ 
+ ## Summary
+ 
+-The right Sidebar: where the docking kit meets this product. It holds one docking surface per session, draws it as one edge-anchored panel in the frame's right column in either of two presentations, puts the expand button in the conversation header, and owns the navigation controller (`ctx.sidebarRight`), the tab-type registry (`ctx.sidebarRightTabs`), and the Tab domain that tells each open tab how it was navigated to and how long it lives.
++The right Sidebar: where the docking kit meets this product. It holds docking surfaces for sessions and page contexts, draws each surface as one edge-anchored panel in the frame's right column in either of two presentations, puts the expand button in the conversation header, and owns the navigation controller (`ctx.sidebarRight`), the tab-type registry (`ctx.sidebarRightTabs`), and the Tab domain that tells each open tab how it was navigated to and how long it lives.
+ 
+ ## Table of Contents
+ 
+@@ -61,6 +61,12 @@ The panel takes the conversation's ground colour and content font sizes rather t
+ The root-scoped `rightbar` entry renders the selected Session and background Sessions with initialized `keepMounted` bodies through separate `rightbar.session` subtrees. Each View owns its Session reference. Only the foreground Conversation reports a frame track and binds public navigation; other subtrees stay hidden without deleting tab state.
+ 
+ <a id="state"></a>
++## Page contexts
++
++`ctx.sidebarRightPages.bind(panelId, contextId)` associates a root page with a retained docking surface; `null` releases its visible binding. A page has its own resource identity and needs no Session. `ensure(contextId, kind)` adds a registered tab while preserving expansion and selection; `open(contextId, kind)` explicitly selects and opens it. `surface(contextId)` exposes its expansion control. Tab kinds, selection and expansion survive reload as local presentation preferences.
++
++Page bodies and titles register under `sidebar.right.page.tab` and `sidebar.right.page.tab.title`, keyed by tab kind, with `contextId`, `tab` and body `visible` props. `sidebar.right.page.notice` and the session `sidebar.right.notice` list slot put update controls immediately before expansion. Session consumers use `sidebarRight.ensureTabIn(sessionId, kind)` for the same passive registration behavior. Page and Session surfaces share dock rendering, theme, width and fullscreen layout; page switching preserves each context's tools.
++
+ ## State
+ 
+ One `SurfaceState` per session id — the layout, its recorded sequence, and how many ids it has minted — held in a store declared at the registration. Every action follows the same shape: mint the ids the intent needs, ask a kit planner which operations carry it out, record them, then assign the session's whole surface back. No action edits a layout in place, which is what keeps the kit's pure functions the only thing that computes one.
+@@ -85,7 +91,7 @@ A tab type registers in two stages, and the shipped guide type goes through exac
+ 
+ Which type opens a resource follows the editor-resolver convention: the types whose `patterns` match are ranked by `priority` band — `extension` (a type from outside the product, the highest, and the default when none is named), `builtin`, `fallback` (plain viewers anything more specific should beat) — then by the length of the matched pattern, then by registration order; `canOpen` removes a candidate. The bands are string literals so a type in another package needs no runtime import from here. `candidates(address)` returns the ranking, `claim(address, kind?)` the decision; naming a `kind` skips its globs but keeps its `canOpen`.
+ 
+-Two more seats extend what is already there: `sidebar.right.tab.guide` (chain) replaces the guide tab's body without replacing the tab, and `sidebar.right.tab.menu.item` (list) appends content-level actions to a tab's menu after the kit's own layout actions. No seat exists for pane-level actions or for collapsed-state controls yet, because nothing needs one.
++Two more seats extend what is already there: `sidebar.right.tab.guide` (chain) replaces the guide tab's body without replacing the tab, and `sidebar.right.tab.menu.item` (list) appends content-level actions to a tab's menu after the kit's own layout actions. Collapsed-state controls use the notice slots; pane-level actions remain owned by the docking kit.
+ 
+ <a id="ctxsidebarright"></a>
+ ## `ctx.sidebarRight`
+diff --git a/packages/client/ui-sidebar-right/README.zh.md b/packages/client/ui-sidebar-right/README.zh.md
+index 3f0a64c7ee..09ae275018 100644
+--- a/packages/client/ui-sidebar-right/README.zh.md
++++ b/packages/client/ui-sidebar-right/README.zh.md
+@@ -1,5 +1,5 @@
+ ---
+-description: "dsh Web 客户端的右侧 Sidebar：每会话一个停靠面、两种呈现形态、导航控制器 ctx.sidebarRight、tab 类型注册表 ctx.sidebarRightTabs 与 Tab 域。"
++description: "dsh Web 客户端的右侧 Sidebar：会话与页面上下文的独立停靠面、两种呈现形态、导航控制器 ctx.sidebarRight、tab 类型注册表 ctx.sidebarRightTabs 与 Tab 域。"
+ kind: "package-reference"
+ ---
+ 
+@@ -9,7 +9,7 @@ kind: "package-reference"
+ 
+ ## 概述
+ 
+-右侧 Sidebar：停靠套件与本产品相遇的地方。它为每个会话持有一个停靠面，以两种呈现形态之一把它画成贴靠框架右列边缘的一块面板，把展开按钮放进会话 header，并拥有导航控制器（`ctx.sidebarRight`）、tab 类型注册表（`ctx.sidebarRightTabs`），以及告诉每个已开 tab 它是如何被导航到、能活多久的 Tab 域。
++右侧 Sidebar：停靠套件与本产品相遇的地方。它为会话与页面上下文持有独立停靠面，以两种呈现形态之一把它画成贴靠框架右列边缘的一块面板，把展开按钮放进会话 header，并拥有导航控制器（`ctx.sidebarRight`）、tab 类型注册表（`ctx.sidebarRightTabs`），以及告诉每个已开 tab 它是如何被导航到、能活多久的 Tab 域。
+ 
+ ## 目录
+ 
+@@ -61,6 +61,12 @@ kind: "package-reference"
+ root 作用域的 `rightbar` 入口通过独立的 `rightbar.session` 子树渲染选中的 Session，以及拥有已初始化 `keepMounted` 正文的后台 Session。每个 View 拥有自身的 Session reference。只有前台 Conversation 上报框架列宽并绑定公共导航；其他子树保持隐藏，不删除 tab 状态。
+ 
+ <a id="state"></a>
++## 页面上下文
++
++`ctx.sidebarRightPages.bind(panelId, contextId)` 将根页面关联到保留的停靠面板，传入 `null` 释放其可见绑定。页面采用自己的资源身份，无需 Session。`ensure(contextId, kind)` 添加已注册标签并保留展开与选择状态，`open(contextId, kind)` 明确选择并展开。`surface(contextId)` 返回展开控制接口。标签类型、选择及展开状态作为本地展示偏好在刷新后保留。
++
++页面正文与标题分别注册到 `sidebar.right.page.tab` 和 `sidebar.right.page.tab.title`，以标签类型为键，接收 `contextId`、`tab` 以及正文 `visible` 属性。`sidebar.right.page.notice` 和会话的 `sidebar.right.notice` 列表插槽将更新控件放在展开按钮之前。会话使用方通过 `sidebarRight.ensureTabIn(sessionId, kind)` 实现同样的被动注册。页面与 Session 面板共用停靠渲染、主题、宽度及全屏布局，页面切换保留各上下文的工具。
++
+ ## 状态
+ 
+ 每个会话 id 一个 `SurfaceState`——布局、它记录的序列、以及它已铸造的 id 数——保存在注册时声明的存储里。每个动作都遵循同一形态：铸造意图需要的 id，向套件 planner 询问由哪些操作承载，记录它们，然后把该会话的整个停靠面赋回去。没有任何动作就地编辑布局，这正是让套件的纯函数成为唯一计算布局之处的原因。
+@@ -85,7 +91,7 @@ tab 类型分两阶段注册，随包发布的引导类型走的正是别的包
+ 
+ 由哪个类型打开资源遵循编辑器解析器的惯例：`patterns` 命中的类型先按 `priority` 档排序——`extension`（产品外的类型，最高档，也是未命名时的默认）、`builtin`、`fallback`（任何更具体的类型都应胜过的通用查看器）——再按命中模式的长度，再按注册顺序；`canOpen` 会剔除候选。各档是字符串字面量，因此别的包里的类型不需要从这里做运行时导入。`candidates(address)` 返回排序，`claim(address, kind?)` 返回决定；指定 `kind` 时跳过它的 glob 但保留它的 `canOpen`。
+ 
+-另有两个席位扩展已有之物：`sidebar.right.tab.guide`（chain）替换引导 tab 的正文而不替换 tab，`sidebar.right.tab.menu.item`（list）在套件自己的布局动作之后向 tab 菜单追加内容级动作。目前没有面向格级动作或折叠态控件的席位，因为还没有东西需要它。
++另有两个席位扩展已有之物：`sidebar.right.tab.guide`（chain）替换引导 tab 的正文而不替换 tab，`sidebar.right.tab.menu.item`（list）在套件自己的布局动作之后向 tab 菜单追加内容级动作。折叠态控件使用提醒插槽，格级动作继续由停靠套件负责。
+ 
+ <a id="ctxsidebarright"></a>
+ ## `ctx.sidebarRight`
+diff --git a/packages/client/ui-sidebar-right/src/client/contract/slots.ts b/packages/client/ui-sidebar-right/src/client/contract/slots.ts
+index 98696d0f60..a2a45e1636 100644
+--- a/packages/client/ui-sidebar-right/src/client/contract/slots.ts
++++ b/packages/client/ui-sidebar-right/src/client/contract/slots.ts
+@@ -39,6 +39,26 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+   }
+ 
+   interface SlotMap {
++    /** Page-owned surface selected by the root panel. */
++    'rightbar.page': { kind: 'single'; scope: 'root'; owner: RightbarOwnerProps & { surface: import('../page-surfaces.ts').PageSurface } }
++    /** Page-aware tab body; resource identity remains independent of Sessions. */
++    'sidebar.right.page.tab': { kind: 'keyed'; scope: 'root'; owner: { contextId: string; tab: TabRecord; visible: boolean } }
++    /**
++     * Register session update controls before the collapsed right-column expand button.
++     * Every mounted registration is rendered in list order; absence leaves the ordinary expansion control.
++     */
++    'sidebar.right.notice': { kind: 'list'; scope: 'session' }
++    /**
++     * Register by tab kind to render its page title with contextId and tab.
++     * The keyed registration replaces that kind's title; absence leaves the docking renderer's title handling.
++     */
++    'sidebar.right.page.tab.title': { kind: 'keyed'; scope: 'root'; owner: { contextId: string; tab: TabRecord } }
++    /**
++     * Register page update controls before expansion. Components receive the active contextId,
++     * every registration is rendered in list order, and absence leaves the expansion control alone.
++     */
++    'sidebar.right.page.notice': { kind: 'list'; scope: 'root'; owner: { contextId: string } }
++
+     /** Session content selected by the root-scoped right Sidebar controller. */
+     'rightbar.session': {
+       kind: 'single'
+diff --git a/packages/client/ui-sidebar-right/src/client/index.ts b/packages/client/ui-sidebar-right/src/client/index.ts
+index 2c0613698a..522101294f 100644
+--- a/packages/client/ui-sidebar-right/src/client/index.ts
++++ b/packages/client/ui-sidebar-right/src/client/index.ts
+@@ -21,6 +21,8 @@
+  * from another package does — `ui-sidebar-documentpreview` is the live proof.
+  */
+ import type {} from '@deepseek-ai/dsh-client-shortcuts/client'
++import { PageSidebars, type PageSidebarNavigation } from './page-surfaces.ts'
++import { PageRightbar } from './shell/PageRightbar.tsx'
+ import { observeSidebarFocus } from './focus.ts'
+ import { registerSidebarShortcuts } from './shortcuts.ts'
+ import type { Context as ClientContext } from '@deepseek-ai/cordis'
+@@ -83,6 +85,8 @@ export const inject = ['slots', 'layout', 'locale', 'resources', 'sessions', 'ui
+ 
+ declare module '@deepseek-ai/cordis' {
+   interface Context {
++    /** Page resource navigation and presentation independent of Sessions. */
++    sidebarRightPages: PageSidebarNavigation
+     /** Right-Sidebar navigation and presentation face. */
+     sidebarRight: SidebarRightController
+     /** Right-Sidebar tab-type registry (stage one of a tab type's registration). */
+@@ -108,6 +112,8 @@ export function apply(ctx: ClientContext): void {
+   const t = ctx.locale.bind(NS)
+   const tabs = new SidebarRightTabRegistry(ctx)
+   const views = new SidebarSessionViews(ctx.sessions)
++  const pages = new PageSidebars(tabs)
++  ctx.effect(() => ctx.provide('sidebarRightPages', pages))
+   ctx.effect(() => {
+     const current = ctx.uiSession.adapter.current
+     const sync = (): void => { views.select(current.getSnapshot().key as SessionId | undefined) }
+@@ -177,12 +183,19 @@ export function apply(ctx: ClientContext): void {
+     const disposeSeat = ctx.slots.inject('rightbar', function* () {
+       yield ctx.slots.register({
+         name: 'rightbar',
+-        children: { 'rightbar.session': { kind: 'single', scope: 'session' } },
++        children: { 'rightbar.session': { kind: 'single', scope: 'session' }, 'rightbar.page': { kind: 'single', scope: 'root' } },
+         inject: (): RightbarRootInjected => ({
+-          hooks: { views: views.source },
++          hooks: { views: views.source, pages },
+           mountView: reference => views.mount(reference),
+         }),
+       }, RightbarRoot)
++      yield ctx.slots.register({ name: 'rightbar.page', locale: NS,
++        children: { 'sidebar.right.page.tab': { kind: 'keyed', scope: 'root' }, 'sidebar.right.page.notice': { kind: 'list', scope: 'root' }, 'sidebar.right.page.tab.title': { kind: 'keyed', scope: 'root' } },
++        inject: () => ({ syncPresentation: (expanded: boolean, fullscreen: boolean) => {
++          if (expanded) layout.openRightbar(!fullscreen, fullscreen)
++          else layout.closeRightbar()
++        } }),
++      }, PageRightbar)
+       yield ctx.slots.register({
+         name: 'rightbar.session',
+         locale: NS,
+@@ -209,6 +222,7 @@ export function apply(ctx: ClientContext): void {
+     // nothing else in the row.
+     const disposeExpand = ctx.slots.inject('conversation.session.header.corner', () => ctx.slots.register({
+       name: 'conversation.session.header.corner',
++      children: { 'sidebar.right.notice': { kind: 'list', scope: 'session' } },
+       locale: NS,
+       store,
+       inject: () => ({ hooks: { shortcuts: ctx.shortcuts.catalog } }),
+diff --git a/packages/client/ui-sidebar-right/src/client/page-surfaces.ts b/packages/client/ui-sidebar-right/src/client/page-surfaces.ts
+new file mode 100644
+index 0000000000..e3008b6f63
+--- /dev/null
++++ b/packages/client/ui-sidebar-right/src/client/page-surfaces.ts
+@@ -0,0 +1,101 @@
++/** Page-owned docking surfaces share the right column without a Session lifetime. */
++import { DockController } from '@deepseek-ai/dsh-client-ui-dockkit'
++import type { DockSnapshot, DockIntents } from '@deepseek-ai/dsh-client-ui-dockkit'
++import type { SidebarRightTabRegistry } from './tab-registry.ts'
++/** Expansion control for a retained page resource. */
++export interface PageSidebarSurface {
++  /** @param expanded - whether the page panel is visible. */
++  setExpanded(expanded: boolean): void
++}
++/** Public navigation face; docking engine state remains owned by the sidebar. */
++export interface PageSidebarNavigation {
++  /** @param panelId - root page owner. @param contextId - resource identity, or null to release the visible binding. */
++  bind(panelId: string, contextId: string | null): void
++  /** Add a registered tab while preserving tool selection and expansion.
++   * @param contextId - bound page resource. @param kind - registered tab kind.
++   */
++  ensure(contextId: string, kind: string): void
++  /** Select and expand a tab after explicit navigation.
++   * @param contextId - bound page resource. @param kind - registered tab kind.
++   */
++  open(contextId: string, kind: string): void
++  /** @param contextId - retained page resource. @returns its expansion control, when present. */
++  surface(contextId: string): PageSidebarSurface | undefined
++}
++export interface PageSurface {
++  readonly panelId: string
++  readonly contextId: string
++  readonly controller: DockIntents & PageSidebarSurface
++  readonly snapshot: DockSnapshot
++}
++/** Page bindings select retained surfaces; only user navigation opens a tab. */
++export class PageSidebars implements PageSidebarNavigation {
++  private readonly surfaces = new Map<string, DockController>()
++  private readonly panels = new Map<string, string>()
++  private readonly listeners = new Set<() => void>()
++  private value: readonly PageSurface[] = []
++  constructor(private readonly tabs: SidebarRightTabRegistry) {}
++  subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
++  getSnapshot = (): readonly PageSurface[] => this.value
++  private publish() {
++    this.value = [...this.panels].map(([panelId, contextId]) => {
++      const controller = this.surfaces.get(contextId)
++      if (!controller) throw new Error('bound page sidebar surface is missing')
++      return { panelId, contextId, controller, snapshot: controller.getSnapshot() }
++    })
++    for (const listener of this.listeners) listener()
++  }
++  /** @param panelId - root page owner. @param contextId - resource identity, or null to release this page. */
++  bind(panelId: string, contextId: string | null): void {
++    if (contextId === null) { this.panels.delete(panelId); this.publish(); return }
++    if (this.panels.get(panelId) === contextId) return
++    if (!this.surfaces.has(contextId)) {
++      const controller = new DockController()
++      controller.setExpanded(false)
++      const key = 'dsh.page-sidebar/' + contextId
++      try {
++        const preference = JSON.parse(localStorage.getItem(key) ?? 'null') as { kinds: string[]; active?: string; expanded: boolean } | null
++        if (preference) {
++          for (const kind of preference.kinds) { const tab = this.tabs.get(kind); if (tab) controller.openContent({ kind, contentId: 'sidebar://' + kind, title: tab.title('sidebar://' + kind) }) }
++          const active = Object.values(controller.getSnapshot().state.tabs).find(tab => tab.kind === preference.active)
++          if (active) controller.focusTab(active.id)
++          controller.setExpanded(preference.expanded)
++        }
++      } catch { /* Presentation preferences are optional. */ }
++      controller.subscribe(() => {
++        const state = controller.getSnapshot().state, pane = state.nodes[state.activePaneId]
++        const active = pane?.kind === 'pane' && pane.activeTabId ? state.tabs[pane.activeTabId]?.kind : undefined
++        try {
++          const kinds = Object.values(state.tabs).map(tab => tab.kind)
++          localStorage.setItem(key, JSON.stringify({ kinds, active, expanded: state.expanded }))
++        } catch { /* Keep the in-memory presentation. */ }
++        this.publish()
++      })
++      this.surfaces.set(contextId, controller)
++    }
++    this.panels.set(panelId, contextId); this.publish()
++  }
++  /** Register a page tab while retaining the current tool and expansion choice.
++   * @param contextId - bound resource. @param kind - registered tab kind.
++   */
++  ensure(contextId: string, kind: string): void {
++    const controller = this.surfaces.get(contextId), definition = this.tabs.get(kind)
++    if (!controller || !definition) return
++    const state = controller.getSnapshot().state
++    if (Object.values(state.tabs).some(tab => tab.kind === kind)) return
++    const pane = state.nodes[state.activePaneId]
++    controller.openContent({ kind, contentId: 'sidebar://' + kind, title: definition.title('sidebar://' + kind) })
++    if (pane?.kind === 'pane' && pane.activeTabId) controller.focusTab(pane.activeTabId)
++    controller.setExpanded(state.expanded)
++  }
++  /** @param contextId - bound page resource. @param kind - registered page-capable tab kind. */
++  open(contextId: string, kind: string): void {
++    const controller = this.surfaces.get(contextId), definition = this.tabs.get(kind)
++    if (!controller || !definition) throw new Error('page sidebar context or tab is unavailable')
++    const address = 'sidebar://' + kind
++    controller.openContent({ kind, contentId: address, title: definition.title(address) })
++    controller.setExpanded(true)
++  }
++  /** @param contextId - retained page resource. @returns the current docking surface. */
++  surface(contextId: string): DockController | undefined { return this.surfaces.get(contextId) }
++}
+diff --git a/packages/client/ui-sidebar-right/src/client/service.ts b/packages/client/ui-sidebar-right/src/client/service.ts
+index 193d40873b..812f9a5b43 100644
+--- a/packages/client/ui-sidebar-right/src/client/service.ts
++++ b/packages/client/ui-sidebar-right/src/client/service.ts
+@@ -187,6 +187,7 @@ export interface ISidebarRight {
+    * @param kind - the page type's kind.
+    * @param options - placement and that kind's navigation parameters.
+    */
++  ensureTabIn(sessionId: SessionId, kind: string): void
+   openTab<K extends string>(kind: K, options?: SidebarRightOpenTabOptions<K>): void
+   /**
+    * Close one tab of the mounted session; the sole docked guide remains open.
+@@ -281,6 +282,13 @@ export class SidebarRightController implements ISidebarRight {
+    * @param sessionId - Session whose layout has been adopted.
+    * @returns its open records, or an empty list before adoption.
+    */
++  /** @param sessionId - adopted Session. @param kind - tab to make available while preserving focus and expansion. */
++  ensureTabIn(sessionId: SessionId, kind: string): void {
++    const definition = this.tabs.get(kind), actions = this.actionsFor(sessionId)
++    if (!definition || !actions) return
++    const address = pageAddress(kind)
++    actions.ensureContent(sessionId, { kind, contentId: address, title: definition.title(address) })
++  }
+   tabsIn(sessionId: SessionId): readonly TabRecord[] {
+     return Object.values(this.adopted.get(sessionId)?.store.getSnapshot().bySession[sessionId]?.layout.tabs ?? {})
+   }
+diff --git a/packages/client/ui-sidebar-right/src/client/shell/ExpandButton.tsx b/packages/client/ui-sidebar-right/src/client/shell/ExpandButton.tsx
+index fbac5b553e..59129e2e3f 100644
+--- a/packages/client/ui-sidebar-right/src/client/shell/ExpandButton.tsx
++++ b/packages/client/ui-sidebar-right/src/client/shell/ExpandButton.tsx
+@@ -17,7 +17,7 @@ import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/cli
+ import type { InjectFace, HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+ import type { ReactNode } from 'react'
+ import { Button, IconPanelLeftOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+-import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
++import type { PropsLocale, PropsRuntime, PropsStore, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+ import type { createSidebarRightStore } from '../stores.ts'
+ import css from './ExpandButton.module.css'
+@@ -27,17 +27,18 @@ export type ExpandButtonProps =
+   & PropsRuntime<'conversation.session.header.corner'>
+   & PropsStore<ReturnType<typeof createSidebarRightStore>>
+   & PropsLocale<'sidebarRight'>
++  & PropsRenderSlots<'sidebar.right.notice'>
+   & InjectFace<{ hooks: { shortcuts: HostObservable<readonly ShortcutCatalogEntry[]> } }>
+ 
+ /** The expand control while the panel is collapsed; nothing while it is shown. */
+-export function ExpandButton({ sessionId, useStore, actions, t, useShortcuts }: ExpandButtonProps): ReactNode {
++export function ExpandButton({ sessionId, useStore, actions, t, useShortcuts, renderSlot }: ExpandButtonProps): ReactNode {
+   // A session with no surface yet is collapsed: the panel seat materializes the
+   // surface on its own mount, and until then there is nothing expanded.
+   const shortcut = useShortcuts(entries => entries.find(entry => entry.id === 'sidebar.right.toggle'))
+   const expanded = useStore(state => state.bySession[sessionId]?.layout.expanded ?? false)
+   if (expanded) return null
+   return (
+-    <Tooltip label={t('chrome.expand')} shortcutKeys={shortcut?.keys} side="bottom" delayMs={500}>
++    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{renderSlot('sidebar.right.notice', {})}<Tooltip label={t('chrome.expand')} shortcutKeys={shortcut?.keys} side="bottom" delayMs={500}>
+       <Button
+         size="sm"
+         className={css.button}
+@@ -48,6 +49,6 @@ export function ExpandButton({ sessionId, useStore, actions, t, useShortcuts }:
+       >
+         <IconPanelLeftOutlineRegular className={css.icon} />
+       </Button>
+-    </Tooltip>
++    </Tooltip></div>
+   )
+ }
+diff --git a/packages/client/ui-sidebar-right/src/client/shell/PageRightbar.tsx b/packages/client/ui-sidebar-right/src/client/shell/PageRightbar.tsx
+new file mode 100644
+index 0000000000..e5e5ff179b
+--- /dev/null
++++ b/packages/client/ui-sidebar-right/src/client/shell/PageRightbar.tsx
+@@ -0,0 +1,41 @@
++/** Page tabs use the shared docking renderer and frame geometry. */
++import { useLayoutEffect } from 'react'
++import type { CSSProperties } from 'react'
++import { DockLayout } from '@deepseek-ai/dsh-client-ui-dockkit'
++import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
++import { Button, IconPanelLeftOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
++import type { PageSurface } from '../page-surfaces.ts'
++import { dockLabels } from '../labels.ts'
++import css from './SidebarRight.module.css'
++import expandCss from './ExpandButton.module.css'
++
++type Props = PropsRuntime<'rightbar.page'> & PropsLocale<'sidebarRight'> & PropsRenderSlots<'sidebar.right.page.tab' | 'sidebar.right.page.tab.title' | 'sidebar.right.page.notice'> & {
++  surface: PageSurface
++  syncPresentation: (expanded: boolean, fullscreen: boolean) => void
++}
++/** @param props - selected page, docking snapshot and frame geometry. @returns a page-bound right panel. */
++export function PageRightbar({ surface, width, canShow, renderSlot, t, syncPresentation }: Props) {
++  const { state } = surface.snapshot, fullscreen = !canShow || state.mode === 'fullscreen'
++  useLayoutEffect(() => {
++    syncPresentation(state.expanded, fullscreen)
++    return () => { syncPresentation(false, false) }
++  }, [state.expanded, fullscreen, syncPresentation])
++  return <>
++    {!state.expanded && <div className={css.pageCorner}>
++      {renderSlot('sidebar.right.page.notice', { contextId: surface.contextId })}
++      <Button size="sm" className={expandCss.button} aria-label={t('chrome.expandAria')}
++        data-sidebar-right-expand onClick={() => { surface.controller.setExpanded(true) }}>
++        <IconPanelLeftOutlineRegular />
++      </Button>
++    </div>}
++    <div className={css.panel} style={{ width: fullscreen ? '100vw' : width, '--dsh-sidebar-width': fullscreen ? '100vw' : `${width}px` } as CSSProperties} data-sidebar-right-page={surface.contextId} data-sidebar-right-panel={fullscreen ? 'fullscreen' : 'push'} data-sidebar-right-open={state.expanded || undefined} aria-hidden={!state.expanded || undefined}>
++      <div className={css.panelBody}><DockLayout state={state} intents={surface.controller} labels={dockLabels(t)}
++        canSplit={false} canAddTab={() => false} canCloseTab={() => Object.keys(state.tabs).length > 1}
++        renderTabTitle={tab => renderSlot('sidebar.right.page.tab.title', { contextId: surface.contextId, tab }, { entryKey: tab.kind })}
++        renderTab={tab => renderSlot('sidebar.right.page.tab', { contextId: surface.contextId, tab, visible: state.expanded && Object.values(state.nodes).some(node => node.kind === 'pane' && node.activeTabId === tab.id) }, { entryKey: tab.kind })}
++        chrome={<Button size="sm" aria-label={t('chrome.collapseAria')} onClick={() => { surface.controller.setExpanded(false) }}>
++          <IconPanelLeftOutlineRegular />
++        </Button>} /></div>
++    </div>
++  </>
++}
+diff --git a/packages/client/ui-sidebar-right/src/client/shell/RightbarRoot.tsx b/packages/client/ui-sidebar-right/src/client/shell/RightbarRoot.tsx
+index 26bedb1d18..1450ccb46e 100644
+--- a/packages/client/ui-sidebar-right/src/client/shell/RightbarRoot.tsx
++++ b/packages/client/ui-sidebar-right/src/client/shell/RightbarRoot.tsx
+@@ -8,11 +8,11 @@ import css from './SidebarRight.module.css'
+ 
+ /** Root-only retained Session targets and their committed mount lifetimes. */
+ export interface RightbarRootInjected {
+-  readonly hooks: { readonly views: HostObservable<readonly SidebarSessionViewSnapshot[]> }
++  readonly hooks: { readonly views: HostObservable<readonly SidebarSessionViewSnapshot[]>; readonly pages: HostObservable<readonly import('../page-surfaces.ts').PageSurface[]> }
+   readonly mountView: (reference: SessionReference) => () => void
+ }
+ 
+-type RootProps = PropsRuntime<'rightbar'> & PropsRenderSlots<'rightbar.session'> & InjectFace<RightbarRootInjected>
++type RootProps = PropsRuntime<'rightbar'> & PropsRenderSlots<'rightbar.session' | 'rightbar.page'> & InjectFace<RightbarRootInjected>
+ 
+ function SessionView({ view, visible, SessionProvider, renderSlot, mountView, width, viewportWidth, canShow }:
+   Pick<RootProps, 'SessionProvider' | 'renderSlot' | 'mountView' | 'width' | 'viewportWidth' | 'canShow'>
+@@ -31,8 +31,11 @@ function SessionView({ view, visible, SessionProvider, renderSlot, mountView, wi
+  * @param props - frame geometry, view targets and the authorized Session renderer.
+  * @returns the foreground and retained background Sidebars.
+  */
+-export function RightbarRoot({ usePanelInfo, useViews, ...props }: RootProps) {
+-  const visible = usePanelInfo(info => info.activePanelId === null)
++export function RightbarRoot({ usePanelInfo, useViews, usePages, ...props }: RootProps) {
++  const panelId = usePanelInfo(info => info.activePanelId)
++  const visible = panelId === null
++  const pages = usePages(value => value)
++  const page = pages.find(page => page.panelId === panelId)
+   const views = useViews(value => value)
+-  return <>{views.map(view => <SessionView key={view.sessionId} {...props} view={view} visible={visible} />)}</>
++  return <>{views.map(view => <SessionView key={view.sessionId} {...props} view={view} visible={visible} />)}{page && props.renderSlot('rightbar.page', { surface: page, width: props.width, viewportWidth: props.viewportWidth, canShow: props.canShow })}</>
+ }
+diff --git a/packages/client/ui-sidebar-right/src/client/shell/SidebarRight.module.css b/packages/client/ui-sidebar-right/src/client/shell/SidebarRight.module.css
+index 88105b2e50..984eac5b17 100644
+--- a/packages/client/ui-sidebar-right/src/client/shell/SidebarRight.module.css
++++ b/packages/client/ui-sidebar-right/src/client/shell/SidebarRight.module.css
+@@ -167,3 +167,5 @@
+   min-width: 0;
+   overflow: hidden;
+ }
++
++.pageCorner { position: absolute; right: 12px; top: 12px; display: flex; align-items: center; gap: 8px; pointer-events: auto; z-index: 21; }
+diff --git a/packages/client/ui-sidebar-right/src/client/stores.ts b/packages/client/ui-sidebar-right/src/client/stores.ts
+index 9478980de6..664c31d622 100644
+--- a/packages/client/ui-sidebar-right/src/client/stores.ts
++++ b/packages/client/ui-sidebar-right/src/client/stores.ts
+@@ -224,6 +224,7 @@ type SidebarRightActions = {
+   toggleExpanded: (draft: SidebarRightState, sessionId: string) => void
+   setMode: (draft: SidebarRightState, sessionId: string, mode: DockMode) => void
+   splitPane: (draft: SidebarRightState, sessionId: string, paneId?: PaneId, settled?: (paneId: PaneId) => void) => void
++  ensureContent: (draft: SidebarRightState, sessionId: string, input: OpenContentIntent) => void
+   openContent: (
+     draft: SidebarRightState,
+     sessionId: string,
+@@ -305,6 +306,14 @@ export function createSidebarRightStore(
+       // a collapsed panel is not an open), focusing or seating the tab, and
+       // closing the tab it replaces. `settled` reports the tab the planner
+       // landed on, synchronously, because actions return nothing.
++      ensureContent: (d, sessionId: string, input) => {
++        d.bySession = seat(d, sessionId, s => advance(s, (state, mint) => {
++          if (findContentTab(state, input.contentId, input.kind) !== undefined) return []
++          const selected = getPane(state, state.activePaneId).activeTabId
++          const planned = planOpenContent(state, mint, input).ops
++          return selected ? [...planned, { type: 'focusTab', tabId: selected }] : planned
++        }, seed))
++      },
+       openContent: (d, sessionId: string, intent, settled) => {
+         d.bySession = seat(d, sessionId, s => advance(s, (state, mint) => {
+           const { kind, contentId, title, replaceTab: replace } = intent
+diff --git a/packages/client/ui-sidebar-right/tests/apply.client.spec.ts b/packages/client/ui-sidebar-right/tests/apply.client.spec.ts
+index 42e27709bd..cd890065df 100644
+--- a/packages/client/ui-sidebar-right/tests/apply.client.spec.ts
++++ b/packages/client/ui-sidebar-right/tests/apply.client.spec.ts
+@@ -21,6 +21,7 @@ import { SidebarRightController } from '../src/client/service.ts'
+ import { SidebarRightTabRegistry } from '../src/client/tab-registry.ts'
+ import type { createSidebarRightStore } from '../src/client/stores.ts'
+ import * as sidebarStores from '../src/client/stores.ts'
++import { PageRightbar } from '../src/client/shell/PageRightbar.tsx'
+ import { RightbarSeat } from '../src/client/shell/SidebarRight.tsx'
+ import { RightbarRoot } from '../src/client/shell/RightbarRoot.tsx'
+ import { ExpandButton } from '../src/client/shell/ExpandButton.tsx'
+@@ -123,11 +124,12 @@ describe('ui-sidebar-right apply', () => {
+     expect(guide?.id).toBe(GUIDE_ID)
+     expect(guide?.priority).toBe('builtin')
+     expect(guide?.title('sidebar://guide')).toBe('tab.guide.title')
+-    // Five registrations: the root and panel seats, the header's corner seat,
++    // Six registrations: the root and panel seats, the header's corner seat,
+     // and the guide body and chip title under the guide implementation's id.
+     // The guide draws no product copy of its own, so neither guide seat binds the dictionary.
+     expect(registered.map(entry => [entry.name, entry.key, entry.locale, entry.component])).toEqual([
+       ['rightbar', undefined, undefined, RightbarRoot],
++      ['rightbar.page', undefined, 'sidebarRight', PageRightbar],
+       ['rightbar.session', undefined, 'sidebarRight', RightbarSeat],
+       ['conversation.session.header.corner', undefined, 'sidebarRight', ExpandButton],
+       ['sidebar.right.pane.tab', GUIDE_ID, undefined, GuideBody],
+@@ -301,6 +303,6 @@ describe('ui-sidebar-right apply', () => {
+     expect(dictionaries.size).toBe(0)
+     await ctx.plugin({ inject: [...inject], apply }).await()
+     expect(ctx.sidebarRightTabs.get('guide')?.id).toBe(GUIDE_ID)
+-    expect(registered).toHaveLength(5)
++    expect(registered).toHaveLength(6)
+   })
+ })
+diff --git a/packages/client/ui-sidebar-right/tests/expand-button.client.spec.tsx b/packages/client/ui-sidebar-right/tests/expand-button.client.spec.tsx
+index 8a5a4a7bac..6cf25807ee 100644
+--- a/packages/client/ui-sidebar-right/tests/expand-button.client.spec.tsx
++++ b/packages/client/ui-sidebar-right/tests/expand-button.client.spec.tsx
+@@ -37,6 +37,8 @@ function mountButton(shortcuts: readonly ShortcutCatalogEntry[] = []) {
+   const instance = createSidebarRightStore(() => ({ kind: 'guide', title: 'Start' })).create()
+   const props: ExpandButtonProps = {
+     ...standard,
++    SessionProvider: ({ children }) => children,
++    renderSlot: () => <span data-progress-notice>Progress updated</span>,
+     useShortcuts: <T,>(selector: (entries: readonly ShortcutCatalogEntry[]) => T): T => selector(shortcuts),
+     sessionId: SESSION,
+     useStore: hookOf(instance),
+diff --git a/packages/client/ui-sidebar-right/tests/page-surfaces.client.spec.ts b/packages/client/ui-sidebar-right/tests/page-surfaces.client.spec.ts
+new file mode 100644
+index 0000000000..950a055f29
+--- /dev/null
++++ b/packages/client/ui-sidebar-right/tests/page-surfaces.client.spec.ts
+@@ -0,0 +1,35 @@
++// @vitest-environment jsdom
++import { beforeEach, expect, it } from 'vitest'
++import { Context } from '@deepseek-ai/cordis'
++import { SidebarRightTabRegistry } from '../src/client/tab-registry.ts'
++import { PageSidebars } from '../src/client/page-surfaces.ts'
++beforeEach(() => { localStorage.clear() })
++function fixture() {
++  const tabs = new SidebarRightTabRegistry(new Context())
++  for (const kind of ['story', 'notes']) tabs.register({ id: kind, kind, title: () => kind })
++  return { tabs, pages: new PageSidebars(tabs) }
++}
++it('retains independent page choices and makes a guide available without taking focus', () => {
++  const { pages } = fixture()
++  pages.bind('editor', 'first'); pages.open('first', 'notes'); pages.surface('first')!.setExpanded(false)
++  pages.ensure('first', 'story')
++  let state = pages.surface('first')!.getSnapshot().state
++  expect(state.expanded).toBe(false)
++  const pane = state.nodes[state.activePaneId]!
++  expect(pane.kind === 'pane' && state.tabs[pane.activeTabId!]!.kind).toBe('notes')
++  pages.bind('editor', 'second'); pages.ensure('second', 'story')
++  expect(pages.getSnapshot()[0]!.contextId).toBe('second')
++  pages.open('second', 'story')
++  expect(pages.surface('first')!.getSnapshot().state.expanded).toBe(false)
++  pages.bind('editor', null); expect(pages.getSnapshot()).toEqual([])
++  pages.bind('editor', 'first'); state = pages.getSnapshot()[0]!.snapshot.state
++  expect(Object.values(state.tabs).map(tab => tab.kind)).toEqual(['notes', 'story'])
++})
++it('restores display preferences without creating a Session or opening on an update', () => {
++  const { pages, tabs } = fixture()
++  pages.bind('editor', 'save'); pages.open('save', 'story'); pages.surface('save')!.setExpanded(false)
++  const restored = new PageSidebars(tabs)
++  restored.bind('editor', 'save'); restored.ensure('save', 'story')
++  expect(restored.getSnapshot()[0]!.snapshot.state.expanded).toBe(false)
++  expect(Object.values(restored.getSnapshot()[0]!.snapshot.state.tabs)).toHaveLength(1)
++})

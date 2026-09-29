@@ -220,17 +220,27 @@ export class PlaybookStorage {
       return { key: item.key, checksum: checksum(value), metadata: itemMetadata, value }
     })
     const manifest = encode({ metadata: decodeObject(metadata(input.attachmentMetadata)), items: attachments.map(({ value: _value, ...item }) => item) })
+    if (input.tag !== undefined && !input.tag.trim()) invalid('tag must be nonempty')
+    const draftBody = input.draftMetadata === undefined ? undefined : metadata(input.draftMetadata)
     return this.db.transaction(true, () => {
+      if (input.tag !== undefined) {
+        const prior = this.db.get<{ revision_id: RevisionId }>('SELECT revision_id FROM revision_tags WHERE playbook_id = ? AND tag = ?', input.playbookId, input.tag)
+        if (prior) return { revision: this.revision(prior.revision_id), entry: { playbookId: input.playbookId, ordinal: this.membership(input.playbookId, prior.revision_id).ordinal, revision: this.revision(prior.revision_id), metadata: decodeObject(this.membership(input.playbookId, prior.revision_id).metadata) }, draft: this.draft(input.playbookId) }
+      }
+      const frozen = input.sourceRevisionId === undefined ? undefined : (this.membership(input.playbookId, input.sourceRevisionId), this.revision(input.sourceRevisionId))
       const draft = this.checkDraft(input.playbookId, input.expectedSequence)
       const playbook = this.playbook(input.playbookId); const project = this.project(playbook.projectId)
       const id = randomUUID() as RevisionId
-      const source = encode({ projectId: project.id, projectName: project.name, playbookId: playbook.id, playbookName: playbook.name, draftSequence: draft.sequence, baseRevisionId: draft.baseRevisionId })
+      const source = encode({ projectId: project.id, projectName: project.name, playbookId: playbook.id, playbookName: playbook.name, draftSequence: frozen?.source.draftSequence ?? draft.sequence, baseRevisionId: frozen?.id ?? draft.baseRevisionId })
       this.db.run('INSERT INTO revisions VALUES (?, ?, ?, ?, ?, ?, ?)', id, input.description, body, source, referenceJson, manifest, now())
       for (const item of attachments) this.db.run('INSERT INTO revision_attachments VALUES (?, ?, ?)', id, item.key, item.value)
-      this.db.run('INSERT INTO revision_entries SELECT ?, key, value FROM draft_entries WHERE playbook_id = ?', id, playbook.id)
+      if (frozen) this.db.run('INSERT INTO revision_entries SELECT ?, key, value FROM revision_entries WHERE revision_id = ?', id, frozen.id)
+      else this.db.run('INSERT INTO revision_entries SELECT ?, key, value FROM draft_entries WHERE playbook_id = ?', id, playbook.id)
       const ordinal = this.db.get<{ordinal: number}>('SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM playbook_revisions WHERE playbook_id = ?', playbook.id)!.ordinal
       sequence(ordinal)
       this.db.run('INSERT INTO playbook_revisions VALUES (?, ?, ?, ?)', playbook.id, ordinal, id, historyBody)
+      if (input.tag !== undefined) this.db.run('INSERT INTO revision_tags VALUES (?, ?, ?)', playbook.id, input.tag, id)
+      if (draftBody !== undefined) this.db.run('UPDATE drafts SET metadata = ? WHERE playbook_id = ?', draftBody, playbook.id)
       this.advanceDraft(playbook.id, id)
       const revision = this.revision(id)
       return { revision, entry: { playbookId: playbook.id, ordinal, revision, metadata: decodeObject(historyBody) }, draft: this.draft(playbook.id) }
@@ -248,6 +258,10 @@ export class PlaybookStorage {
       if (!Object.hasOwn(body, 'value') || encode(body.metadata!) !== encode(info.metadata)) throw new StorageError('corrupt', 'revision attachment metadata differs from its manifest')
       return { ...info, value: body.value! }
     })
+  }
+  /** Resolve a retained revision to a live owner after logical history copies and deletions. */
+  revisionOwner(id: RevisionId): PlaybookId {
+    return this.db.transaction(false, () => requireRow(this.db.get<{ playbook_id: PlaybookId }>('SELECT playbook_id FROM playbook_revisions WHERE revision_id=? ORDER BY playbook_id LIMIT 1', id), 'revision owner').playbook_id)
   }
   getRevision(id: RevisionId): Revision { return this.db.transaction(false, () => this.revision(id)) }
   /** Read a revision's position in one playbook, including logically copied history. */

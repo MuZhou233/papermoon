@@ -15,7 +15,7 @@
   gap: 0;
   border: 0;
   border-radius: 20px;
-  background: var(--dsw-specific-menu);
+  background: var(--dsw-alias-bg-layer-2);
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
   box-shadow: var(--dsw-elevation-prominent);
   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens. The

@@ -438,3 +438,21 @@ it('shares attached revision bodies until their final directory reference is rem
   f.store.deletePlaybook(copy.id)
   expect(raw.prepare('SELECT count(*) AS n FROM revision_attachments').get()).toMatchObject({ n: 0 })
 })
+
+it('submits a retained source and chapter tag atomically while preserving later draft content', () => {
+  const f = fixture(); f.put({ body: 'startup' }); const source = f.commit('startup')
+  f.put({ body: 'later draft' })
+  const input = { playbookId: f.playbook.id, expectedSequence: f.store.getDraft(f.playbook.id).sequence, description: 'chapter', sourceRevisionId: source.revision.id, tag: 'chapter/1', draftMetadata: { completed: true }, attachments: [{ key: 'record', value: { through: 8 } }] }
+  const db = f.raw()
+  db.exec("CREATE TRIGGER fail_chapter BEFORE INSERT ON revision_tags BEGIN SELECT RAISE(ABORT, 'disk failure'); END")
+  expect(() => f.store.commitRevision(input)).toThrow(/disk failure/)
+  expect(f.store.listRevisions(f.playbook.id).items).toHaveLength(1)
+  expect(f.store.getDraft(f.playbook.id).metadata).toEqual({})
+  db.exec('DROP TRIGGER fail_chapter')
+  const result = f.store.commitRevision(input), retry = f.store.commitRevision(input)
+  expect(retry).toEqual(result)
+  expect(f.store.readSnapshot({ kind: 'revision', revisionId: result.revision.id }).content.get('body')).toBe('startup')
+  expect(f.store.readSnapshot({ kind: 'draft', playbookId: f.playbook.id }).content.get('body')).toBe('later draft')
+  expect(f.store.getDraft(f.playbook.id).metadata).toEqual({ completed: true })
+  expect(f.store.listRevisions(f.playbook.id).items).toHaveLength(2)
+})

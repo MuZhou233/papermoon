@@ -36,11 +36,11 @@ export function revisionCompilation(repository: PlaybookRepository, playbookId: 
     if (!target || typeof target.entry !== 'string' || typeof target.language !== 'string' || !Array.isArray(target.diagnostics) || !target.diagnostics.every(validDiagnostic) || keys.has(JSON.stringify([target.entry, target.language])))
       throw new ArtifactError('invalid-artifact', 'invalid revision compilation target')
     keys.add(JSON.stringify([target.entry, target.language]))
-    if (result.status === 'success' && (target.attachmentKey !== `opening/${index}` || revision.attachments.items[index]?.key !== target.attachmentKey))
+    if (result.status === 'success' && (target.attachmentKey !== `opening/${index}` || !revision.attachments.items.some(item => item.key === target.attachmentKey)))
       throw new ArtifactError('invalid-artifact', 'revision compilation attachment manifest is incomplete')
     if (result.status === 'failed' && target.attachmentKey !== undefined) throw new ArtifactError('invalid-artifact', 'failed compilation contains an artifact reference')
   }
-  if (revision.attachments.items.length !== (result.status === 'success' ? result.targets.length : 0))
+  if (revision.attachments.items.filter(item => item.key.startsWith('opening/')).length !== (result.status === 'success' ? result.targets.length : 0))
     throw new ArtifactError('invalid-artifact', 'revision compilation attachment count differs')
   return result
 }

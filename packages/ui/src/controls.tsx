@@ -60,6 +60,7 @@ export function Tabs({
         <button
           key={item.id}
           role="tab"
+          data-tab-id={item.id}
           aria-selected={value === item.id}
           tabIndex={value === item.id ? 0 : -1}
           onClick={() => onChange(item.id)}

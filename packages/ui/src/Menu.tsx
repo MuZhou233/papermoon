@@ -185,12 +185,15 @@ export function Menu({
     }
   }, [open, portal, align, side, getAnchorRect])
 
+  // Portal measurement initially hides the list; focus only after placement.
+  // Position changes during scrolling keep the user's current option focused.
+  const readyToFocus = open && (!portal || fixedPos !== null)
   useEffect(() => {
-    if (open && autoFocus)
+    if (readyToFocus && autoFocus)
       listRef.current
         ?.querySelector<HTMLButtonElement>('button:not(:disabled)')
         ?.focus()
-  }, [open, autoFocus])
+  }, [readyToFocus, autoFocus])
 
   useEffect(() => {
     if (!open) {

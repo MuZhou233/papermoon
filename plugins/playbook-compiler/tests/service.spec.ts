@@ -19,7 +19,7 @@ async function fixture() {
   const storage = new PlaybookStorage({ path: join(directory, 'playbook.sqlite') })
   cleanups.push(() => storage.close())
   const repository = new PlaybookRepository(storage), project = repository.createProject({ name: 'Compiler' })
-  const script = repository.createPlaybook({ projectId: project.id, name: 'Opening', defaultLanguage: 'en' })
+  const script = repository.createPlaybook({ systemMode: 'script', openingMode: 'script', projectId: project.id, name: 'Opening', defaultLanguage: 'en' })
   repository.editDraft({ playbookId: script.id, expectedSequence: 0, operations: [
     { kind: 'create-file', path: 'playbook.js', source: 'const {t}=require("@papermoon/playbook");module.exports={systemPrompt:t("opening"),messages:[]};' },
     { kind: 'create-text', key: 'opening' }, { kind: 'set-translation', key: 'opening', language: 'en', text: 'First' },
@@ -32,7 +32,7 @@ async function fixture() {
 describe('saved compilation', () => {
   it('compiles the program help example through the bound tools', async () => {
     const f = await fixture()
-    const empty = f.repository.createPlaybook({ projectId: f.script.projectId, name: 'Help example', defaultLanguage: 'en' })
+    const empty = f.repository.createPlaybook({ systemMode: 'script', openingMode: 'script', projectId: f.script.projectId, name: 'Help example', defaultLanguage: 'en' })
     const tools = createPlaybookTools(f.repository, empty.id, undefined, f.service)
     const execute = (name: string, args: unknown) => tools.find(tool => tool.name === name)!.execute(args, { signal: new AbortController().signal })
     expect(await execute('playbook_help', {})).toEqual(await execute('playbook_help', { topic: 'overview' }))

@@ -162,11 +162,15 @@ export class DraftEditor {
     if (this.state.saving || this.state.conflict)
       throw new Error('draft is busy or conflicted')
     const sent = this.state.operations.slice(),
-      before = this.state.base
-    if (!sent.length) return
+      before = this.state.base,
+      sentCount = sent.length
+    if (!sent.length) {
+      if (!before.capabilities.includes('opening.write')) return
+      sent.push({ kind: 'set-opening-messages', messages: [...this.state.content.opening.messages] })
+    }
     this.set({ saving: true, error: null })
     const accept = (result: DraftDTO) => {
-      const remaining = this.state.operations.slice(sent.length)
+      const remaining = this.state.operations.slice(sentCount)
       this.set({
         base: result,
         operations: remaining,

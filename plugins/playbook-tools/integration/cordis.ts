@@ -64,11 +64,11 @@ try {
   const a = await scoped('left'),
     b = await scoped('right')
   const typed: ToolDefinition[] = createPlaybookTools(repository, left.id, undefined, compiler)
-  assert.equal(typed.length, 16)
+  assert.equal(typed.length, 20)
   registerPlaybookTools(a.scope.ctx, repository, left.id, undefined, compiler)
   const remove = registerPlaybookTools(b.scope.ctx, repository, right.id, undefined, compiler)
   assert.equal(root.tools.schemas().length, 0)
-  assert.equal(root.tools.schemas(a.agent).length, 16)
+  assert.equal(root.tools.schemas(a.agent).length, 20)
   assert.deepEqual(
     root.tools.schemas(a.agent).map((tool) => ({
       name: tool.name,

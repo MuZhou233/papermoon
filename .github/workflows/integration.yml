@@ -29,8 +29,7 @@ on:
       - plugins/playbook-editor/e2e/**
       - plugins/playbook-editor/playwright.config.ts
       - plugins/playbook-editor/package.json
-      - packages/ui/src/**
-      - packages/ui/package.json
+      - packages/ui/**
       - profiles/**
       - .gitmodules
       - patches/**/*.patch
@@ -74,8 +73,7 @@ on:
       - plugins/playbook-editor/e2e/**
       - plugins/playbook-editor/playwright.config.ts
       - plugins/playbook-editor/package.json
-      - packages/ui/src/**
-      - packages/ui/package.json
+      - packages/ui/**
       - profiles/**
       - .gitmodules
       - patches/**/*.patch

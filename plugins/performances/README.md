@@ -66,3 +66,9 @@ The frozen artifact determines mode availability. Custom composition defaults to
 Authenticated inspection reads one node or pending execution with mode, limit and a snapshot-bound cursor. Pages retain the same log endpoint even if the Session advances. The request route reads a precise saved request by seq, including off-path requests. Reads neither execute composeContext nor select history. The [inspection decision](../../.agents/notes/implemented/architecture/2026-09-18-dual-trajectory.md) records the separation between inspection order, source identity and runtime position.
 
 Client performance state, input blockers and inspection results belong to each mounted Session binding and are released with it. Session navigation uses the workspace UI service. Preset selection follows DSH’s Coding Tools setting; disabling that setting does not change an existing performance’s mode.
+
+## Managed performances and review
+
+A frozen performance records whether its source is managed. Preparation, startup, admission, worldline operations and model requests recheck current source authorization for managed saves. The session-controller `session/model-selecting` hook validates model and effort access and leaves global defaults unchanged. Ordinary frozen performances retain independence from a deleted source.
+
+`successful(sessionId)` finds the first persisted completed worldline turn containing a model-sourced body response and returns its session, node and immutable path ranges. Openings, attempts and partial or reasoning-only output do not qualify. `reviewRecords(sessionId, ranges)` reads those bounded records through inspection without activating execution or selecting a worldline. The story orchestrator owns chapter submission and its retry.

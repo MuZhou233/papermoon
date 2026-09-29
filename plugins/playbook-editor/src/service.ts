@@ -15,7 +15,7 @@ export function handlers(repository: PlaybookRepository, compiler?: CompilationS
     revisionArtifact: (p: Input<'revisionArtifact'>) => ({ artifact: frozen.read(p.playbookId, p.revisionId, p.key), context: frozen.preview(p.playbookId, p.revisionId, p.key) }),
     compile: (p: Input<'compile'>, signal?: AbortSignal) => compilation().compile({ playbookId: p.playbookId, ref: p.ref }, { ...(p.entry === undefined ? {} : { entry: p.entry }), ...(p.language === undefined ? {} : { language: p.language }) }, signal),
     compiled: (p: Input<'compiled'>) => compilation().find({ playbookId: p.playbookId, ref: p.ref }, { ...(p.entry === undefined ? {} : { entry: p.entry }), ...(p.language === undefined ? {} : { language: p.language }) }),
-    catalog: (p: Input<'catalog'>) => repository.queryPlaybooks(p),
+    catalog: (p: Input<'catalog'>) => { const page = repository.queryPlaybooks(p); return { ...page, items: page.items.map(item => ({ ...item, story: repository.presentation(item.id), managed: !!repository.managed(item.id) })) } },
     projects: (p: Input<'projects'>) => repository.listProjects(p),
     createProject: (p: Input<'createProject'>) => repository.createProject(p),
     renameProject: (p: Input<'renameProject'>) =>
@@ -33,11 +33,11 @@ export function handlers(repository: PlaybookRepository, compiler?: CompilationS
     },
     playbook: (p: Input<'playbook'>) => {
       const playbook = repository.getPlaybook(p.playbookId)
-      return { playbook, project: repository.getProject(playbook.projectId) }
+      return { playbook, project: repository.getProject(playbook.projectId), capabilities: repository.access(playbook.id) }
     },
     snapshot: (p: Input<'snapshot'>) =>
-      snapshotDTO(repository.readSnapshot(p.ref)),
-    save: (p: Input<'save'>) => snapshotDTO(repository.editDraft(p)),
+      snapshotDTO(repository.view(p.ref), p.ref.kind === 'draft' ? repository.access(p.ref.playbookId) : undefined),
+    save: (p: Input<'save'>) => { repository.editDraft(p); return snapshotDTO(repository.view({ kind: 'draft', playbookId: p.playbookId }), repository.access(p.playbookId)) },
     commit: (p: Input<'commit'>, signal?: AbortSignal) => compilation().submit(p, signal),
     revision: (p: Input<'revision'>) => ({
       entry: repository.getHistoryEntry(p.playbookId, p.revisionId),

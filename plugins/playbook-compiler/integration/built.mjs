@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createContent, applyOperations } from '../../playbook-core/lib/index.js'
 import { compile } from '../lib/index.js'
-const content = applyOperations(createContent({ defaultLanguage: 'en' }), [
+const content = applyOperations(createContent({ systemMode: 'script', openingMode: 'script', defaultLanguage: 'en' }), [
   { kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"{{literal}}",messages:[{role:"assistant",content:"Opening"}]}' },
 ])
 const result = await compile(content)

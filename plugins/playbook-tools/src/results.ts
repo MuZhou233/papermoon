@@ -39,6 +39,10 @@ export const results: Record<
   ToolName,
   { schema: ResultSchema; description: string }
 > = {
+  playbook_system_read: { schema: object({ ref: record, systemPrompt: record }), description: 'Returns the current draft identity and literal system prompt with its selected mode.' },
+  playbook_system_write: { schema: object({ draft: record }), description: 'Returns the saved draft identity after the atomic write.' },
+  playbook_opening_read: { schema: object({ ref: record, opening: record }), description: 'Returns the draft identity and the ordered messages, including each ID, role and original body.' },
+  playbook_opening_edit: { schema: object({ draft: record }), description: 'Returns the saved draft identity; all operations have committed together.' },
   playbook_simulate: { schema: record, description: 'Returns the fixed source identity, per-call results and state changes. Simulation does not save draft or performance state.' },
   playbook_compile: {
     schema: { oneOf: [

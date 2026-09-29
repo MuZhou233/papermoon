@@ -34,21 +34,32 @@ const failure = (code: string, message: string, kind: 'script' | 'operation' = '
 /** A compiler instance limits concurrent jobs without queuing or retaining module state. */
 export class PlaybookCompiler {
   private readonly workers = new Workers()
+  private closed = false
   async compile(content: PlaybookContent, options: CompileOptions = {}, signal?: AbortSignal): Promise<CompileResult> {
+    if (this.closed) return failure('closed', 'compiler is closed')
     let input: ReturnType<typeof prepare>
     try { input = prepare(content, options) } catch (error) {
       return { ok: false, failure: error instanceof SourceLimitError ? 'script' : 'operation', diagnostics: [{ code: 'invalid-input', stage: 'input', message: error instanceof Error ? error.message : 'invalid compiler input' }] }
+    }
+    if (signal?.aborted) return failure('cancelled', 'compilation was cancelled')
+    const literal = { systemPrompt: content.systemPrompt.text, messages: content.opening.messages.map(({ role, content }) => ({ role, content })) }
+    if (content.systemPrompt.mode === 'plain' && content.opening.mode === 'plain') {
+      const artifact = createArtifact(input.sourceHash, input.job.options, { context: literal, state: { initial: {}, schema: { type: 'object', properties: {}, additionalProperties: false } }, functions: [], composition: null, program: { files: {}, texts: {} } }, literal, 'papermoon.playbook.plain')
+      if (Buffer.byteLength(JSON.stringify(artifact)) > input.job.options.limits.outputBytes) return failure('output-limit', 'artifact exceeds outputBytes', 'script')
+      return { ok: true, artifact, diagnostics: [] }
     }
     const result = await this.workers.run(input.job, signal)
     if (!result.ok) return { ok: false, failure: 'operation' in result ? 'operation' : 'script', diagnostics: [result.diagnostic] }
     try {
       if (!('compiled' in result)) return failure('worker-failed', 'compiler returned an invalid result')
-      const artifact = createArtifact(input.sourceHash, input.job.options, result.compiled)
+      const context = { ...result.compiled.context, ...(content.systemPrompt.mode === 'plain' ? { systemPrompt: literal.systemPrompt } : {}), ...(content.opening.mode === 'plain' ? { messages: literal.messages } : {}) }
+      if (content.systemPrompt.mode === 'plain') delete context.systemPromptName
+      const artifact = createArtifact(input.sourceHash, input.job.options, result.compiled, context)
       if (Buffer.byteLength(JSON.stringify(artifact)) > input.job.options.limits.outputBytes) return failure('output-limit', 'artifact exceeds outputBytes', 'script')
       return { ok: true, artifact, diagnostics: [] }
     } catch { return failure('worker-failed', 'compiler returned an invalid result') }
   }
-  close(): Promise<void> { return this.workers.close() }
+  close(): Promise<void> { this.closed = true; return this.workers.close() }
 
 }
 const compiler = new PlaybookCompiler()

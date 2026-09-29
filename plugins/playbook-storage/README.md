@@ -97,3 +97,9 @@ The [storage decision](../../.agents/notes/implemented/architecture/2026-09-12-p
 ## Immutable attachments
 
 CommitInput accepts generic attachments and attachmentMetadata. Each attachment has a key, JSON value and metadata. The immutable manifest retains order and checksums; readRevisionAttachment verifies the body against it. The storage module does not interpret compilation states or artifact formats. Source, revision, manifest, bodies, history entry and draft position commit together. History queries return summaries without bodies. Copying history shares attachments, and deleting the last directory reference reclaims them. There is no append, replace or standalone delete API for attachments.
+
+## Frozen-source transactions
+
+`commitRevision` optionally takes a retained `sourceRevisionId`, a unique per-Playbook `tag` and replacement `draftMetadata`. The transaction copies that source's values, records the revision and tag, updates the draft base, sequence and metadata, and preserves its current values. A repeated tag returns the original revision before checking the obsolete sequence. Any failed transaction rolls back the revision, tag and progress together. Ordinary untagged commits remain independent.
+
+The `revision_tags` table belongs to the existing Playbook database and cascades with its owner. `revisionOwner` finds a retained owner for authorization even after an original owner is deleted. Business code owns tag meaning and protects reserved namespaces. Session logs and model configuration remain in their modules.

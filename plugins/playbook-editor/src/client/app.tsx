@@ -1,3 +1,4 @@
+import { AdditionalPanels, type EditorPanels } from './panels.tsx'
 import { SubmissionDialog } from './submission.tsx'
 import { FrozenCompilation } from './frozen.tsx'
 import { useEffect, useState, useSyncExternalStore, useRef } from 'react'
@@ -10,7 +11,6 @@ import type {
   RestoreSelection,
   HistoryEntry,
 } from '@papermoon/playbook-core'
-import type { PlaybookSummary } from '@papermoon/playbook-storage'
 import type { Api } from './api.ts'
 import { ApiError } from './api.ts'
 import { Dialog, type Ask, type DialogSpec } from './dialog.tsx'
@@ -27,6 +27,7 @@ export interface Runtime {
   api: Api
   backups: Backups
   drafts: Map<string, DraftEditor>
+  panels: EditorPanels
   show: () => void
 }
 export interface AppProps {
@@ -226,7 +227,7 @@ function Overview({
         return ''
       }
     }),
-    [rows, setRows] = useState<PlaybookSummary[]>([]),
+    [rows, setRows] = useState<Results['catalog']['items']>([]),
     [next, setNext] = useState<string>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null),
@@ -374,13 +375,13 @@ function Overview({
           <div key={playbook.id} className="pm-card-container"><button
             key={playbook.id}
             className="pm-playbook-card"
-            onClick={() => go({ playbookId: playbook.id, tab: 'latest' })}
+            onClick={() => go({ playbookId: playbook.id, tab: playbook.managed ? 'draft' : 'latest' })}
           >
             <span className="pm-card-icon">
               <BookIcon size={28} />
             </span>
             <span className="pm-muted">{playbook.projectName}</span>
-            <h2>{playbook.name}</h2>
+            <h2>{playbook.name}</h2>{playbook.story && <p className="pm-badge">{playbook.story.label[t('save').startsWith('保存') ? 'zh' : 'en']} · {playbook.story.position}{playbook.story.completed ? ' ✓' : ''}</p>}
             <div className="pm-card-bottom">
               <span>
                 {playbook.latestOrdinal
@@ -389,7 +390,7 @@ function Overview({
               </span>
               <span aria-hidden="true">↗</span>
             </div>
-          </button><Button variant="primary" disabled={!playbook.latestOrdinal} onClick={() => window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { playbookId: playbook.id } }))}>{t('startPerformance')}</Button></div>
+          </button><Button variant="primary" hidden={playbook.managed} disabled={!playbook.latestOrdinal} onClick={() => window.dispatchEvent(new CustomEvent('papermoon:performance', { detail: { playbookId: playbook.id } }))}>{t('startPerformance')}</Button></div>
         ))}
       </div>
       {!rows.length && !busy && (
@@ -443,6 +444,7 @@ function Detail({
         if (!alive) return
         if (snapshot.kind !== 'draft') throw new Error('expected draft')
         setInfo(info)
+        if (!info.capabilities.includes('history') && ['latest', 'history'].includes(route.tab)) go({ playbookId: id, tab: 'draft' })
         let current = runtime.drafts.get(id)
         if (!current) {
           current = new DraftEditor(snapshot, runtime.api, runtime.backups)
@@ -498,7 +500,7 @@ function Detail({
       <Tabs
         label={t('navigation')}
         value={route.tab}
-        items={['latest', 'draft', 'history', 'settings'].map((id) => ({
+        items={(info.capabilities.includes('history') ? ['latest', 'draft', 'history', 'settings'] : ['draft', 'settings']).map((id) => ({
           id,
           label: t(id as 'latest' | 'draft' | 'history' | 'settings'),
         }))}
@@ -555,7 +557,7 @@ function Detail({
         <Workspace
           editor={editor}
           info={info.playbook}
-          route={route}
+          route={!info.capabilities.includes('history') && ['latest', 'history'].includes(route.tab) ? { ...route, tab: 'draft' } : route}
           runtime={runtime}
           t={t}
           ask={ask}
@@ -605,6 +607,7 @@ function Workspace({
     }
     window.addEventListener('focus', focus)
     window.addEventListener('online', focus)
+    window.addEventListener('papermoon:progress', focus)
     const beforeUnload = (e: BeforeUnloadEvent) => {
       if (editor.getSnapshot().operations.length) {
         e.preventDefault()
@@ -627,6 +630,7 @@ function Workspace({
       clearTimeout(timer)
       window.removeEventListener('focus', focus)
       window.removeEventListener('online', focus)
+      window.removeEventListener('papermoon:progress', focus)
       window.removeEventListener('beforeunload', beforeUnload)
     }
   }, [editor])
@@ -811,13 +815,14 @@ function Workspace({
             </Button>
             <Button
               disabled={dirty || state.saving || !!state.conflict}
+              hidden={!base.capabilities.includes('copy')}
               onClick={() => copy()}
             >
               {t('copy')}
             </Button>
             <Button
               variant="outline"
-              disabled={!dirty || state.saving || !!state.conflict}
+              disabled={(!dirty && !base.capabilities.includes('opening.write')) || state.saving || !!state.conflict}
               onClick={() => {
                 setError(null)
                 void editor.save().catch(setError)
@@ -828,12 +833,13 @@ function Workspace({
             <Button
               variant="primary"
               disabled={dirty || state.saving || !!state.conflict}
+              hidden={!base.capabilities.includes('commit')}
               onClick={() => { requireSaved(); setSubmission(true) }}
             >
               {t('commit')}
             </Button>
           </div>
-          <CompilationPanel
+          {base.capabilities.includes('compile') && <CompilationPanel
             api={runtime.api}
             source={{ playbookId: info.id, ref: { kind: 'draft', sequence: base.draft.sequence } }}
             content={state.content}
@@ -852,8 +858,10 @@ function Workspace({
               const latest = editor.getSnapshot()
               return !latest.operations.length && !latest.conflict && latest.base.draft.sequence === base.draft.sequence
             }}
-          />
+          />}
+          <AdditionalPanels panels={runtime.panels} playbookId={info.id} />
           <ContentEditor
+            allowed={base.capabilities}
             content={state.content}
             identity={info.id}
             edit={(ops) => editor.edit(ops)}
@@ -891,6 +899,7 @@ function LocalComparison({
   ]
   return (
     <div>
+      {(['systemPrompt', 'opening'] as const).filter(key => JSON.stringify(local[key]) !== JSON.stringify(remote[key])).map(key => <details key={key} open><summary>{key === 'systemPrompt' ? (t('save').startsWith('保存') ? '系统提示词' : 'System prompt') : (t('save').startsWith('保存') ? '开场白' : 'Opening messages')}</summary><CodeDiff path={key + '.json'} before={JSON.stringify(local[key], null, 2)} after={JSON.stringify(remote[key], null, 2)} /></details>)}
       {paths
         .filter(
           (p) =>
@@ -1133,12 +1142,14 @@ function RevisionBrowser({
                   value=""
                   options={[
                     { id: 'all', label: t('restoreAll') },
+                    { id: 'systemPrompt', label: t('save').startsWith('保存') ? '系统提示词' : 'System prompt' },
+                    { id: 'opening', label: t('save').startsWith('保存') ? '开场白' : 'Opening messages' },
                     { id: 'program', label: t('restoreProgram') },
                     { id: 'catalog', label: t('restoreTexts') },
                   ]}
                   onChange={(kind) =>
                     restore(snapshot.revision.id, {
-                      kind: kind as 'all' | 'program' | 'catalog',
+                      kind: kind as 'all' | 'systemPrompt' | 'opening' | 'program' | 'catalog',
                     })
                   }
                 />
@@ -1213,7 +1224,9 @@ function Comparison({
       {page?.items.map((change, index) => {
         const record = change.after ?? change.before
         const title =
-          record?.kind === 'file'
+          record?.kind === 'systemPrompt' ? (t('save').startsWith('保存') ? '系统提示词' : 'System prompt')
+            : record?.kind === 'opening' ? (t('save').startsWith('保存') ? '开场白' : 'Opening messages')
+            : record?.kind === 'file'
             ? record.value.path
             : record?.kind === 'text'
               ? record.value.key

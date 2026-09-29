@@ -1,6 +1,7 @@
 /** DSH-facing registration only; page components depend on PaperMoon's API and UI. */
 import { useEffect, useRef, type ComponentType } from 'react'
 import { BookIcon } from '@papermoon/ui'
+import { EditorPanels } from './panels.tsx'
 import { App, type AppProps, type Runtime } from './app.tsx'
 import { createApi, type Connection } from './api.ts'
 import { browserBackups } from './buffers.ts'
@@ -17,6 +18,7 @@ interface Options {
   inject?: () => { runtime: Runtime }
 }
 export interface ClientHost {
+  provide(key: string, value: unknown): Dispose
   connection: Connection
   effect(body: () => Dispose, label?: string): unknown
   slots: {
@@ -53,8 +55,13 @@ export function apply(ctx: ClientHost): void {
     api: createApi(ctx.connection, controller.signal),
     backups: browserBackups(),
     drafts: new Map(),
+    panels: new EditorPanels(),
     show: () => ctx.layout.selectPanel('papermoon'),
   }
+  ctx.effect(() => ctx.provide('papermoonEditor', {
+    registerPanel: runtime.panels.register.bind(runtime.panels),
+    async savePending(id: string) { const draft = runtime.drafts.get(id); if (draft?.getSnapshot().operations.length) await draft.save(); if (draft?.getSnapshot().conflict) throw new Error('Resolve the draft conflict before continuing.') },
+  }), 'papermoon.editor-actions')
   ctx.effect(() => {
     const protect = (event: BeforeUnloadEvent) => {
       if (

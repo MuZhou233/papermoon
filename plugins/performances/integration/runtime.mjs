@@ -44,7 +44,7 @@ try {
   root.llm.registerAdapter(['deterministic'], new Adapter())
   let flushes = 0
   root.on('session/flush', session => { writeFileSync(join(directory, session.id + '.json'), JSON.stringify(session.snapshotEvents())); flushes++ })
-  const project = core.createProject({ name: 'Functions' }), playbook = core.createPlaybook({ projectId: project.id, name: 'Counter', defaultLanguage: 'en' })
+  const project = core.createProject({ name: 'Functions' }), playbook = core.createPlaybook({ systemMode: 'script', openingMode: 'script', projectId: project.id, name: 'Counter', defaultLanguage: 'en' })
   const source = `let moduleCount=0;
 function create({state}) { let local=0;
 /** Increase the count.
@@ -169,7 +169,7 @@ module.exports={systemPrompt:'Exact {{literal}} prompt',messages:[],state:{initi
     for (const event of events) restored.decodeRow(sessionFormatCatalog.encodeCurrentEvent(event))
     assert.deepEqual(restored.finish().events, events)
   }
-  const contextual = core.createPlaybook({projectId:project.id,name:'Context window',defaultLanguage:'en'})
+  const contextual = core.createPlaybook({ systemMode: 'script', openingMode: 'script',projectId:project.id,name:'Context window',defaultLanguage:'en'})
   const composedSource = source.replace('functions:[create]', `functions:[create],composeContext({opening,history,input,state}) {
     if (history.some(n=>n.blocks.some(b=>'content' in b))) throw new Error('history body leaked');
     return {systemPrompt:opening.systemPrompt,messages:[

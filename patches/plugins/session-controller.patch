@@ -1,5 +1,5 @@
 diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
-index c1f577ec93..a3b13a5c29 100644
+index c1f577ec93..01e5ae2425 100644
 --- a/packages/api/session-controller/README.i18n.yaml
 +++ b/packages/api/session-controller/README.i18n.yaml
 @@ -15,17 +15,17 @@
@@ -18,8 +18,8 @@ index c1f577ec93..a3b13a5c29 100644
  /session-controller/session-media-references:
 -  en: 266ab2b1e2fec542
 -  zh: b3450ae28a1e0baf
-+  en: 3ccfd5d3f687b580
-+  zh: 87f03ee3fdbd364e
++  en: 4742e1c733aff04d
++  zh: 1359d1376d8f855c
  /session-controller/configuration:
 -  en: 5c4c4224074e38a8
 -  zh: e0b0edac65c88ff4
@@ -37,7 +37,7 @@ index c1f577ec93..a3b13a5c29 100644
 +  en: d45c37c97f1cee88
 +  zh: c03cc3215b5f69cd
 diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
-index d1ece35b6b..601ed86145 100644
+index d1ece35b6b..8472c39e18 100644
 --- a/packages/api/session-controller/README.md
 +++ b/packages/api/session-controller/README.md
 @@ -25,6 +25,8 @@ English | [中文](README.zh.md)
@@ -63,7 +63,7 @@ index d1ece35b6b..601ed86145 100644
  GUI model selection requires the exact provider/model pair in the available catalog; unavailable choices reject with `session/model-unavailable`. Prompt admission retains the saved route without a catalog availability gate, so request execution reports missing credentials or unavailable models. `initializeDefaultModel()` saves the first available account model after login when no other provider has a configured API key; credential checks use configured references independently of model availability. A provider with no available models rejects initialization with `session/provider-models-unavailable`. Availability never substitutes another model or rewrites a Session selection.
  
 -A successful `selectModel` response acknowledges the Session-local selection without waiting for the default profile setting to save. Default saves run in the background in submission order; a failure logs a warning and leaves the Session selection intact. New Sessions read the last successfully saved default.
-+A successful `selectModel` response acknowledges the Session-local selection without waiting for the default profile setting to save. For ordinary workspace Sessions, default saves run in the background in submission order; a failure logs a warning and leaves the Session selection intact. New Sessions read the last successfully saved default.
++`selectModel` installs the Session selection before returning. The `session/model-selecting` waterfall runs before any selection write; an owner may reject admission or return `false` after calling `next()` to keep the choice local. Accepted ordinary selections save the default in the background, in submission order. Persistence failure logs a warning while retaining the Session selection. New Sessions read the last successfully saved default.
  
  -----
  
@@ -90,7 +90,7 @@ index d1ece35b6b..601ed86145 100644
 +
 +Explicit plugin-owned Session references publish local `byId` metadata for native main-page discovery, while `ids` continues to express ordinary Host-list membership. Releasing the final reference removes this fallback metadata. The controller does not expose private Sessions in list/search or adopt them cold.
 diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
-index ae4c924b1f..b048ca7dff 100644
+index ae4c924b1f..d3f1199d60 100644
 --- a/packages/api/session-controller/README.zh.md
 +++ b/packages/api/session-controller/README.zh.md
 @@ -25,6 +25,8 @@ kind: "package-reference"
@@ -116,7 +116,7 @@ index ae4c924b1f..b048ca7dff 100644
  GUI 模型选择要求确切提供方／模型对出现在可用目录中；不可用的选择以 `session/model-unavailable` 拒绝。提示词准入保留已保存的路由，不按目录可用性阻断发送，由请求执行报告凭据缺失或模型不可用。`initializeDefaultModel()` 在账号登录后、其他提供方均未配置 API key 时，将第一个可用账号模型保存为默认模型；凭据检查使用已配置的引用，不依赖模型是否可用。提供方没有可用模型时，初始化以 `session/provider-models-unavailable` 拒绝。可用性变化不会替换模型或改写会话选择。
  
 -`selectModel` 成功返回表示会话级模型选择已生效，不等待默认 profile 设置保存。默认设置在后台按提交顺序保存；保存失败会记录警告，并保留会话选择。新会话读取最近一次成功保存的默认值。
-+`selectModel` 成功返回表示会话级模型选择已生效，不等待默认 profile 设置保存。普通工作区 Session 的默认设置在后台按提交顺序保存；保存失败会记录警告，并保留会话选择。新会话读取最近一次成功保存的默认值。
++`selectModel` 在返回前应用会话选择。`session/model-selecting` 瀑布钩子在选择写入之前运行，所属方可拒绝准入，或调用 `next()` 后返回 `false`，将选择限定在当前会话。获准的普通选择按提交顺序在后台保存默认值。保存失败时记录警告并保留会话选择，新会话读取最近一次成功保存的默认值。
  
  -----
  
@@ -392,7 +392,7 @@ index 284abc5656..08fb0f935d 100644
      // A new follow baseline replaces confirmed optimistic inputs with Host-owned rows.
      // Receipt-backed inputs are accepted, not failed, even if their history is outside this window.
 diff --git a/packages/api/session-controller/src/commands.ts b/packages/api/session-controller/src/commands.ts
-index 7e900b92ae..67552b55c6 100644
+index 7e900b92ae..dbdd05fa20 100644
 --- a/packages/api/session-controller/src/commands.ts
 +++ b/packages/api/session-controller/src/commands.ts
 @@ -7,7 +7,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
@@ -404,12 +404,20 @@ index 7e900b92ae..67552b55c6 100644
  } from '@deepseek-ai/dsh-attachment'
  import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/types'
  import type {} from '@deepseek-ai/dsh-client-file-upload'
-@@ -54,18 +54,48 @@ import type {
+@@ -54,18 +54,56 @@ import type {
    SessionRequestId,
  } from './types.ts'
  
 +declare module '@deepseek-ai/cordis' {
 +  interface Events {
++    /**
++     * Admit a Session model selection and decide whether to remember it globally.
++     * @mode waterfall
++     * @param agent - target Agent.
++     * @param selection - requested model and effort.
++     */
++    'session/model-selecting'(agent: Agent, selection: SessionSelectModelRequest, next: () => Promise<boolean>): Promise<boolean>
++
 +    /**
 +     * Validate a resolved real user message or acknowledge an already persisted input.
 +     * @mode waterfall
@@ -459,7 +467,7 @@ index 7e900b92ae..67552b55c6 100644
  }
  
  /**
-@@ -116,6 +146,13 @@ export class SessionCommandController {
+@@ -116,6 +154,13 @@ export class SessionCommandController {
          })
        }
      }
@@ -473,7 +481,7 @@ index 7e900b92ae..67552b55c6 100644
      const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
      let adopted: Agent
      try {
-@@ -128,6 +165,7 @@ export class SessionCommandController {
+@@ -128,6 +173,7 @@ export class SessionCommandController {
      } catch (error) {
        this.rejectCreation(sessionId, error)
      }
@@ -481,16 +489,34 @@ index 7e900b92ae..67552b55c6 100644
      if (workspace !== undefined) {
        try {
          await workspace.attachSession(sessionId)
-@@ -168,7 +206,7 @@ export class SessionCommandController {
+@@ -152,6 +198,7 @@ export class SessionCommandController {
+     const agent = await this.resolveAgent(request.sessionId)
+     return this.agents.serializeImageAdmission(agent, async () => {
+       try {
++        const rememberDefault = await this.ctx.waterfall('session/model-selecting', agent, request, () => Promise.resolve(true))
+         await this.requireModel(request)
+         const resolved = await this.ctx.llm.resolveCallConfig({
+           provider: request.provider,
+@@ -168,11 +215,13 @@ export class SessionCommandController {
              : { reasoningEffort: resolved.reasoningEffort }),
          }
          this.agents.selectForNextRequest(agent, selected)
 -        void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
-+        if (agent.session.header.cwd !== undefined) void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
-           this.ctx.logger.warn(
-             `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
-           )
-@@ -308,7 +346,21 @@ export class SessionCommandController {
+-          this.ctx.logger.warn(
+-            `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
+-          )
+-        })
++        if (rememberDefault && agent.session.header.cwd !== undefined) {
++          void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
++            this.ctx.logger.warn(
++              `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
++            )
++          })
++        }
+         return { selected: { ...selected } }
+       } catch (error) {
+         if (remoteErrorOf(error) !== undefined) throw error
+@@ -308,7 +357,21 @@ export class SessionCommandController {
     * @param request - Session identity, prompt content, source metadata, and delivery mode.
     * @returns acknowledgement that the Agent accepted the prompt.
     */
@@ -513,7 +539,7 @@ index 7e900b92ae..67552b55c6 100644
      if (!hasPromptContent(request.content)) {
        throw new RemoteError(
          'gateway/bad-request',
-@@ -331,11 +383,13 @@ export class SessionCommandController {
+@@ -331,11 +394,13 @@ export class SessionCommandController {
      const source: MessageSource = {
        kind: 'user',
        rpcId: request.requestId,
@@ -528,7 +554,7 @@ index 7e900b92ae..67552b55c6 100644
          if (hasImage) {
            const current = this.agents.selectionFor(agent).current
            const model = await this.ctx.llm.resolveModelInfo(current.provider, current.model)
-@@ -347,12 +401,26 @@ export class SessionCommandController {
+@@ -347,12 +412,26 @@ export class SessionCommandController {
              )
            }
          }
@@ -561,7 +587,7 @@ index 7e900b92ae..67552b55c6 100644
          if (this.ctx.agents.get(agent.id) !== agent) {
            throw new RemoteError(
              'session/not-found',
-@@ -360,7 +428,10 @@ export class SessionCommandController {
+@@ -360,7 +439,10 @@ export class SessionCommandController {
              { sessionId: agent.id },
            )
          }
@@ -573,7 +599,7 @@ index 7e900b92ae..67552b55c6 100644
          if (request.mode === 'steer') agent.steer(message)
          else agent.followup(message)
          binding.commit()
-@@ -373,7 +444,8 @@ export class SessionCommandController {
+@@ -373,7 +455,8 @@ export class SessionCommandController {
        }
        return { accepted: true }
      }
@@ -583,7 +609,7 @@ index 7e900b92ae..67552b55c6 100644
    }
  
    private async requireModel(selection: Pick<AgentModelSelection, 'provider' | 'model'>): Promise<void> {
-@@ -607,8 +679,9 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
+@@ -607,8 +690,9 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
    if (agent.inbox.nextTurn.some(matches) || agent.inbox.nextStep.some(matches)) return true
    // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
    return agent.session.snapshotEvents().some((event) => {
@@ -1234,7 +1260,7 @@ index fce236d3e3..41d67c92bc 100644
 +  await ctx.fiber.dispose()
 +})
 diff --git a/packages/api/session-controller/tests/session-models.host.spec.ts b/packages/api/session-controller/tests/session-models.host.spec.ts
-index e852460e93..f6eec6283c 100644
+index e852460e93..265d849a6f 100644
 --- a/packages/api/session-controller/tests/session-models.host.spec.ts
 +++ b/packages/api/session-controller/tests/session-models.host.spec.ts
 @@ -88,7 +88,7 @@ async function harness(logged?: {
@@ -1255,7 +1281,7 @@ index e852460e93..f6eec6283c 100644
    if (logged !== undefined) {
      const { adapterDefaults, ...config } = logged
      session.append('request/header', {
-@@ -907,3 +907,27 @@ it.each([new Error('catalog disconnected'), 'catalog disconnected'])('reports ca
+@@ -907,3 +907,48 @@ it.each([new Error('catalog disconnected'), 'catalog disconnected'])('reports ca
        .rejects.toMatchObject({ code: 'session/model-unavailable', message: 'catalog disconnected' })
    } finally { read.mockRestore(); await ctx.fiber.dispose() }
  })
@@ -1282,6 +1308,27 @@ index e852460e93..f6eec6283c 100644
 +  expect(() => controller.selectModel({ sessionId, provider: 'deepseek-official', model: 'deepseek-chat' })).toThrow('operation is unavailable')
 +  await expect(controller.prompt(promptRequest({ sessionId, content: [{ type: 'text', text: 'hello' }] }), new AbortController().signal)).rejects.toThrow('operation is unavailable')
 +  readonly()
++})
++
++it('lets an owner admit local model choices and reject stale selections before writing', async () => {
++  const { ctx, agent, sessionId } = await harness()
++  onTestFinished(() => ctx.fiber.dispose())
++  const save = vi.fn()
++  const controller = createSessionTestController(ctx, { cwd: '/tmp', defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), saveDefaultModelSelection: save })
++  let allowed = true
++  ctx.on('session/model-selecting', async (target, selection, next) => {
++    if (target !== agent) return next()
++    if (!allowed) throw new Error('stage is closed')
++    expect(selection.sessionId).toBe(sessionId)
++    await next()
++    return false
++  })
++  await controller.selectModel({ sessionId, provider: 'deepseek-official', model: 'deepseek-reasoner' })
++  expect(save).not.toHaveBeenCalled()
++  const before = agent.session.snapshotEvents().length
++  allowed = false
++  await expect(controller.selectModel({ sessionId, provider: 'deepseek-official', model: 'deepseek-chat' })).rejects.toThrow('stage is closed')
++  expect(agent.session.snapshotEvents()).toHaveLength(before)
 +})
 diff --git a/packages/api/session-controller/tests/session-projections.host.spec.ts b/packages/api/session-controller/tests/session-projections.host.spec.ts
 index ed4f4a6b0c..b022e75ed2 100644

@@ -215,3 +215,19 @@ describe('business queries and SQL comparison', () => {
     rejects('not-found', () => f.repository.readSnapshot({ kind: 'revision', revisionId: 'absent' as RevisionId }))
   })
 })
+
+it('compares and restores independent plain components while preserving inactive content', () => {
+  const f = fixture()
+  const edit = (operations: Parameters<PlaybookRepository['editDraft']>[0]['operations']) => f.repository.editDraft({ playbookId: f.playbook.id, expectedSequence: f.current().draft.sequence, operations })
+  edit([{ kind: 'set-system-prompt', text: '# Keeper\r\n<unfinished' }, { kind: 'set-opening-messages', messages: [{ id: 'first', role: 'assistant', content: '{{literal}}' }, { id: 'second', role: 'user', content: '' }] }])
+  const original = f.commit()
+  edit([{ kind: 'set-system-prompt', text: 'Changed' }, { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-opening-messages', messages: [{ id: 'second', role: 'assistant', content: 'New opening' }] }])
+  const changed = f.repository.compare({ kind: 'revision', revisionId: original.revision.id }, f.ref).items
+  expect(changed.map(item => item.after?.kind).sort()).toEqual(['opening', 'systemPrompt'])
+  f.repository.restoreDraft({ playbookId: f.playbook.id, expectedSequence: f.current().draft.sequence, revisionId: original.revision.id, selection: { kind: 'systemPrompt' } })
+  expect(f.current().content.systemPrompt).toEqual(original.content.systemPrompt)
+  expect(f.current().content.opening.messages[0]!.content).toBe('New opening')
+  f.repository.restoreDraft({ playbookId: f.playbook.id, expectedSequence: f.current().draft.sequence, revisionId: original.revision.id, selection: { kind: 'opening' } })
+  expect(f.current().content.opening).toEqual(original.content.opening)
+  expect(f.repository.view(f.ref).draft.metadata).toEqual({ editor: 'draft' })
+})

@@ -27,11 +27,20 @@ const methods = {
 }
 export function apply(ctx: PerformanceHost) {
   const workspaces = ctx.get('papermoonPlaybookWorkspaces') as PlaybookWorkspaces
-  const service = new Performances(ctx, ctx.get('papermoonPlaybookCore') as PlaybookRepository, workspaces)
+  const core = ctx.get('papermoonPlaybookCore') as PlaybookRepository
+  const service = new Performances(ctx, core, workspaces)
   ctx.effect(function* () {
     yield () => service.close()
     yield ctx.provide('papermoonPerformances', service)
     yield workspaces.register(PRESET, session => { const state = performanceState(session); return state.mode === PRESET ? state.fixed?.playbookId ?? state.playbookId : undefined })
+    yield ctx.on('session/model-selecting', async (agent, choice, next) => {
+      const state = performanceState(agent.session)
+      if (state.mode !== PRESET) return next()
+      const id = state.fixed?.playbookId ?? state.playbookId
+      if (id) { core.require(id as import('@papermoon/playbook-core').PlaybookId, 'model'); if (choice.reasoningEffort !== undefined) core.require(id as import('@papermoon/playbook-core').PlaybookId, 'effort') }
+      await next()
+      return false
+    })
     yield ctx.on('session/event', (session, event) => service.observe(session, event))
     yield ctx.on('agent/created', ({ agent }) => service.attach(agent))
     yield ctx.on('agent-preset/selected', id => { const agent = ctx.agents.get(id); if (agent) service.attach(agent) })

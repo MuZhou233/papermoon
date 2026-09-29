@@ -97,3 +97,9 @@ export function createExample(path: string) {
 ## 不可变附件
 
 CommitInput 接受通用 attachments 和 attachmentMetadata，每项附件包含键、JSON 值和元数据。不可变清单保存顺序与校验哈希，readRevisionAttachment 按清单校验正文。存储模块不解释编译状态或产物格式。源码、修订版本、清单、附件正文、目录项和草稿位置共同提交。历史查询只返回摘要，不读取正文。复制历史共享附件，删除最后一个目录引用时回收附件。不提供追加、替换或单独删除附件的接口。
+
+## 冻结来源事务
+
+`commitRevision` 可接收保留的 `sourceRevisionId`、Playbook 内唯一的 `tag` 及替换用 `draftMetadata`。事务复制来源值，保存版本与 tag，更新草稿起点、序号和元数据，并保留其当前正文。重复 tag 在检查旧序号前返回原版本。事务失败会一起回滚版本、tag 与进度，普通无 tag 提交仍彼此独立。
+
+`revision_tags` 表属于现有 Playbook 数据库，随所属存档级联清理。`revisionOwner` 在原所有者删除后仍能找到保留版本的所有者，供授权检查。业务层解释 tag 并保护保留命名空间，会话记录与模型配置继续由各自模块存储。

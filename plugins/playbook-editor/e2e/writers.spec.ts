@@ -167,7 +167,7 @@ test('writer settings preserve literal roles, preview, messages and read-only to
     ],
   })
   await page.getByRole('tab', { name: 'Tools', exact: true }).click()
-  await expect(page.locator('.pw-tool')).toHaveCount(16)
+  await expect(page.locator('.pw-tool')).toHaveCount(20)
   await page
     .getByRole('textbox', { name: 'Search tools', exact: true })
     .fill('playbook_program_edit')
@@ -421,7 +421,7 @@ test('accepted writer navigation opens the overview and preserves unsaved source
   })
   await playbookApi('save', {
     playbookId: playbook.id, expectedSequence: 0,
-    operations: [{ kind: 'create-file', path: 'main.js', source: 'saved source' }],
+    operations: [{ kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' }, { kind: 'create-file', path: 'main.js', source: 'saved source' }],
   })
   await page.evaluate((id) => { location.hash = '#papermoon/' + id + '?tab=draft' }, playbook.id)
   await page.getByRole('tab', { name: 'Draft', exact: true }).click()

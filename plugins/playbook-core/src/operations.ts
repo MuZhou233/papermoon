@@ -18,6 +18,7 @@ export function applyOperations(content: PlaybookContent, operations: readonly C
   const original = decodeContent(encodeContent(content))
   let metadata = original.metadata, programMetadata = original.program.metadata, catalogMetadata = original.texts.metadata
   let defaultLanguage = original.texts.defaultLanguage
+  let systemPrompt = original.systemPrompt, opening = original.opening
   const files = new Map(original.program.files), languages = new Map(original.texts.languages), entries = new Map(original.texts.entries)
   const entry = (key: string) => requireItem(entries, key, 'text/' + key)
   const updateTranslationMetadata = (key: string, language: string, body: JsonObject) => {
@@ -27,6 +28,12 @@ export function applyOperations(content: PlaybookContent, operations: readonly C
   }
   for (const operation of operations) {
     switch (operation.kind) {
+      case 'set-system-prompt': systemPrompt = { ...systemPrompt, text: operation.text }; break
+      case 'set-opening-messages': opening = { ...opening, messages: operation.messages }; break
+      case 'set-authoring-mode':
+        if (operation.target === 'systemPrompt') systemPrompt = { ...systemPrompt, mode: operation.mode }
+        else opening = { ...opening, mode: operation.mode }
+        break
       case 'create-file':
         filePath(operation.path); requireAbsent(files, operation.path, 'program/' + operation.path)
         files.set(operation.path, { path: operation.path, source: operation.source, metadata: operation.metadata ?? {} })
@@ -105,7 +112,7 @@ export function applyOperations(content: PlaybookContent, operations: readonly C
       default: impossible(operation)
     }
   }
-  return decodeContent(encodeContent({ ...original, metadata, program: { metadata: programMetadata, files },
+  return decodeContent(encodeContent({ ...original, metadata, systemPrompt, opening, program: { metadata: programMetadata, files },
     texts: { metadata: catalogMetadata, defaultLanguage, languages, entries } }))
 }
 
@@ -115,6 +122,8 @@ export function restoreContent(target: PlaybookContent, source: PlaybookContent,
   let candidate: PlaybookContent
   switch (selection.kind) {
     case 'all': candidate = right; break
+    case 'systemPrompt': candidate = { ...left, systemPrompt: right.systemPrompt }; break
+    case 'opening': candidate = { ...left, opening: right.opening }; break
     case 'program': candidate = { ...left, program: right.program }; break
     case 'catalog': candidate = { ...left, texts: right.texts }; break
     case 'file': {

@@ -19,7 +19,11 @@ export function businessDifference(change: Difference): ContentDifference {
   const after = change.after.exists ? decodeRecord(change.key, change.after.value) : null
   const fields: string[][] = []
   const field = (name: string, a: unknown, b: unknown, prefix: string[] = []) => { if (!equal(a, b)) fields.push([...prefix, name]) }
-  if (before?.kind === 'settings' && after?.kind === 'settings') {
+  if (before?.kind === 'systemPrompt' && after?.kind === 'systemPrompt') {
+    field('mode', before.value.mode, after.value.mode); field('text', before.value.text, after.value.text)
+  } else if (before?.kind === 'opening' && after?.kind === 'opening') {
+    field('mode', before.value.mode, after.value.mode); field('messages', before.value.messages, after.value.messages)
+  } else if (before?.kind === 'settings' && after?.kind === 'settings') {
     for (const key of ['metadata', 'programMetadata', 'catalogMetadata', 'defaultLanguage'] as const) field(key, before.value[key], after.value[key])
   } else if (before?.kind === 'file' && after?.kind === 'file') {
     field('source', before.value.source, after.value.source); field('metadata', before.value.metadata, after.value.metadata)

@@ -16,6 +16,7 @@ const definitions = [
   `CREATE TABLE revision_attachments (revision_id TEXT NOT NULL REFERENCES revisions(id) ON DELETE CASCADE, key TEXT NOT NULL, value TEXT NOT NULL CHECK(json_valid(value)), PRIMARY KEY(revision_id, key)) STRICT`,
   `CREATE TABLE revision_entries (revision_id TEXT NOT NULL REFERENCES revisions(id) ON DELETE CASCADE, key TEXT NOT NULL, value TEXT NOT NULL CHECK(json_valid(value)), PRIMARY KEY(revision_id, key)) STRICT`,
   `CREATE TABLE playbook_revisions (playbook_id TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE, ordinal INTEGER NOT NULL CHECK(ordinal > 0 AND ordinal <= 9007199254740991), revision_id TEXT NOT NULL REFERENCES revisions(id), metadata TEXT NOT NULL CHECK(json_valid(metadata)), PRIMARY KEY(playbook_id, ordinal), UNIQUE(playbook_id, revision_id)) STRICT`,
+  `CREATE TABLE revision_tags (playbook_id TEXT NOT NULL, tag TEXT NOT NULL, revision_id TEXT NOT NULL, PRIMARY KEY(playbook_id, tag), FOREIGN KEY(playbook_id, revision_id) REFERENCES playbook_revisions(playbook_id, revision_id) ON DELETE CASCADE) STRICT`,
   `CREATE INDEX history_revision ON playbook_revisions(revision_id)`,
   `CREATE TABLE publications (id TEXT PRIMARY KEY, playbook_id TEXT NOT NULL, revision_id TEXT NOT NULL, metadata TEXT NOT NULL CHECK(json_valid(metadata)), created_at TEXT NOT NULL, FOREIGN KEY(playbook_id, revision_id) REFERENCES playbook_revisions(playbook_id, revision_id) ON DELETE CASCADE) STRICT`,
   `CREATE INDEX publications_playbook ON publications(playbook_id, id)`,

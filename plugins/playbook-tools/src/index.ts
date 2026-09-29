@@ -1,5 +1,6 @@
 /** Bound playbook tools. No Session, filesystem access, or UI dependency is required. */
 import {
+  type Capability,
   type ContentOperation,
   type ContentRef,
   type JsonValue,
@@ -51,6 +52,15 @@ export function createPlaybookTools(
   observations?: PlaybookObservations,
   compiler?: CompilationService,
 ) {
+  const allowed = () => repository.access(playbookId)
+  const scope = (name: ToolName): Capability | undefined => name.includes('system') ? (name.endsWith('read') ? 'system.read' : 'system.write')
+    : name.includes('opening') ? (name.endsWith('read') ? 'opening.read' : 'opening.write')
+    : name.includes('program') ? (name.endsWith('edit') ? 'program.write' : 'program.read')
+    : name.includes('text') ? (name.endsWith('edit') ? 'texts.write' : 'texts.read')
+    : name === 'playbook_commit' ? 'commit' : name === 'playbook_restore' ? 'restore'
+    : ['playbook_compile', 'playbook_simulate'].includes(name) ? 'compile'
+    : ['playbook_history', 'playbook_diff'].includes(name) ? 'history' : undefined
+  const topics = () => schemas.playbook_help.shape.topic.unwrap().options.filter(topic => (compiler !== undefined || !['compilation', 'functions', 'context'].includes(topic)) && (topic === 'overview' || allowed().includes(({ system: 'system.read', opening: 'opening.read', program: 'program.read', texts: 'texts.read', history: 'history', compilation: 'compile', functions: 'compile', context: 'compile' } as Record<string, Capability>)[topic]!)))
   function retained(id: string, parameter: string): RevisionId {
     try {
       repository.getHistoryEntry(playbookId, id as RevisionId)
@@ -112,7 +122,46 @@ export function createPlaybookTools(
   function run(name: ToolName, raw: unknown, signal: AbortSignal): unknown {
     repository.getPlaybook(playbookId)
     // Each arm parses its own declaration, keeping input inference tied to the catalog.
+    const required = scope(name)
+    if (required) repository.require(playbookId, required)
     switch (name) {
+      case 'playbook_system_read': case 'playbook_opening_read': {
+        schemas[name].parse(raw)
+        const snapshot = repository.view({ kind: 'draft', playbookId })
+        const part = name === 'playbook_system_read' ? 'systemPrompt' : 'opening'
+        observations?.authoring(snapshot.content, part)
+        return { ref: snapshot.ref, [part]: snapshot.content[part] }
+      }
+      case 'playbook_system_write': case 'playbook_opening_edit': {
+        const before = repository.view({ kind: 'draft', playbookId })
+        if (before.kind !== 'draft') throw new Error('expected draft')
+        let operation: Extract<ContentOperation, { kind: 'set-system-prompt' | 'set-opening-messages' }>
+        if (name === 'playbook_system_write') operation = { kind: 'set-system-prompt', text: schemas[name].parse(raw).text }
+        else {
+          let messages = [...before.content.opening.messages]
+          for (const op of schemas[name].parse(raw).operations) {
+            if (op.kind === 'order') {
+              if (op.ids.length !== messages.length || new Set(op.ids).size !== messages.length || op.ids.some(id => !messages.some(m => m.id === id))) throw new PlaybookToolError('invalid-input', 'order must contain every current message ID once')
+              messages = op.ids.map(id => messages.find(m => m.id === id)!)
+            } else if (op.kind === 'add') {
+              if (messages.some(m => m.id === op.id)) throw new PlaybookToolError('already-exists', 'message ID already exists')
+              const at = op.before === undefined ? messages.length : messages.findIndex(m => m.id === op.before)
+              if (at < 0) throw new PlaybookToolError('not-found', 'insertion target is missing')
+              messages.splice(at, 0, { id: op.id, role: op.role, content: op.content })
+            } else {
+              const at = messages.findIndex(m => m.id === op.id)
+              if (at < 0) throw new PlaybookToolError('not-found', 'message is missing')
+              if (op.kind === 'remove') messages.splice(at, 1)
+              else messages[at] = { ...messages[at]!, ...(op.kind === 'body' ? { content: op.content } : { role: op.role }) }
+            }
+          }
+          operation = { kind: 'set-opening-messages', messages }
+        }
+        const receipt = observations?.prepare(before.content, [operation])
+        const saved = repository.editDraft({ playbookId, expectedSequence: before.draft.sequence, operations: [operation] })
+        receipt?.(saved.content)
+        return { draft: { ...saved.draft, metadata: {} } }
+      }
       case 'playbook_simulate': {
         const a = schemas[name].parse(raw)
         if (!compiler) throw new PlaybookToolError('unavailable', 'compiler service is not installed')
@@ -128,10 +177,10 @@ export function createPlaybookTools(
       }
       case 'playbook_status': {
         schemas[name].parse(raw)
-        const snapshot = repository.readSnapshot({ kind: 'draft', playbookId })
+        const snapshot = repository.view({ kind: 'draft', playbookId })
         observations?.status(snapshot.content)
         return {
-          playbook: repository.getPlaybook(playbookId),
+          playbook: { ...repository.getPlaybook(playbookId), metadata: allowed().includes('metadata') ? repository.getPlaybook(playbookId).metadata : {} },
           draft: snapshot.draft,
           languages: [...snapshot.content.texts.languages.values()],
           defaultLanguage: snapshot.content.texts.defaultLanguage,
@@ -327,7 +376,8 @@ export function createPlaybookTools(
       case 'playbook_help': {
         const a = schemas[name].parse(raw),
           topic = a.topic ?? 'overview'
-        return { topic, text: help[topic] }
+        if (!topics().includes(topic)) throw new PlaybookToolError('forbidden', 'help topic is unavailable at this stage')
+        return { topic, text: topic === 'overview' && (repository.managed(playbookId) || !compiler) ? topics().filter(t => t !== 'overview').map(t => help[t as keyof typeof help]).join('\n\n') || 'Authoring tools unlock as the story progresses.' : help[topic] }
       }
     }
   }
@@ -335,7 +385,7 @@ export function createPlaybookTools(
     playbook_program_edit: ' Read existing files with playbook_program_read before changing them. Read program metadata with playbook_status before replacing it. Edits fail if an observed object has changed.',
     playbook_text_edit: ' Read entries or translations with playbook_text_read before replacing, renaming or deleting those objects. Read catalog metadata, language metadata and the default language with playbook_status before replacing those values. Edits fail if an observed object has changed.',
   }
-  return toolCatalog().filter(descriptor => !['playbook_compile', 'playbook_commit', 'playbook_simulate'].includes(descriptor.name) || compiler !== undefined).map((descriptor) => ({
+  return toolCatalog().filter(descriptor => !scope(descriptor.name) || allowed().includes(scope(descriptor.name)!)).map(descriptor => descriptor.name === 'playbook_help' ? { ...descriptor, parameters: { ...descriptor.parameters, properties: { topic: { ...((descriptor.parameters.properties as Record<string, object>).topic), enum: topics() } } } } : descriptor).filter(descriptor => !['playbook_compile', 'playbook_commit', 'playbook_simulate'].includes(descriptor.name) || compiler !== undefined).map((descriptor) => ({
     ...descriptor,
     description: descriptor.description + (observations ? readRequirements[descriptor.name] ?? '' : ''),
     output: {

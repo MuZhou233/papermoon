@@ -18,7 +18,13 @@ export interface TextCatalog {
   readonly languages: ReadonlyMap<string, Language>
   readonly entries: ReadonlyMap<string, TextEntry>
 }
+export type AuthoringMode = 'plain' | 'script'
+export interface SystemPrompt { readonly mode: AuthoringMode; readonly text: string }
+export interface OpeningMessage { readonly id: string; readonly role: 'user' | 'assistant'; readonly content: string }
+export interface Opening { readonly mode: AuthoringMode; readonly messages: readonly OpeningMessage[] }
 export interface PlaybookContent {
+  readonly systemPrompt: SystemPrompt
+  readonly opening: Opening
   readonly format: typeof CONTENT_FORMAT
   readonly metadata: JsonObject
   readonly program: Program
@@ -37,6 +43,9 @@ export type MetadataTarget =
   | { kind: 'text'; key: string }
   | { kind: 'translation'; key: string; language: string }
 export type ContentOperation =
+  | { kind: 'set-system-prompt'; text: string }
+  | { kind: 'set-opening-messages'; messages: readonly OpeningMessage[] }
+  | { kind: 'set-authoring-mode'; target: 'systemPrompt' | 'opening'; mode: AuthoringMode }
   | { kind: 'create-file'; path: string; source: string; metadata?: JsonObject }
   | { kind: 'replace-file'; path: string; source: string }
   | { kind: 'delete-file'; path: string }
@@ -52,7 +61,7 @@ export type ContentOperation =
   | { kind: 'delete-translation'; key: string; language: string }
   | { kind: 'set-metadata'; target: MetadataTarget; metadata: JsonObject }
 /** A source is a retained revision; restoring a missing object is an error, not a deletion. */
-export type RestoreSelection = { kind: 'all' | 'program' | 'catalog' } | { kind: 'file'; path: string } | { kind: 'text'; key: string }
+export type RestoreSelection = { kind: 'all' | 'program' | 'catalog' | 'systemPrompt' | 'opening' } | { kind: 'file'; path: string } | { kind: 'text'; key: string }
 export interface ContentPageOptions { after?: string; limit?: number }
 export interface ContentPage<T> { items: T[]; next?: string }
 export interface LocatedPage<T> extends ContentPage<T> { ref: ResolvedRef }
@@ -69,6 +78,8 @@ export interface ContentSettings {
   readonly defaultLanguage: string
 }
 export type ContentRecord =
+  | { kind: 'systemPrompt'; value: SystemPrompt }
+  | { kind: 'opening'; value: Opening }
   | { kind: 'settings'; value: ContentSettings }
   | { kind: 'file'; value: ProgramFile }
   | { kind: 'language'; value: Language }
@@ -82,7 +93,7 @@ export interface ContentDifference {
 }
 /** Returned by comparison; callers reuse it without interpreting its storage position. */
 export type ComparisonCursor = string & { readonly __kind: 'comparison-cursor' }
-export interface CompareOptions { scope?: 'all' | 'settings' | 'program' | 'languages' | 'texts'; after?: ComparisonCursor; limit?: number }
+export interface CompareOptions { scope?: 'all' | 'settings' | 'program' | 'languages' | 'texts' | 'systemPrompt' | 'opening'; after?: ComparisonCursor; limit?: number }
 export interface ComparisonPage {
   left: ResolvedRef; right: ResolvedRef; items: ContentDifference[]; next?: ComparisonCursor
 }

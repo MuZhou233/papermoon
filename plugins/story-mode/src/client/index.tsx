@@ -1,118 +1,106 @@
-/** Chapters guide the normal navigation and native Conversation page. */
+/** Story context follows the active Playbook page or its real Session. */
 import { useSyncExternalStore, type ComponentType, type ReactNode } from 'react'
-import { BookIcon } from '@papermoon/ui'
-import { App, Introduction, Progress } from './app.tsx'
+import { BookIcon, Button } from '@papermoon/ui'
+import { App, Guide, AuthoringControls } from './app.tsx'
 import { Runtime, type Connection } from './runtime.ts'
 import { en, zh, type T } from '../locales.ts'
-import { observeVisibleTarget } from '../../../ui-guidance/src/client/visibility.ts'
-export const inject = ['slots', 'layout', 'locale', 'connection', 'uiWorkspace', 'settingsNavigation', 'uiConversation']
+import { chapter } from '../content.ts'
+export const inject = ['slots', 'layout', 'locale', 'connection', 'uiWorkspace', 'settingsNavigation', 'sidebarRight', 'sidebarRightTabs', 'sidebarRightPages', 'papermoonEditor']
 type Dispose = () => void
-interface Pages {
-  constrain(id: string, policy: { textOnly: boolean; readOnly: boolean; revealViews: string[] }): Dispose
-  isDisplayed(id: string, view: string): boolean
-  subscribe(listener: () => void): Dispose
-}
+interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): Dispose }
 interface Host {
   connection: Connection
-  effect(body: () => Dispose, label: string): unknown
-  slots: {
-    inject(name: string, body: () => Dispose): unknown
-    register<P>(options: { name: string; key?: string; id?: string; order?: number; priority?: number; label?: () => string; locale?: string; inject?: () => object }, component: ComponentType<P>): Dispose
-  }
-  layout: { selectPanel(id: string | null): void; panelInfo: { getSnapshot(): { activePanelId: string | null } } }
-  locale: { register(name: string, dictionaries: { en: Record<string, string>; zh: Record<string, string> }): Dispose; bind(name: string): T }
-  uiWorkspace: { openSession(target: { kind: 'session'; sessionId: string }): void; closeSession(id: string): void; interceptStartSession(handler: () => boolean): Dispose }
-  uiConversation: { pages: Pages }
-  settingsNavigation: { open(id: string): boolean; subscribe(listener: (id: string | undefined) => void): Dispose }
+  effect(body: () => Dispose, label?: string): unknown
+  slots: { inject(name: string, body: () => Dispose): unknown; register<P>(options: { name: string; key?: string; id?: string; order?: number; label?: () => string; locale?: string; inject?: () => object }, component: ComponentType<P>): Dispose }
+  layout: { selectPanel(id: string | null): void; panelInfo: Observable<{ activePanelId: string | null }> }
+  locale: { register(ns: string, dictionaries: object): Dispose; bind(ns: string): T }
+  uiWorkspace: { openSession(target: { kind: 'session'; sessionId: string }): void }
+  settingsNavigation: { open(id: string): boolean }
+  papermoonEditor: { registerPanel(id: string, component: ComponentType<{playbookId: string}>): Dispose; savePending(id: string): Promise<void> }
+  sidebarRight: { mounted: Observable<string | undefined>; openTab(kind: string): void; ensureTabIn(id: string, kind: string): void; isExpanded(): boolean; toggleExpanded(): void }
+  sidebarRightTabs: { register(definition: { id: string; kind: string; title: (address: string) => string; keepMounted: boolean }): Dispose }
+  sidebarRightPages: { ensure(context: string, kind: string): void; bind(panel: string, context: string | null): void; open(context: string, kind: string): void; surface(context: string): { setExpanded(value: boolean): void } | undefined }
 }
-function Guide({ runtime, t, pages, renderFactorySlot }: { runtime: Runtime; t: T; pages: Pages; renderFactorySlot(name: string, props: object): ReactNode }) {
-  const { active, attempt, guideDismissed } = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
-  const sessionId = attempt?.step === 3 && !attempt.exampleSeen ? attempt.id : attempt?.step === 5 && !attempt.trajectorySeen ? attempt.sessionId : undefined
-  const displayed = useSyncExternalStore(listener => pages.subscribe(listener), () => !!sessionId && pages.isDisplayed(sessionId, 'trajectory'))
-  if (!active || !sessionId || guideDismissed || displayed) return null
-  return renderFactorySlot('anchored-guidance', {
-    target: `[data-conversation-view-tab="trajectory"][data-session-id="${sessionId}"]`,
-    text: t('traceHint'), dismissLabel: t('dismissGuide'), onDismiss: runtime.dismissGuide,
-  })
+const KIND = 'papermoon-story-guide'
+function Notice({ runtime, t }: { runtime: Runtime; t: T }) {
+  const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
+  return state.id && state.unread && state.hint !== 'open-guide' ? <Button className="pm-story-notice" onClick={runtime.openGuide}>{t('progressUpdated')}</Button> : null
 }
-export function apply(ctx: Host): void {
-  let progress: Dispose | undefined
-  const runtime = new Runtime(ctx.connection, () => ctx.layout.selectPanel('papermoon-story'), () => ctx.settingsNavigation.open('models'), active => {
-    if (!active) { progress?.(); progress = undefined }
-    else if (!progress) progress = ctx.slots.register({ name: 'sidebar.workspaces', priority: -100, locale: 'papermoon-story', inject: () => ({ runtime }) }, Progress)
-  })
+function Title({ runtime, t }: { runtime: Runtime; t: T }) {
+  const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
+  return <>{t('guide')}{state.unread && <span className="pm-story-unread" aria-label={t('progressUpdated')}>●</span>}</>
+}
+function SessionGuide({ runtime, t, useTabInfo }: { runtime: Runtime; t: T; useTabInfo(): { tab: { visible: boolean } } }) {
+  const info = useTabInfo()
+  return <Guide runtime={runtime} t={t} visible={info.tab.visible} />
+}
+function Hint({ runtime, t, renderFactorySlot }: { runtime: Runtime; t: T; renderFactorySlot(name: string, props: object): ReactNode }) {
+  const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
+  const section = state.view?.progress.section
+  const target = section === 1 ? 'continue' : section === 2 ? 'opening' : section === 3 ? 'system-prompt' : 'model'
+  const copy = chapter[t('title') === '故事模式' ? 'zh' : 'en'].sections[(section ?? 1) - 1]!
+  const text = section === 5 ? copy.states[state.view?.progress.started ? 3 : 1] : copy.hint
+  const selector = state.hint === 'open-guide' ? '[data-sidebar-right-expand]' : section === 5 && state.view?.progress.started ? '[data-composer-input]' : `[data-story-target="${target}"]`
+  if (!state.id || !state.hint) return null
+  return <>{renderFactorySlot('anchored-guidance', { target: selector, text: state.hint === 'open-guide' ? t('openGuideHint') : text, dismissLabel: t('dismiss'), onDismiss: () => runtime.update({ hint: null }) })}{state.hint === 'operation' && <Button variant="outline" className="pm-story-return" onClick={() => { runtime.update({ hint: null }); runtime.openGuide() }}>{t('guide')}</Button>}</>
+}
+export function apply(ctx: Host) {
   const t = ctx.locale.bind('papermoon-story')
-  ctx.effect(() => ctx.locale.register('papermoon-story', { en, zh }), 'story-mode: dictionaries')
-  ctx.effect(() => {
-    const leases = new Map<string, { readOnly: boolean; release: Dispose }>()
-    let destination: string | undefined
-    let observing = false
-    let navigation = -1
-    const release = () => {
-      destination = undefined
-      for (const [id, lease] of leases) { ctx.uiWorkspace.closeSession(id); lease.release() }
-      leases.clear()
-    }
-    const observe = () => {
-      const { active, attempt, busy } = runtime.getSnapshot()
-      if (!active || !attempt || observing || busy) return
-      const id = attempt.step === 3 && !attempt.exampleSeen ? attempt.id : attempt.step === 5 && !attempt.trajectorySeen ? attempt.sessionId : undefined
-      if (!id || !ctx.uiConversation.pages.isDisplayed(id, 'trajectory')) return
-      observing = true
-      void runtime.act(attempt.step === 3 ? 'example-seen' : 'trajectory-seen').finally(() => { observing = false })
-    }
-    const navigate = (force = false) => {
-      const { active, attempt, example, conversation } = runtime.getSnapshot()
-      if (!active || !attempt) { release(); return }
-      if (navigation !== runtime.getSnapshot().navigation) { force = true; navigation = runtime.getSnapshot().navigation }
-      // Policies follow the owning attempt, including while Settings or another panel is open.
-      const targets = new Map<string, boolean>()
-      if (example?.id === attempt.id) targets.set(example.id, true)
-      if (conversation && conversation.id === attempt.sessionId) targets.set(conversation.id, false)
-      for (const [id, lease] of leases) {
-        if (targets.get(id) !== lease.readOnly) { lease.release(); leases.delete(id); if (!targets.has(id)) ctx.uiWorkspace.closeSession(id) }
-      }
-      for (const [id, readOnly] of targets) if (!leases.has(id)) leases.set(id, { readOnly, release: ctx.uiConversation.pages.constrain(id, { textOnly: true, readOnly, revealViews: ['trajectory'] }) })
-      const target = attempt.step === 1 ? 'introduction:' + attempt.id : attempt.step <= 3 ? example?.id : conversation?.id
-      if (target && (force || destination !== target)) {
-        destination = target
-        if (attempt.step === 1) ctx.layout.selectPanel('papermoon-story-introduction')
-        else ctx.uiWorkspace.openSession({ kind: 'session', sessionId: target })
-      }
-    }
-    const unsubscribe = runtime.subscribe(() => navigate())
-    const stopObservation = observeVisibleTarget(() => {
-      const { active, attempt, example, conversation } = runtime.getSnapshot()
-      if (!active || !attempt) return null
-      const source = attempt.step === 3 && !attempt.exampleSeen ? example : attempt.step === 5 && !attempt.trajectorySeen ? conversation : undefined
-      if (!source || !ctx.uiConversation.pages.isDisplayed(source.id, 'trajectory')) return null
-      const turn = attempt.step === 3 ? source.successfulTurn : attempt.successfulTurn
-      const reply = source.events.findLast(event => event.type === 'assistant/message' && event.data.turn === turn)
-      if (!reply) return null
-      return document.querySelector<HTMLElement>(`[data-conversation-view="trajectory"][data-session-id="${source.id}"] [data-kind="message"][data-source-seq="${reply.seq}"]`)
-    }, observe)
-    const stopStart = ctx.uiWorkspace.interceptStartSession(() => { if (!runtime.getSnapshot().active) return false; navigate(true); return true })
-    const route = () => {
-      if (location.hash === '#story-mode/hello-world') { runtime.enter(); navigate(true) }
-      else if (location.hash === '#story-mode') runtime.leave()
-    }
-    window.addEventListener('hashchange', route)
-    runtime.start()
-    if (location.hash === '#story-mode/hello-world' || sessionStorage.getItem('papermoon.story.active') === 'hello-world') runtime.enter()
-    else if (location.hash === '#story-mode') runtime.show()
-    return () => {
-      window.removeEventListener('hashchange', route); stopStart(); stopObservation(); unsubscribe()
-      release(); runtime.dispose()
-      if (ctx.layout.panelInfo.getSnapshot().activePanelId?.startsWith('papermoon-story')) ctx.layout.selectPanel(null)
-      if (location.hash.startsWith('#story-mode')) history.replaceState(null, '', '#conversation')
-    }
-  }, 'story-mode: native page lifecycle')
-  ctx.effect(() => ctx.settingsNavigation.subscribe(runtime.settingsDisplayed), 'story-mode: settings observation')
+  let pendingOpen = false
+  const openGuide = () => {
+    const id = runtime.getSnapshot().id
+    if (!id) return
+    if (ctx.layout.panelInfo.getSnapshot().activePanelId === 'papermoon') { ctx.sidebarRightPages.bind('papermoon', id); ctx.sidebarRightPages.open(id, KIND) }
+    else if (ctx.layout.panelInfo.getSnapshot().activePanelId === null && ctx.sidebarRight.mounted.getSnapshot()) ctx.sidebarRight.openTab(KIND)
+    else pendingOpen = true
+  }
+  const runtime = new Runtime(ctx.connection, id => {
+    history.pushState(null, '', '#papermoon/' + encodeURIComponent(id) + '?tab=draft'); ctx.layout.selectPanel('papermoon'); window.dispatchEvent(new Event('papermoon:navigate'))
+  }, sessionId => { pendingOpen = !runtime.getSnapshot().hint; ctx.uiWorkspace.openSession({ kind: 'session', sessionId }) }, openGuide, () => {
+    const id = runtime.getSnapshot().id
+    if (id && ctx.layout.panelInfo.getSnapshot().activePanelId === 'papermoon') ctx.sidebarRightPages.surface(id)?.setExpanded(false)
+    else if (ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
+  }, id => ctx.papermoonEditor.savePending(id), () => { ctx.settingsNavigation.open('models') })
+  function CentralControls({ playbookId }: { playbookId: string }) {
+    const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
+    return state.id === playbookId ? <AuthoringControls runtime={runtime} t={t} /> : null
+  }
+  ctx.effect(() => ctx.papermoonEditor.registerPanel('story-model', CentralControls), 'story: model selection')
+  ctx.effect(() => ctx.locale.register('papermoon-story', { en, zh }), 'story: copy')
+  ctx.effect(() => ctx.sidebarRightTabs.register({ id: KIND, kind: KIND, title: () => t('guide'), keepMounted: true }), 'story: guide tab')
+  const injected = () => ({ runtime })
+  for (const [name, component] of [['sidebar.right.pane.tab', SessionGuide], ['sidebar.right.page.tab', Guide], ['sidebar.right.pane.tab.title', Title], ['sidebar.right.page.tab.title', Title]] as const)
+    ctx.slots.inject(name, () => ctx.slots.register({ name, key: KIND, locale: 'papermoon-story', inject: injected }, component))
+  for (const name of ['sidebar.right.notice', 'sidebar.right.page.notice']) ctx.slots.inject(name, () => ctx.slots.register({ name, id: KIND, locale: 'papermoon-story', inject: injected }, Notice))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: 'papermoon-story', order: -9, label: () => t('title') }, BookIcon))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'papermoon-story-guide', locale: 'papermoon-story', inject: () => ({ runtime, pages: ctx.uiConversation.pages }) }, Guide))
-  ctx.slots.inject('main', () => {
-    const list = ctx.slots.register({ name: 'main', key: 'papermoon-story', locale: 'papermoon-story', inject: () => ({ runtime }) }, App)
-    const introduction = ctx.slots.register({ name: 'main', key: 'papermoon-story-introduction', locale: 'papermoon-story', inject: () => ({ runtime }) }, Introduction)
-    return () => { introduction(); list() }
-  })
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'papermoon-story', locale: 'papermoon-story', inject: injected }, App))
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: KIND, locale: 'papermoon-story', inject: injected }, Hint))
+  ctx.effect(() => {
+    let generation = 0, disposed = false, timer: ReturnType<typeof setTimeout>
+    const follow = async () => {
+      const current = ++generation, panel = ctx.layout.panelInfo.getSnapshot().activePanelId
+      let id: string | undefined
+      try {
+        if (panel === 'papermoon') {
+          const match = location.hash.match(/^#papermoon\/([^?]+)/)
+          if (match) { const candidate = decodeURIComponent(match[1]!); const result = await ctx.connection.rpc.call('/api', 'papermoon/playbook', { playbookId: candidate }, runtime.abort.signal); if (result.ok && (result.value as { playbook: { metadata: { storyline?: string } } }).playbook.metadata.storyline) id = candidate }
+        } else if (panel === null) {
+          const sessionId = ctx.sidebarRight.mounted.getSnapshot()
+          if (sessionId) id = (await runtime.call<{ playbookId: string } | null>('context', { sessionId }))?.playbookId
+        }
+        if (current !== generation || disposed) return
+        ctx.sidebarRightPages.bind('papermoon', panel === 'papermoon' && id ? id : null)
+        if (panel === 'papermoon' && id) ctx.sidebarRightPages.ensure(id, KIND)
+        await runtime.context(id)
+        if (panel === null && id) { const sessionId = ctx.sidebarRight.mounted.getSnapshot(); if (sessionId) ctx.sidebarRight.ensureTabIn(sessionId, KIND) }
+        if (pendingOpen && id) { pendingOpen = false; if (runtime.getSnapshot().hint !== 'open-guide') openGuide() }
+      } catch (error) { if (current === generation && !disposed) runtime.update({ error: String(error) }) }
+    }
+    const changed = () => { void follow() }
+    const offPanel = ctx.layout.panelInfo.subscribe(changed), offSession = ctx.sidebarRight.mounted.subscribe(changed)
+    window.addEventListener('papermoon:navigate', changed); window.addEventListener('hashchange', changed)
+    const tick = async () => { await runtime.refresh(); if (!disposed) timer = setTimeout(() => void tick(), 1000) }
+    void follow(); void tick()
+    return () => { disposed = true; generation++; clearTimeout(timer); offPanel(); offSession(); window.removeEventListener('papermoon:navigate', changed); window.removeEventListener('hashchange', changed); ctx.sidebarRightPages.bind('papermoon', null); runtime.dispose() }
+  }, 'story: page context')
 }

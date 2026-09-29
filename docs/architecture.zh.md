@@ -10,6 +10,8 @@ DSH 提供通用 Agent 运行与应用基础。PaperMoon 的产品设计建立�
 
 Playbook 指可复用的背景、开场和互动机制，Performance 记录一次互动。Story 指按章节组织的[故事模式](../plugins/story-mode/README.zh.md)。[章节文档](story-mode/README.zh.md)维护产品需求，[命名决定](../.agents/notes/implemented/architecture/2026-09-24-playbook-and-story-mode.zh.md)保留术语和格式调整的理由。
 
+故事存档将每份 Playbook 绑定到一条故事线，在受保护的草稿元数据中保存进度。带 tag 的章节版本冻结演绎内容、教学及有界记录引用。[存档决策](../.agents/notes/implemented/architecture/2026-09-28-storyline-playbook-saves.zh.md)记录理由，[需求](story-mode/design.zh.md)维护产品行为。
+
 PaperMoon 分为三层。平台层提供稳定基础，并将 DSH 改造为 PaperMoon，所有 patch 都属于这一层。扩展层将可复用的功能拆为插件，包括 Playbook、编剧、演绎、[文本对话](../plugins/text-conversations/README.zh.md)和[定位提示](../plugins/ui-guidance/README.zh.md)。故事模式层由可开关的插件组成，承载章节内容和仅在该模式使用的功能。依赖向下，共用功能不能放在故事模式层。这是职责边界，不要求移动目录。[实现决策](../.agents/notes/implemented/architecture/2026-09-25-story-mode-layers.zh.md)记录扩展方式的选择。
 
 主仓库维护插件、工具、文档、依赖和 CI。`dsh/` 的 Gitlink 固定 DSH 官方提交，子模块不作为主仓库 workspace 中的包。作用于 DSH 的修改保存为补丁，在 PaperMoon 的[补丁维护范围](../patches/README.zh.md)内保留 DSH 的代码和运行时约束；管理补丁的工具按主仓库标准交付。根据各部分的实际影响选择验证证据。
@@ -37,6 +39,8 @@ PaperMoon 将 DSH `dsh-v0.1.7-rc.2` 固定到 `477b4f420553e8a52c2fbccc464d7561b
 ## 人工创作
 
 [编辑器插件](../plugins/playbook-editor/README.zh.md)维护面向用户的操作和页面。[UI 库](../packages/ui/README.zh.md)维护注明来源的组件副本与编辑控件，仅复用 DSH 的主题和宿主接口。[界面设计决定](../.agents/notes/implemented/architecture/2026-09-12-manual-playbook-editor.zh.md)记录接入方式和本地缓冲区设计。
+
+系统提示词与开场白遵循[创作设计](playbook-authoring.zh.md)，分别选择纯文本或脚本模式。核心的能力解析、授权与结果裁剪服务于编辑器、编剧、历史和演绎。故事模式注册阶段策略，DSH 为页面与会话共同承载右侧工具。
 
 ## 编剧配置与工具
 

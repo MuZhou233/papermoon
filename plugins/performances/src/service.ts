@@ -35,6 +35,8 @@ export class Performances {
   private readonly lines = new Map<Agent, Worldlines>()
   private readonly execution = new PlaybookRuntime()
   private readonly starts = new Map<string, { identity: string; task: Promise<{ sessionId: string; fixed: FrozenPerformance }> }>()
+  private readonly settled = new Set<(sessionId: string) => void>()
+  onSettled(listener: (sessionId: string) => void) { this.settled.add(listener); return () => { this.settled.delete(listener) } }
   private closed = false
   readonly artifacts: RevisionArtifacts
   constructor(private readonly host: PerformanceHost, private readonly core: PlaybookRepository, readonly workspaces: PlaybookWorkspaces) { this.artifacts = new RevisionArtifacts(core) }
@@ -45,6 +47,7 @@ export class Performances {
     return { playbook, project, entry, compilation: this.artifacts.describe(playbook.id, entry.revision.id) }
   }
   prepare(agent: Agent, playbookId: string) {
+    this.core.require(playbookId as PlaybookId, 'model')
     const state = performanceState(agent.session)
     if (state.fixed) { if (state.fixed.playbookId !== playbookId) throw new Error('performance playbook is fixed'); return }
     this.core.getPlaybook(playbookId as PlaybookId)
@@ -54,6 +57,7 @@ export class Performances {
   async view(sessionId: string) {
     const result = await this.host.sessionController.resolveAgent(sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
+    this.authorizeSession(result.agent.session)
     const lines = this.lines.get(result.agent)
     await lines?.ready()
     const state = performanceState(result.agent.session)
@@ -74,6 +78,7 @@ export class Performances {
     if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('invalid worldline page')
     const result = await this.host.sessionController.resolveAgent(sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
+    this.authorizeSession(result.agent.session)
     const lines = this.lines.get(result.agent); if (!lines) throw new Error('worldline is unavailable')
     const tree = lines.state(), ordered = [...tree.nodes.values()], lanes = new Map<string, number>(), first = new Set<string>()
     let nextLane = 0
@@ -92,12 +97,14 @@ export class Performances {
     if ('error' in result) throw new Error('performance session is unavailable')
     const fixed = performanceState(result.agent.session).fixed
     if (!fixed) throw new Error('performance is not initialized')
+    this.authorizeFrozen(fixed)
     return inspectExecution(result.agent.session.snapshotEvents(),fixed,nodeId,mode,seq=>result.agent.session.deriveRequestMessages(seq),cursor,limit)
   }
   /** Read one immutable request, including records outside the active worldline. */
   async request(sessionId: string, seq: number) {
     const result = await this.host.sessionController.resolveAgent(sessionId)
     if ('error' in result) throw new Error('session does not exist')
+    this.authorizeSession(result.agent.session)
     const agent = result.agent, events = agent.session.snapshotEvents(), event = events[seq]
     const data = event && contextRecord(event)
     if (!data) throw new Error('request does not exist')
@@ -119,6 +126,8 @@ export class Performances {
     const result = await this.host.sessionController.resolveAgent(sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
     const lines = this.lines.get(result.agent); if (!lines) throw new Error('worldline is unavailable')
+    const fixed = performanceState(result.agent.session).fixed
+    if (fixed) this.authorizeFrozen(fixed)
     this.contextsByAgent.get(result.agent)?.assertAvailable()
     await lines.ready()
     return lines.operate(operation)
@@ -128,16 +137,47 @@ export class Performances {
     if ('error' in result) throw new Error('performance session is unavailable')
     const lines = this.lines.get(result.agent), fixed = performanceState(result.agent.session).fixed
     if (!lines || !fixed) throw new Error('worldline is unavailable')
+    this.authorizeFrozen(fixed)
     const tree = lines.state(), node = tree.nodes.get(nodeId)
     if (!node) throw new Error('worldline node does not exist')
     const events = recordsFor(result.agent.session.snapshotEvents(), pathRanges(tree.nodes, nodeId))
     const siblings = [...tree.nodes.values()].filter(item => item.parent === node.parent).map(({ id, ordinal, outcome }) => ({ id, ordinal, outcome }))
     return { node, siblings, events, runtime: projectActions(events, fixed), version: tree.version }
   }
+  /** Resolve the first durable completed turn with a real assistant body. */
+  async successful(sessionId: string) {
+    const result = await this.host.sessionController.resolveAgent(sessionId)
+    if ('error' in result) throw new Error('performance session is unavailable')
+    this.authorizeSession(result.agent.session)
+    this.attach(result.agent)
+    const lines = this.lines.get(result.agent)
+    if (!lines) return null
+    await lines.ready()
+    if (!await this.host.sessions.flush(result.agent.session)) throw new Error('session persistence is unconfirmed')
+    const tree = lines.state(), events = result.agent.session.snapshotEvents()
+    for (const node of tree.nodes.values()) {
+      if (node.outcome !== 'completed' || !node.input) continue
+      const records = recordsFor(events, node.ranges)
+      const reply = records.findLast(event => {
+        if (event.type !== 'assistant/message') return false
+        const message = (event.data as { message?: { source?: { kind: string }; content?: { type: string; text?: string }[] } }).message
+        return message?.source?.kind === 'model' && message.content?.some(part => part.type === 'text' && part.text?.trim())
+      })
+      if (reply) return { sessionId, nodeId: node.id, through: Math.max(...node.ranges.map(range => range.end)), ranges: pathRanges(tree.nodes, node.id) }
+    }
+    return null
+  }
+  async reviewRecords(sessionId: string, ranges: { start: number; end: number }[]) {
+    const saved = await this.host.sessionController.inspect(sessionId)
+    this.authorizeSession({ header: saved.meta, snapshotEvents: () => saved.events })
+    const records = recordsFor(saved.events, ranges)
+    if (ranges.some(range => !saved.events.some(event => event.seq === range.end))) throw new Error('review records are unavailable')
+    return records
+  }
   observe(session: Agent['session'], event: import('../../playbook-workspaces/src/host.ts').LogRecord) {
     if (event.type !== 'turn/end') return
     for (const [agent, lines] of this.lines) if (agent.session === session && lines.state().pending)
-      queueMicrotask(() => { void lines.settle().catch(() => {}) }) // The worldline retains the error and blocks subsequent operations.
+      queueMicrotask(() => { void lines.settle().then(() => { for (const listener of this.settled) listener(agent.id) }).catch(() => {}) }) // The worldline retains the error and blocks subsequent operations.
 
   }
   start(input: z.infer<typeof startSchema>) {
@@ -165,10 +205,13 @@ export class Performances {
         if (state.mode !== PRESET) throw new Error('session belongs to another mode')
       }
     }
-    const choice = this.choices(input.playbookId, input.revisionId)
+    this.core.authorize(input.playbookId as PlaybookId, 'performance.start', { sessionId: input.sessionId, revisionId: input.revisionId })
+    const reader = this.core.executionRepository(input.playbookId as PlaybookId)
+    const playbook = reader.getPlaybook(input.playbookId as PlaybookId)
+    const choice = { playbook, project: reader.getProject(playbook.projectId), entry: reader.getHistoryEntry(playbook.id, input.revisionId as RevisionId) }
     if (!choice.entry) throw new Error('revision does not exist')
-    const artifact = this.artifacts.read(choice.playbook.id, choice.entry.revision.id, input.key)
-    const payload = { originSessionId: input.sessionId, playbookId: input.playbookId, revisionId: input.revisionId, ordinal: choice.entry.ordinal, playbookName: choice.playbook.name, projectName: choice.project.name, description: choice.entry.revision.description, attachmentKey: input.key, artifact }
+    const artifact = new RevisionArtifacts(reader).read(choice.playbook.id, choice.entry.revision.id, input.key)
+    const payload = { originSessionId: input.sessionId, managed: !!this.core.managed(input.playbookId as PlaybookId), playbookId: input.playbookId, revisionId: input.revisionId, ordinal: choice.entry.ordinal, playbookName: choice.playbook.name, projectName: choice.project.name, description: choice.entry.revision.description, attachmentKey: input.key, artifact }
     const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
     const workspace = await this.workspaces.workspace(input.playbookId)
     if (this.closed) throw new Error('performance service is closed')
@@ -191,7 +234,16 @@ export class Performances {
       return { sessionId: agent.id, fixed }
     })
   }
+  private authorizeFrozen(fixed: FrozenPerformance) {
+    if (fixed.managed) this.core.require(fixed.playbookId as PlaybookId, 'performance')
+  }
+  private authorizeSession(session: Pick<Agent['session'], 'header' | 'snapshotEvents'>) {
+    const state = performanceState(session)
+    if (state.fixed) this.authorizeFrozen(state.fixed)
+    else if (state.playbookId) this.core.require(state.playbookId as PlaybookId, 'model')
+  }
   private async same(input: z.infer<typeof startSchema>, fixed: FrozenPerformance) {
+    this.authorizeFrozen(fixed)
     if (fixed.playbookId !== input.playbookId || fixed.revisionId !== input.revisionId || fixed.attachmentKey !== input.key) throw new Error('performance version and artifact are fixed')
     const result = await this.host.sessionController.resolveAgent(input.sessionId)
     if ('error' in result) throw new Error('performance session is unavailable')
@@ -204,6 +256,7 @@ export class Performances {
   }
   async admit(agent: Agent, message: InputMessage, persist = true) {
     const state = performanceState(agent.session)
+    if (state.fixed) this.authorizeFrozen(state.fixed)
     if (state.mode === PRESET && !state.fixed) throw new Error('initialize the performance before sending')
     this.contextsByAgent.get(agent)?.assertAvailable()
     return state.mode === PRESET ? this.lines.get(agent)!.admit(message, persist) : message
@@ -219,7 +272,7 @@ export class Performances {
       disposers.push(...configureLiteralPrompt(agent, 'papermoon_performance_prompt', () => { required(); return '' }))
       disposers.push(agent.ctx.tools.presentAs('native'))
       disposers.push(agent.ctx.on('agent/pre-step', async (_payload, next) => {
-        const fixed = required(); const decision = await next()
+        const fixed = required(); this.authorizeFrozen(fixed); const decision = await next()
         if (decision.kind === 'enter') this.lines.get(agent)!.validateInput(decision.messages)
         return decision.kind === 'reject' ? decision : { ...decision, initialMessages: [...(decision.initialMessages ?? []), ...openingMessages(fixed)] }
       }))
@@ -237,6 +290,7 @@ export class Performances {
     const dispose = () => { this.contextsByAgent.delete(agent); actions.dispose(); for (const remove of disposers.splice(0).reverse()) remove(); if (this.actions.get(agent) === actions) this.actions.delete(agent) }
     try {
       disposers.push(agent.ctx.on('agent/request-messages', async (payload, next) => {
+        this.authorizeFrozen(fixed)
         if (await next() !== undefined) throw new Error('performance context conflicts with another request assembler')
         return context.request(payload.turn, payload.step, payload.signal)
       }))
@@ -248,7 +302,7 @@ export class Performances {
       this.actions.set(agent, actions)
       const lines = new Worldlines(agent, fixed, () => this.host.sessions.flush(agent.session), actions, (content, operation) => this.host.sessionController.submitUserInput({ sessionId: agent.id, requestId: operation.operationId, mode: 'queue', content, historyVersion: operation.expectedVersion, ...(operation.clientTimeZone === undefined ? {} : { clientTimeZone: operation.clientTimeZone }), admission: { 'papermoon.worldline': operation } }))
       this.lines.set(agent, lines)
-      if (lines.state().pending && agent.status === 'idle') queueMicrotask(() => { void lines.settle().catch(() => {}) })
+      if (lines.state().pending && agent.status === 'idle') queueMicrotask(() => { void lines.settle().then(() => { for (const listener of this.settled) listener(agent.id) }).catch(() => {}) })
       agent.ctx.effect(() => dispose, 'papermoon.performance-actions')
       const previous = this.runtimes.get(agent)!
       this.runtimes.set(agent, () => { dispose(); previous() })

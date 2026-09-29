@@ -145,7 +145,7 @@ export function App({ store, t }: Props) {
                       value={toolQuery}
                       onChange={(e) => setToolQuery(e.target.value)}
                     />
-                    {(['program', 'texts', 'history'] as const).map(
+                    {(['system', 'opening', 'program', 'texts', 'history', 'compilation'] as const).map(
                       (group) =>
                         tools.some((tool) => tool.group === group) && (
                           <section key={group}>

@@ -1,11 +1,12 @@
 /** Build the public DSH factory format without importing its build tooling. */
 import { build } from 'esbuild'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { assertRuntimeImports } from './runtime-imports.ts'
 for (const plugin of ['playbook-editor', 'writers', 'writer-sessions', 'performances', 'text-conversations', 'ui-guidance', 'story-mode']) {
   const out = resolve(`plugins/${plugin}/lib`)
   await mkdir(out, { recursive: true })
-  await build({
+  const host = await build({
     entryPoints: [`plugins/${plugin}/src/index.ts`],
     outfile: out + '/index.js',
     bundle: true,
@@ -14,7 +15,9 @@ for (const plugin of ['playbook-editor', 'writers', 'writer-sessions', 'performa
     target: 'node24',
     packages: 'external',
     external: ['@papermoon/*'],
+    metafile: true,
   })
+  assertRuntimeImports(JSON.parse(await readFile(`plugins/${plugin}/package.json`, 'utf8')), host.metafile)
   if (plugin === 'text-conversations') continue
   const result = await build({
     entryPoints: [`plugins/${plugin}/src/client/index.tsx`],

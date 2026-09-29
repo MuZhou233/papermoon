@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { PlaybookStorage } from '@papermoon/playbook-storage'
 import { PlaybookRepository } from '@papermoon/playbook-core/repository'
+import { capabilities } from '@papermoon/playbook-core'
 import { CompilationService, ArtifactStore } from '@papermoon/playbook-compiler/service'
 import { Performances, type PerformanceHost } from '../src/service.ts'
 import { performanceState, openingMessages } from '../src/model.ts'
@@ -13,13 +14,14 @@ import { PlaybookWorkspaces } from '../../playbook-workspaces/src/index.ts'
 import type { Agent, LogRecord, Decision } from '../../playbook-workspaces/src/host.ts'
 const cleanup: (() => void | Promise<void>)[] = []
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close() })
-async function fixture() {
+async function fixture(managed = false) {
   const directory = mkdtempSync(join(tmpdir(), 'papermoon-performance-')), path = join(directory, 'playbook.sqlite')
   const storage = new PlaybookStorage({ path }), core = new PlaybookRepository(storage)
   cleanup.push(() => { storage.close(); rmSync(directory, { recursive: true, force: true }) })
   const compiler = new CompilationService(core, new ArtifactStore(join(directory, 'compiled')))
   cleanup.push(() => compiler.close())
-  const project = core.createProject({ name: 'P' }), playbook = core.createPlaybook({ projectId: project.id, name: 'S', defaultLanguage: 'en' })
+  const controller = managed ? core.registerPolicy('fixture', { capabilities: () => capabilities }) : undefined
+  const project = core.createProject({ name: 'P' }), playbook = (controller?.repository ?? core).createPlaybook({ systemMode: 'script', openingMode: 'script', projectId: project.id, name: 'S', defaultLanguage: 'en', ...(managed ? { draftMetadata: { $managed: { policy: 'fixture', binding: 'test', state: {} } } } : {}) })
   core.editDraft({ playbookId: playbook.id, expectedSequence: 0, operations: [{ kind: 'create-file', path: 'playbook.js', source: 'module.exports={systemPrompt:"  {{literal}}",messages:[{role:"assistant",content:"Welcome",name:"Opening"},{role:"user",content:"Background"},{role:"user",content:""}]}' }] })
   const result = await compiler.submit({ playbookId: playbook.id, expectedSequence: 1, description: 'First' })
   if (!result.committed) throw new Error('fixture failed')
@@ -53,8 +55,22 @@ async function fixture() {
   const workspaces = new PlaybookWorkspaces(host, core, directory)
   service = new Performances(host, core, workspaces); cleanup.push(() => service.close())
   const input = { sessionId: 'play', playbookId: playbook.id, revisionId: result.revision.id, key: 'opening/0' }
-  return { core, storage, path, playbook, input, service, create, agents, logs, variables, steps, created: () => created }
+  return { core, controller, storage, path, playbook, input, service, create, agents, logs, variables, steps, created: () => created }
 }
+test('managed execution reads and requests recheck the available policy', async () => {
+  const f = await fixture(true)
+  await f.service.start(f.input)
+  const view = await f.service.view('play'), nodeId = view.worldline!.selected
+  f.controller!.dispose()
+  for (const read of [() => f.service.view('play'), () => f.service.tree('play'), () => f.service.node('play', nodeId), () => f.service.inspection('play', nodeId, 'original'), () => f.service.request('play', 0), () => f.service.successful('play'), () => f.service.reviewRecords('play', [])]) {
+    await expect(read()).rejects.toMatchObject({ code: 'forbidden' })
+  }
+  const agent = f.agents.get('play')!
+  await expect(f.steps.get('play')!({ agent, signal: new AbortController().signal }, async () => ({ kind: 'enter', messages: [] }))).rejects.toMatchObject({ code: 'forbidden' })
+  const restored = f.core.registerPolicy('fixture', { capabilities: () => capabilities })
+  expect((await f.service.view('play')).fixed?.managed).toBe(true)
+  restored.dispose()
+})
 test('initializes once without a compiler and replays the complete frozen context after source deletion', async () => {
   const f = await fixture()
   const [first, retry] = await Promise.all([f.service.start(f.input), f.service.start(f.input)])

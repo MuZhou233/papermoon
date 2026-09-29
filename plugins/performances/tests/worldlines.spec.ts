@@ -11,7 +11,7 @@ import { PerformanceActions, projectActions } from '../src/actions.ts'
 import { Worldlines, activeRecords } from '../src/worldlines.ts'
 let artifact: Artifact
 beforeAll(async () => {
-  const result = await compile(applyOperations(createContent({ defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source: `function factory({state}) {
+  const result = await compile(applyOperations(createContent({ systemMode: 'script', openingMode: 'script', defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source: `function factory({state}) {
 /** Increase a counter.
  * @param {number} amount Increment.
  * @returns {number} Counter.
@@ -25,7 +25,7 @@ const cleanup: (() => Promise<void>)[] = []
 afterEach(async () => { for (const close of cleanup.splice(0)) await close() })
 function fixture(seed: readonly LogRecord[] = [], flush = async () => true) {
   const events = structuredClone([...seed]), sent: InputMessage[] = []
-  const payload = { originSessionId: 's', playbookId: 'playbook', revisionId: 'r', ordinal: 1, playbookName: 'S', projectName: 'P', description: '', attachmentKey: 'opening/0', artifact }
+  const payload = { managed: false, originSessionId: 's', playbookId: 'playbook', revisionId: 'r', ordinal: 1, playbookName: 'S', projectName: 'P', description: '', attachmentKey: 'opening/0', artifact }
   const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
   const agent = { id: 's', status: 'idle', inbox: { nextTurn: [], nextStep: [], clear() {} },
     session: { snapshotEvents: () => events, append(type: string, data: unknown, intent?: object) {

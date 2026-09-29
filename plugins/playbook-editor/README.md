@@ -2,6 +2,10 @@
 
 English | [中文](README.zh.md)
 
+The editor implements the [plain-text authoring design](../../docs/playbook-authoring.md) with independent system and opening modes, defaulting to plain text. Markdown and XML highlighting share CodeMirror search, undo and save state; changing highlighting retains text, cursor and history. Opening messages have stable IDs and support role changes and keyboard-accessible ordering, including empty lists. Switching ordinary modes preserves inactive content.
+
+Plain editors use a framed surface with a compact toolbar for authoring mode and syntax highlighting. Shared DSH-style menus show language icons and the current selection; keyboard selection and Escape return focus to the trigger. Opening cards group the numbered role header, icon actions and editor body. The role trigger and its options use the same `MessageRole` badges as trajectory previews: blue for user and violet for assistant. Dropdown backgrounds remain opaque in both themes. Toolbars wrap on narrow screens, and CodeMirror fits the available height so its final lines remain reachable. The empty opening uses the [chapter requirement text](../../docs/story-mode/fogbound-earthshine/01/02-messages-and-context.md#operation-guidance).
+
 The editor adds a playbook overview and independent detail pages to PaperMoon. It calls the [logic core](../playbook-core/README.md) through authenticated DSH requests. It creates no agent sessions and performs no publication, approval or model calls.
 
 ## Pages and authoring
@@ -49,3 +53,9 @@ Drafts expose entry, language and explicit compilation through the [compiler ser
 Local edits, changed options or a new server sequence mark earlier results stale. Visible draft pages refresh at five-second intervals and on focus or reconnect, preserving pending edits. Diagnostic navigation checks the server again before moving to the source position or text key and language; stale diagnostics cannot select positions in newer content. Preview does not create Session records or imply publication eligibility.
 
 Start performance opens the [shared launch dialog](../performances/README.md) for the latest or explicitly viewed historical revision. The editor itself does not run a model or infer publication eligibility.
+
+## Story capabilities
+
+Catalog cards include storyline and progress. Story saves open their draft; the shared core scope controls reads, edits, history, copying, modes and submission. Progress refreshes the scope without replacing pending edits. An explicit unchanged opening save records the empty-list condition. Partial restoration and comparisons include system and opening components for ordinary Playbooks.
+
+`papermoonEditor.registerPanel(id, component)` adds contextual controls beside the editor, and `savePending(playbookId)` saves its pending prefix before continuation. The story plugin supplies model controls and binds the Playbook page to the right-side host. Page context has its own identity independent of Sessions.

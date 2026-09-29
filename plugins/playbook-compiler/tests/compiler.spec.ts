@@ -4,7 +4,7 @@ import { compile, PlaybookCompiler } from '../src/index.ts'
 import { initialize, loadArtifact, digest } from '../src/runtime.ts'
 
 function playbook(source: string, files: Record<string, string> = {}) {
-  return applyOperations(createContent({ defaultLanguage: 'en' }), [
+  return applyOperations(createContent({ systemMode: 'script', openingMode: 'script', defaultLanguage: 'en' }), [
     ...Object.entries({ 'playbook.js': source, ...files }).map(([path, source]) => ({ kind: 'create-file' as const, path, source })),
     { kind: 'add-language', language: 'zh-CN' },
     { kind: 'create-text', key: 'system' },

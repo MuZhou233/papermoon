@@ -88,6 +88,16 @@ const textOperation = z.discriminatedUnion('kind', [
   }),
 ])
 export const schemas = {
+  playbook_system_read: object({}),
+  playbook_system_write: object({ text: text.describe('Replace the complete literal system prompt. Read it before writing; whitespace and markup are preserved.') }),
+  playbook_opening_read: object({}),
+  playbook_opening_edit: object({ operations: z.array(z.discriminatedUnion('kind', [
+    object({ kind: z.literal('add'), id: text.min(1).describe('Choose a unique stable message identity.'), role: z.enum(['user', 'assistant']).default('assistant').describe('Message role; defaults to assistant.'), content: text.describe('Literal message body, including whitespace and unfinished markup.'), before: text.optional().describe('Insert before this message ID; omit to append.') }),
+    object({ kind: z.literal('remove'), id: text.describe('Stable ID returned by the opening read.') }),
+    object({ kind: z.literal('body'), id: text.describe('Stable ID returned by the opening read.'), content: text.describe('Replace this message body verbatim.') }),
+    object({ kind: z.literal('role'), id: text.describe('Stable ID returned by the opening read.'), role: z.enum(['user', 'assistant']).describe('Change this message role while retaining its identity and body.') }),
+    object({ kind: z.literal('order'), ids: z.array(text).describe('List every current message ID exactly once in the desired order.') }),
+  ])).describe('Apply edits in order and save atomically. An empty batch explicitly saves the current list. Read the list before editing.') }),
   playbook_simulate: object({
     calls: z.array(object({ name: text, args: z.record(z.string(), z.unknown()) })),
     entry: text.optional().describe('Select the CommonJS entry file. Defaults to playbook.js.'),
@@ -153,11 +163,13 @@ export const schemas = {
     selection,
   }),
   playbook_help: object({
-    topic: z.enum(['overview', 'program', 'texts', 'history', 'compilation', 'functions', 'context']).optional().describe('Select a help topic. Defaults to overview.'),
+    topic: z.enum(['overview', 'system', 'opening', 'program', 'texts', 'history', 'compilation', 'functions', 'context']).optional().describe('Select a help topic. Defaults to overview.'),
   }),
 }
 export type ToolName = keyof typeof schemas
 export const help = {
+  system: 'Read playbook_system_read before playbook_system_write({text:"..."}). Text is preserved literally. A stale observation requires another read. Saving content leaves story progression to the user.',
+  opening: 'Read playbook_opening_read before playbook_opening_edit({operations:[...]}). Use add, remove, body, role and order operations. The order operation includes every current message ID once. Roles are user or assistant; adjacent roles may match and the list may be empty. An empty batch saves the current list.',
   context: [
     "composeContext({opening,history,input,state}) returns {systemPrompt,messages}. It runs once per admitted player input, including rerolls and edited input. Tool continuations append actual execution messages without rerunning it. System text stays at the head; messages may be original references {ref:id} or custom {role: user|assistant, name?, content}. An assistant prompt is an ordinary message, not a provider completion prefix.",
     "opening includes systemPrompt and opening message ids, roles and names. history is the selected worldline's ordered node directory with id, outcome and blocks; blocks expose ids and roles, not bodies. input contains the current id and original content blocks. state is the readonly state restored from the parent node. No historical message bodies, I/O, clocks or random source are available.",
@@ -173,7 +185,7 @@ export const help = {
     "Each call constructs a fresh closure from frozen modules. Only state persists across calls. t(key) reads frozen text in the selected language; missing text fails without a language fallback. Functions cannot access host files, network, asynchronous work, clocks or randomness.",
   ].join('\n\n'),
   overview: [
-    "The bound playbook contains a mutable draft and immutable revisions. Its draft stores program files and a multilingual text catalog.",
+    "The bound playbook contains a mutable draft and immutable revisions. Its draft stores independently selected plain-text or script modes for system and opening content, program files and a multilingual text catalog. Plain text is the default. System and opening tools preserve literal text, message roles and order.",
     "Program tools list, read, search and edit virtual files. Text tools manage languages, entries and translations. playbook_status reports draft status. playbook_commit compiles and saves a complete revision, playbook_history lists revisions, playbook_diff compares content, and playbook_restore restores selected content. playbook_compile checks and saves a compiled artifact; playbook_simulate executes declared functions on temporary state.",
     "Programs use CommonJS. The default entry playbook.js exports a declaration through module.exports, with systemPrompt and an ordered messages array. require(\"@papermoon/playbook\") provides definePlaybook and t(key), which reads text in the selected language.",
     "Select a playbook_help topic for details: program covers files and a compilable entry; texts covers languages and translations; history covers revisions, comparisons and restoration; compilation covers the declaration and module API; functions covers closures, JSDoc and simulation; context covers per-input context assembly.",
@@ -204,6 +216,10 @@ export const help = {
   ].join('\n\n'),
 } satisfies Record<NonNullable<z.infer<typeof schemas.playbook_help>['topic']>, string>
 const descriptions: Record<ToolName, string> = {
+  playbook_system_read: 'Read the current system prompt, authoring mode and draft identity. The returned value grants the observation needed for a subsequent write.',
+  playbook_system_write: 'Save the complete literal system prompt after reading its current value. Concurrent edits produce a conflict.',
+  playbook_opening_read: 'Read the ordered opening messages with stable IDs, roles, bodies, authoring mode and draft identity.',
+  playbook_opening_edit: 'Add, remove, edit or reorder opening messages after reading the current list. The complete batch saves atomically.',
   playbook_simulate: 'Compile the current draft and call its functions in order on temporary state.',
   playbook_compile: "Compile a draft into a saved playbook artifact.",
   playbook_status: "Read draft status, languages and content counts.",
@@ -222,6 +238,7 @@ const descriptions: Record<ToolName, string> = {
   playbook_help: "Read playbook API and tool usage by topic.",
 }
 const writes = new Set<ToolName>([
+  'playbook_system_write', 'playbook_opening_edit',
   'playbook_program_edit',
   'playbook_text_edit',
   'playbook_commit',
@@ -231,7 +248,7 @@ export interface ToolDescriptor {
   name: ToolName
   description: string
   parameters: Record<string, unknown>
-  group: 'program' | 'texts' | 'history'
+  group: 'system' | 'opening' | 'program' | 'texts' | 'history' | 'compilation'
   readonly: boolean
   output: {
     schema: ResultSchema
@@ -247,7 +264,7 @@ export function toolCatalog(): ToolDescriptor[] {
       name,
       description: descriptions[name],
       parameters,
-      group: name.includes('program')
+      group: name.includes('system') ? 'system' : name.includes('opening') ? 'opening' : ['playbook_compile', 'playbook_simulate'].includes(name) ? 'compilation' : name.includes('program')
         ? 'program'
         : name.includes('text')
           ? 'texts'

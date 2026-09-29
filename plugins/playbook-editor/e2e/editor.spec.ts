@@ -25,6 +25,11 @@ async function rpc(page: Page, method: string, payload: unknown) {
   return body.result.value
 }
 // The isolated profile has no model configuration. Finish onboarding before editing.
+async function program(page: Page) { await page.getByRole('tab', { name: 'Program and text catalog', exact: true }).click() }
+async function scriptAuthoring(page: Page) {
+  for (const part of ['System prompt', 'Opening messages']) { await page.getByRole('tab', { name: part, exact: true }).click(); await page.getByRole('button', { name: 'Authoring mode', exact: true }).click(); await page.getByRole('menuitem', { name: 'Script', exact: true }).click() }
+  await program(page)
+}
 async function goto(page: Page, url: string) {
   const response = await page.goto(url)
   // Hash navigation keeps the existing document and does not reopen onboarding.
@@ -33,12 +38,14 @@ async function goto(page: Page, url: string) {
       .getByRole('button', { name: 'Configure later', exact: true })
       .click()
   }
+  if (url.includes('#papermoon/')) await program(page)
 }
 async function reload(page: Page) {
   await page.reload()
   await page
     .getByRole('button', { name: 'Configure later', exact: true })
     .click()
+  if (page.url().includes('#papermoon/')) await program(page)
 }
 async function login(page: Page) {
   await page.addLocatorHandler(
@@ -60,7 +67,7 @@ test('explicit compilation saves artifacts and previews exact roles after refres
   const panel = page.getByRole('region', { name: 'Compilation', exact: true })
   await expect(panel.getByRole('status')).toHaveText('Not compiled')
   await expect(panel.locator('.pm-diagnostics')).toHaveCount(0)
-  await rpc(page, 'save', { playbookId: playbook.id, expectedSequence: 0, operations: [
+  await rpc(page, 'save', { playbookId: playbook.id, expectedSequence: 0, operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },
     { kind: 'create-file', path: 'playbook.js', source: 'const {t}=require("@papermoon/playbook");module.exports={systemPrompt:t("system"),messages:[{name:"Background",role:"user",content:"{{literal}}"},{role:"user",content:""},{role:"assistant",content:"Opening"}]};' },
     { kind: 'create-text', key: 'system' }, { kind: 'set-translation', key: 'system', language: 'en', text: 'Writer system' },
     { kind: 'add-language', language: 'zh-CN' }, { kind: 'set-translation', key: 'system', language: 'zh-CN', text: '起始设定' },
@@ -104,7 +111,7 @@ test('diagnostics navigate to source and text, and stale results cannot navigate
   await login(page)
   const project = await rpc(page, 'createProject', { name: 'Diagnostics' })
   const playbook = await rpc(page, 'createPlaybook', { projectId: project.id, name: 'Broken opening', defaultLanguage: 'en' })
-  await rpc(page, 'save', { playbookId: playbook.id, expectedSequence: 0, operations: [
+  await rpc(page, 'save', { playbookId: playbook.id, expectedSequence: 0, operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },
     { kind: 'create-file', path: 'playbook.js', source: '\nconst x = ;' },
     { kind: 'create-text', key: 'missing' },
   ] })
@@ -146,6 +153,7 @@ test('manual program and text edits persist as immutable revisions', async ({
     .getByRole('textbox', { name: 'New project name', exact: true })
     .fill('Workshop')
   await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await scriptAuthoring(page)
   await expect(
     page.getByRole('button', { name: 'New file', exact: true }),
   ).toBeVisible()
@@ -221,7 +229,7 @@ test('RPC authentication and cross-window conflicts preserve pending text', asyn
   await rpc(page, 'save', {
     playbookId: playbook.id,
     expectedSequence: 0,
-    operations: [{ kind: 'create-file', path: 'test.js', source: 'base' }],
+    operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },{ kind: 'create-file', path: 'test.js', source: 'base' }],
   })
   await goto(page, new URL('/#papermoon/' + playbook.id + '?tab=draft', server.url).href)
   await page.getByRole('button', { name: 'test.js', exact: true }).click()
@@ -325,7 +333,7 @@ test('historical comparison, partial restoration and copy use saved revisions', 
   await rpc(page, 'save', {
     playbookId: playbook.id,
     expectedSequence: 0,
-    operations: [
+    operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },
       { kind: 'create-file', path: 'index.js', source: 'first' },
       { kind: 'create-text', key: 'opening' },
       {
@@ -375,6 +383,22 @@ test('historical comparison, partial restoration and copy use saved revisions', 
     .filter({ hasText: 'index.js' })
     .click()
   await expect(page.locator('.cm-mergeView').first()).toContainText('second')
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme })
+    await expect(page.locator('html')).toHaveCSS('color-scheme', colorScheme)
+    for (const [side, token] of [['a', '--dsw-alias-code-diff-deleted'], ['b', '--dsw-alias-code-diff-added']]) {
+      const changed = page.locator(`.cm-merge-${side} .cm-changedLine`).first()
+      const expected = await changed.evaluate((el, name) => {
+        const swatch = document.createElement('span')
+        swatch.style.backgroundColor = `var(${name})`
+        el.append(swatch)
+        const color = getComputedStyle(swatch).backgroundColor
+        swatch.remove()
+        return color
+      }, token!)
+      await expect(changed).toHaveCSS('background-color', expected)
+    }
+  }
   await page.getByRole('button', { name: 'Restore', exact: true }).click()
   await page
     .getByRole('menuitem', { name: 'Restore program', exact: true })
@@ -412,7 +436,7 @@ test('code editing preserves CRLF and undo across program and text panels', asyn
   await rpc(page, 'save', {
     playbookId: playbook.id,
     expectedSequence: 0,
-    operations: [
+    operations: [ { kind: 'set-authoring-mode', target: 'systemPrompt', mode: 'script' }, { kind: 'set-authoring-mode', target: 'opening', mode: 'script' },
       { kind: 'create-file', path: 'raw.js', source: 'first\r\nsecond\r\n' },
     ],
   })
@@ -513,6 +537,7 @@ test('language presets, custom codes and input states work without a return butt
     .getByRole('menuitem', { name: 'English (en)', exact: true })
     .click()
   await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await program(page)
   await expect(
     page.getByRole('heading', { name: 'Language choices', exact: true }),
   ).toBeVisible()
@@ -554,4 +579,128 @@ test('language presets, custom codes and input states work without a return butt
   await expect(
     page.getByRole('button', { name: 'Translation language', exact: true }),
   ).toContainText('fr-CA')
+})
+
+test('plain authoring toolbar preserves content and keyboard selection across highlighting and message actions', async ({ page }) => {
+  await login(page)
+  const project = await rpc(page, 'createProject', { name: 'Plain authoring' })
+  const playbook = await rpc(page, 'createPlaybook', { projectId: project.id, name: 'The lighthouse keeper', defaultLanguage: 'en' })
+  await goto(page, new URL('/#papermoon/' + playbook.id + '?tab=draft', server.url).href)
+  await page.getByRole('tab', { name: 'System prompt', exact: true }).click()
+  const source = '# The lighthouse keeper\n\n<character>\n  <voice>Patient, curious, and concise.</voice>\n  <setting>A harbor covered in evening fog.</setting>\n</character>'
+  await page.locator('.cm-content').fill(source)
+  const highlighting = page.getByRole('button', { name: 'Syntax highlighting', exact: true })
+  await highlighting.focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('menuitem', { name: 'Markdown', exact: true })).toBeFocused()
+  await expect(page.getByRole('menu')).toHaveCSS('background-color', /^rgb\([\d, ]+\)$/)
+  await page.screenshot({ path: 'test-results/plain-authoring-highlight.png' })
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect(highlighting).toBeFocused()
+  await expect(highlighting).toContainText('XML')
+  expect((await page.locator('.cm-line').allTextContents()).join('\n')).toBe(source)
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeDisabled()
+  expect((await rpc(page, 'snapshot', { ref: { kind: 'draft', playbookId: playbook.id } })).content.systemPrompt.text).toBe(source)
+  await page.getByRole('tab', { name: 'Opening messages', exact: true }).click()
+  await expect(page.locator('.pm-opening-empty')).toContainText('No opening messages.')
+  await page.getByRole('button', { name: 'Add message', exact: true }).click()
+  await page.locator('.cm-content').fill('Welcome to the lighthouse. What brings you here?')
+  await page.getByRole('button', { name: 'Add message', exact: true }).click()
+  const second = page.locator('.pm-opening-message').nth(1)
+  await second.locator('.cm-content').fill('I found a map in the harbor.')
+  await second.getByRole('button', { name: 'Message role', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'user', exact: true }).click()
+  await second.getByRole('button', { name: 'Move up', exact: true }).focus()
+  await page.keyboard.press('Space')
+  await expect(page.locator('.pm-opening-message').first().locator('.cm-content')).toHaveText('I found a map in the harbor.')
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeDisabled()
+  const messages = (await rpc(page, 'snapshot', { ref: { kind: 'draft', playbookId: playbook.id } })).content.opening.messages
+  expect(messages.map((message: { role: string }) => message.role)).toEqual(['user', 'assistant'])
+  await page.locator('.pm-authoring').screenshot({ path: 'test-results/plain-authoring-messages.png' })
+  await page.setViewportSize({ width: 520, height: 850 })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await highlighting.click()
+  await expect(page.getByRole('menuitem', { name: 'XML', exact: true })).toBeVisible()
+  await expect(page.getByRole('menu')).toHaveCSS('background-color', /^rgb\([\d, ]+\)$/)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: 'test-results/plain-authoring-narrow-dark.png' })
+  await page.keyboard.press('Escape')
+  await expect(highlighting).toBeFocused()
+})
+
+test('editor caret, syntax, selection and search follow the active theme without losing pending edits', async ({ page }) => {
+  await login(page)
+  const project = await rpc(page, 'createProject', { name: 'Editor theme' })
+  const playbook = await rpc(page, 'createPlaybook', { projectId: project.id, name: 'Theme transitions', defaultLanguage: 'en' })
+  await goto(page, new URL('/#papermoon/' + playbook.id + '?tab=draft', server.url).href)
+  await page.getByRole('tab', { name: 'System prompt', exact: true }).click()
+  await page.getByRole('button', { name: 'Syntax highlighting', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'XML', exact: true }).click()
+  const source = page.locator('.cm-content')
+  const text = '<keeper voice="calm">Welcome to the lighthouse.</keeper>\n<!-- A patient guide. -->\nPending work'
+  await source.fill(text)
+  await source.press('ControlOrMeta+End')
+  for (let i = 0; i < 4; i++) await source.press('Shift+ArrowLeft')
+  const colors: { caret: string; syntax: string; selection: string }[] = []
+  const contrast = (foreground: string, background: string) => {
+    const luminance = (color: string) => {
+      const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(value => {
+        const channel = Number(value) / 255
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+      })
+      return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722
+    }
+    const a = luminance(foreground), b = luminance(background)
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+  }
+  for (const colorScheme of ['light', 'dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme })
+    await expect(page.locator('html')).toHaveCSS('color-scheme', colorScheme)
+    await expect(source).toBeFocused()
+    expect(await page.evaluate(() => getSelection()?.toString())).toBe('work')
+    expect((await source.locator('.cm-line').allTextContents()).join('\n')).toBe(text)
+    const style = await source.evaluate(el => ({
+      caret: getComputedStyle(el).caretColor,
+      foreground: getComputedStyle(el).color,
+      background: getComputedStyle(el.closest('.cm-editor')!).backgroundColor,
+      selection: getComputedStyle(el.querySelector('.cm-line')!, '::selection').backgroundColor,
+    }))
+    expect(style.caret).toBe(style.foreground)
+    expect(contrast(style.caret, style.background)).toBeGreaterThanOrEqual(4.5)
+    const syntax = await source.locator('span').filter({ hasText: /^keeper$/ }).first().evaluate(el => getComputedStyle(el).color)
+    expect(contrast(syntax, style.background)).toBeGreaterThanOrEqual(3)
+    colors.push({ caret: style.caret, syntax, selection: style.selection })
+    await source.press('ControlOrMeta+f')
+    const find = page.locator('.cm-search input[name=search]')
+    await find.fill('keeper')
+    await page.locator('.cm-search button[name=next]').click()
+    await expect(page.locator('.cm-searchMatch-selected')).toBeVisible()
+    await expect(page.locator('.cm-searchMatch-selected')).toHaveCSS('outline-style', 'solid')
+    const field = await find.evaluate(el => ({
+      foreground: getComputedStyle(el).color,
+      background: getComputedStyle(el).backgroundColor,
+      caret: getComputedStyle(el).caretColor,
+    }))
+    expect(field.caret).toBe(field.foreground)
+    expect(contrast(field.foreground, field.background)).toBeGreaterThanOrEqual(4.5)
+    const next = page.locator('.cm-search button[name=next]')
+    await page.mouse.move(0, 0)
+    await expect(next).toHaveCSS('background-image', 'none')
+    const button = await next.evaluate(el => ({ foreground: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }))
+    expect(contrast(button.foreground, button.background)).toBeGreaterThanOrEqual(4.5)
+    await page.locator('.pm-authoring').screenshot({ path: `test-results/editor-theme-${colorScheme}.png` })
+    await find.press('Escape')
+    await source.press('ControlOrMeta+End')
+    for (let i = 0; i < 4; i++) await source.press('Shift+ArrowLeft')
+  }
+  expect(colors[0]).toEqual(colors[2])
+  for (const key of ['caret', 'syntax', 'selection'] as const) expect(colors[0]![key]).not.toBe(colors[1]![key])
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeEnabled()
+  await source.press('ArrowRight')
+  await source.pressSequentially('!')
+  await source.press('ControlOrMeta+z')
+  expect((await source.locator('.cm-line').allTextContents()).join('\n')).toBe(text)
 })

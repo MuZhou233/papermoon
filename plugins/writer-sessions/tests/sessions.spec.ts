@@ -92,7 +92,7 @@ test('scopes share a playbook without sharing observations and remounts require 
   await call(a, 'playbook_program_read', { path: 'main.js' })
   await expect(call(b, 'playbook_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'second' }] })).rejects.toThrow(/not-observed/)
   await call(a, 'playbook_program_edit', { operations: [{ kind: 'replace-file', path: 'main.js', source: 'second' }] })
-  a.dispose(); expect(a.definitions.size).toBe(0); expect(b.definitions.size).toBe(13)
+  a.dispose(); expect(a.definitions.size).toBe(0); expect(b.definitions.size).toBe(17)
   const resumed = h.agent('a', a.events)
   await expect(call(resumed, 'playbook_program_edit', { operations: [{ kind: 'delete-file', path: 'main.js' }] })).rejects.toThrow(/not-observed/)
 })
@@ -106,7 +106,7 @@ test('deleted targets retain history and refuse messages and tool execution', as
   a.dispose()
   const restored = h.agent('a', a.events)
   expect(h.service.view(restored.agent).targetMissing).toBe(true)
-  await expect(restored.definitions.get('playbook_status')!.execute({}, { callId: 'test-call', signal: new AbortController().signal })).rejects.toThrow(/no longer exists/)
+  expect(restored.definitions.size).toBe(0)
 })
 
 
@@ -127,4 +127,30 @@ test('workspace labels use the playbook name while folder and deleted targets re
   expect([playbook.title, folder.title, deleted.title]).toEqual(['S', 'Folder', 'Removed playbook'])
   playbook.title = 'Another label'
   expect((await h.service.workspace(h.playbook.id)).title).toBe('S')
+})
+
+test('existing and forked writer sessions receive current capabilities and stale tools are refused', async () => {
+  const h = setup()
+  const policy = h.core.registerPolicy('staged', { capabilities: value => value.state.open ? ['opening.read', 'opening.write', 'system.read', 'system.write'] : ['opening.read', 'opening.write'] })
+  cleanup.push(policy.dispose)
+  const managed = policy.repository.createPlaybook({ projectId: h.playbook.projectId, name: 'Story', defaultLanguage: 'en', draftMetadata: { $managed: { policy: 'staged', binding: 'story', state: { open: false } } } })
+  cleanup.push(h.core.subscribe(id => h.service.refreshAccess(id)))
+  const a = h.agent('staged')
+  h.service.prepare(a.agent, managed.id)
+  await h.service.configure({ sessionId: a.agent.id, writerId: h.writer.id, writerSequence: h.writer.sequence })
+  h.accept(a.agent)
+  expect(a.definitions.has('playbook_system_read')).toBe(false)
+  const opening = a.definitions.get('playbook_opening_read')!
+  policy.repository.updateManaged(managed.id, 0, { policy: 'staged', binding: 'story', state: { open: true } })
+  expect(a.definitions.has('playbook_system_read')).toBe(true)
+  const fork = h.agent('staged-fork', a.events)
+  expect(fork.definitions.has('playbook_system_read')).toBe(true)
+  expect(fork.definitions.has('playbook_program_read')).toBe(false)
+  policy.dispose()
+  expect(a.definitions.has('playbook_opening_read')).toBe(false)
+  await expect(opening.execute({}, { callId: 'stale', signal: new AbortController().signal })).rejects.toThrow(/forbidden/)
+  const restored = h.core.registerPolicy('staged', { capabilities: () => ['opening.read', 'opening.write'] })
+  cleanup.push(restored.dispose)
+  expect(a.definitions.has('playbook_opening_read')).toBe(true)
+  expect(a.definitions.has('playbook_system_read')).toBe(false)
 })

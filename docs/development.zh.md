@@ -16,7 +16,7 @@
 | `pnpm check:plugins:dsh` | 使用真实 DSH Cordis 检查存储、核心、编剧服务的生命周期及独立 scope 工具 |
 | `pnpm start -- --port 3081 --no-open` | 在 Web 上启动 PaperMoon；参数分别通过 argv 传递 |
 | `pnpm start:dsh -- --port 3081 --no-open` | 启动原版 Web，不加载产品插件 |
-| `pnpm test:story-mode` | 使用本地确定性适配器验证第零章 |
+| `pnpm test:story-mode` | 使用本地确定性适配器验证第一个角色章节 |
 | `pnpm test:editor` | 在 Chromium 中通过临时 Web 进程验证编辑器和编剧管理 |
 | `pnpm test:writer-sessions` | 用确定性适配器验证编剧接纳、原文请求和恢复 |
 | `pnpm check` | 主库类型、lint、测试、文档与 Note 检查 |
@@ -52,7 +52,7 @@ setup 脚本必须通过 `pnpm run setup` 调用，`pnpm setup` 是 pnpm 的保�
 
 编剧配置沿用 `PAPERMOON_DATA_DIR` 指定的产品数据目录，使用独立的 `writers.sqlite`。profile 不将 Playbook 工具注册到全局。客户端插件共用 `tooling/repository/build-clients.ts` 的打包过程。
 
-宿主打包保留 PaperMoon 包的外部导入，让 Worker 路径相对于所属模块的构建产物解析。浏览器打包和主库源码测试继续使用源码别名。
+宿主打包保留 PaperMoon 包的外部导入，让 Worker 路径相对于所属模块的构建产物解析。构建会将产物保留的导入与插件声明的运行依赖核对，其中也包括打包进来的相邻模块源码所引入的依赖。浏览器打包和主库源码测试继续使用源码别名。
 
 ## 工作区登记格式
 
@@ -76,4 +76,4 @@ compiled-playbooks 目录保存独立的草稿检查结果；修订版本的正�
 
 ## 上下文产物格式
 
-上下文拼装使用编译器身份 papermoon.playbook.commonjs，遵循[当前数据规则](#冻结修订数据)。已提交的修订版本不能补充产物。[API 文档](../plugins/playbook-compiler/api.zh.md#上下文拼装)说明拼装输入和限制。
+上下文拼装使用编译器身份 papermoon.playbook.plain 与 papermoon.playbook.commonjs，遵循[当前数据规则](#冻结修订数据)。已提交的修订版本不能补充产物。[API 文档](../plugins/playbook-compiler/api.zh.md#上下文拼装)说明拼装输入和限制。

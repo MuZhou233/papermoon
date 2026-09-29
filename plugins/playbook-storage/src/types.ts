@@ -44,6 +44,11 @@ export interface EntryPage extends Page<Entry> { ref: ResolvedRef }
 export type Change = { kind: 'set'; key: string; value: JsonValue } | { kind: 'delete'; key: string }
 export interface DraftWrite { playbookId: PlaybookId; expectedSequence: number; changes: readonly Change[]; metadata?: JsonObject }
 export interface CommitInput {
+  /** A retained immutable source can be submitted while preserving current draft entries. */
+  sourceRevisionId?: RevisionId
+  /** Unique within a Playbook. Retrying a tagged submission returns its existing revision. */
+  tag?: string
+  draftMetadata?: JsonObject
   playbookId: PlaybookId; expectedSequence: number; description: string; metadata?: JsonObject; historyMetadata?: JsonObject; references?: readonly RevisionId[]
   attachments?: readonly RevisionAttachmentInput[]; attachmentMetadata?: JsonObject
 }

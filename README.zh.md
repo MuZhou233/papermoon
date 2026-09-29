@@ -25,7 +25,7 @@ DSH 运行数据默认位于 `.papermoon/dsh` 和 `.papermoon/agents`。显式�
 
 ## 维护
 
-[故事模式](plugins/story-mode/README.zh.md)在侧栏提供[第零章：hello world](docs/story-mode/00/README.zh.md)，包含介绍、模型配置检查、示例、真实对话和轨迹检查，可在插件页关闭。Playbook 定义背景、开场和互动机制，演绎从中展开。[章节需求](docs/story-mode/README.zh.md)指导后续开发。
+[故事模式](plugins/story-mode/README.zh.md)为[雾锁地照](docs/story-mode/fogbound-earthshine/README.zh.md)提供独立的 Playbook 存档。第一章通过五节引导角色创作，逐步开放编辑、编剧工具与右侧引导。首次成功演绎回复生成带 tag 的章节版本，供只读回顾。Playbook 定义背景、开场和互动机制，演绎从中展开。[故事模式需求](docs/story-mode/README.zh.md)指导开发。
 
 插件与工具由主库维护，`dsh/` Git 子模块固定上游版本。
 

@@ -21,7 +21,7 @@ The runtime entry validates frozen artifacts and returns independent initial con
 
 ## Execution and limits
 
-Each compilation or invocation owns a new Worker, VM Context and module cache. Acorn checks restricted JavaScript, TypeScript parses explicit JSDoc during compilation, and vm.Script evaluates strict CommonJS wrappers. Invocation verifies factory and function identities against the frozen declarations. Only explicit state survives calls; module globals and closure locals start fresh.
+Each script compilation or invocation owns a new Worker, VM Context and module cache. Acorn checks restricted JavaScript, TypeScript parses explicit JSDoc during compilation, and vm.Script evaluates strict CommonJS wrappers. Invocation verifies factory and function identities against the frozen declarations. Only explicit state survives calls; module globals and closure locals start fresh.
 
 Factories receive a guarded state reference. Property writes, nested writes, deletion and property-definition operations fail during factory construction. Function execution enables candidate changes. JSON Schema validation uses Ajv without coercion, default insertion or property removal. Invalid arguments, return values or candidate state fail before persistence. Unsupported state-schema keywords, asynchronous schemas or unresolved references fail compilation.
 
@@ -62,3 +62,9 @@ RevisionArtifacts reads frozen reports and attachments without compiling. Submit
 simulate pins a draft, compiles it without saving an artifact, then invokes functions in order on temporary state. Each step contains arguments, prior state and either the raw value with resulting state or diagnostics. A playbook error preserves the prior state and later calls continue; cancellation or service failure stops the operation. The whole simulation has an outer deadline and aggregate output limit. It saves neither draft content nor revisions or performance state.
 
 Main tests use temporary data and deterministic source. pnpm check:compiler:built exercises emitted Workers and independent artifact loading under ordinary Node. pnpm check:plugins:dsh verifies real Cordis teardown and native function calls through DSH. Browser tests cover previews, tool history, readonly state, reload and narrow layouts. No check calls a real model or uses user data. The [closure decision](../../.agents/notes/implemented/architecture/2026-09-13-closure-functions.md) extends the [CommonJS decision](../../.agents/notes/implemented/architecture/2026-09-13-commonjs-opening-compiler.md).
+
+## Plain-text and mixed preparation
+
+Pure plain-text content produces a `papermoon.playbook.plain` artifact directly, preserving system text, message order, roles and line breaks. It uses empty function/state declarations and the standard context composition without running a Worker. Script or mixed content uses `papermoon.playbook.commonjs`; compilation freezes the script context in `sourceContext`, then replaces each plain component with its authored value. Script functions, state and custom composition keep their existing execution boundary.
+
+Revision compilation owns `opening/` attachments. Other modules may freeze namespaced teaching or record references beside them. Readers select compilation keys by membership and validate the frozen artifact rather than relying on attachment position.

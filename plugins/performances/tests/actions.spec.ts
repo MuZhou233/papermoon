@@ -19,14 +19,14 @@ return function add(amount) { state.value += amount; if(amount < 0) throw new Er
 module.exports={systemPrompt:'',messages:[],state:{initial:{value:0},schema:{type:'object',properties:{value:{type:'number'}},required:['value'],additionalProperties:false}},functions:[create]};`
 let artifact: Artifact
 beforeAll(async () => {
-  const result = await compile(applyOperations(createContent({ defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source }]))
+  const result = await compile(applyOperations(createContent({ systemMode: 'script', openingMode: 'script', defaultLanguage: 'en' }), [{ kind: 'create-file', path: 'playbook.js', source }]))
   if (!result.ok) throw new Error(JSON.stringify(result))
   artifact = result.artifact
 })
 const closes: (() => Promise<void>)[] = []
 afterEach(async () => { for (const close of closes.splice(0).reverse()) await close() })
 async function fixture(seed: readonly LogRecord[] = [], flush: () => Promise<boolean> = async () => true, selected = artifact) {
-  const payload = { originSessionId: 'origin', playbookId: 'playbook', revisionId: 'revision', ordinal: 1, playbookName: 'Playbook', projectName: 'Project', description: 'Functions', attachmentKey: 'opening/0', artifact: selected }
+  const payload = { managed: false, originSessionId: 'origin', playbookId: 'playbook', revisionId: 'revision', ordinal: 1, playbookName: 'Playbook', projectName: 'Project', description: 'Functions', attachmentKey: 'opening/0', artifact: selected }
   const fixed: FrozenPerformance = { ...payload, checksum: digest(payload) }
   const events = structuredClone([...seed]), surfaces: unknown[] = []
   const agent = { id: 'current', status: 'idle', inbox: { nextTurn: [], nextStep: [] }, session: { snapshotEvents: () => events, append(type: string, data: unknown, surface?: { sourceEventSeqs?: number[] }) {

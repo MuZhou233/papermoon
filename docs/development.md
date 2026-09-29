@@ -16,7 +16,7 @@ Use the Node and pnpm versions declared at the root. Install main dependencies b
 | `pnpm check:plugins:dsh` | Check storage/core/writer lifecycles and scoped Playbook tools against actual DSH Cordis |
 | `pnpm start -- --port 3081 --no-open` | Start PaperMoon over Web; pass arguments as separate argv elements |
 | `pnpm start:dsh -- --port 3081 --no-open` | Start original Web without product plugins |
-| `pnpm test:story-mode` | Exercise Chapter 0 with a deterministic local adapter |
+| `pnpm test:story-mode` | Exercise the first character chapter with a deterministic local adapter |
 | `pnpm test:editor` | Verify the editor and writer manager in Chromium against a temporary Web process |
 | `pnpm test:writer-sessions` | Verify writer admission, literal requests and recovery with a deterministic adapter |
 | `pnpm check` | Main type, lint, tests, docs and Notes |
@@ -52,7 +52,7 @@ Initialization does not start a server. Web stays attached to the terminal; stop
 
 Writer settings share the product data directory selected by `PAPERMOON_DATA_DIR`, using an independent `writers.sqlite`. The profile does not register Playbook tools globally. Client plugin bundling is shared in `tooling/repository/build-clients.ts`.
 
-Host bundles leave PaperMoon package imports external so Worker paths resolve beside their owning emitted modules. Source aliases remain enabled for browser bundles and main source tests.
+Host bundles leave PaperMoon package imports external so Worker paths resolve beside their owning emitted modules. The build checks retained imports against each plugin's runtime dependencies, including imports introduced by bundled sibling source files. Source aliases remain enabled for browser bundles and main source tests.
 
 ## Workspace registration format
 
@@ -76,4 +76,4 @@ Editor backups reside in the papermoon-playbook-editor browser database. Reader 
 
 ## Context artifact formats
 
-Context composition uses compiler identity papermoon.playbook.commonjs and follows the [current data rules](#frozen-revision-data). Submitted revisions cannot be supplemented with a new artifact. [The API](../plugins/playbook-compiler/api.md#context-composition) defines composition inputs and limits.
+Context composition uses compiler identities papermoon.playbook.plain and papermoon.playbook.commonjs and follows the [current data rules](#frozen-revision-data). Submitted revisions cannot be supplemented with a new artifact. [The API](../plugins/playbook-compiler/api.md#context-composition) defines composition inputs and limits.
