@@ -10,14 +10,32 @@ Document checks are read-only. Their fixtures exercise both valid and invalid ex
 
 The main workflow separates engineering readiness from product experience feedback. No live-model transcript or GIF is mandatory for main-repository changes.
 
+## Delivery workflow
+
+Before committing or reporting that a change is ready, use the [delivery skill](../.agents/skills/papermoon-checks/SKILL.md) to follow this sequence for main-repository changes and PaperMoon-carried DSH patches. Select checks under the corresponding scope below.
+
+1. **Feature implementation.** Complete the requested behavior, update affected tests and direct contracts, and prepare the documentation and owning Note.
+2. **Basic checks.** Select and run relevant behavior tests and static or documentation checks under the owning main-repository or DSH patch scope. Confirm that the checks cover the changed behavior.
+3. **UI design review, when applicable.** For changes to user-visible information, layout, controls, feedback or interaction, reassess the completed interface and apply worthwhile improvements within the task's requirements and affected surfaces, as described below.
+4. **Final acceptance.** Verify the final change against the requirements and confirm that the implementation, tests, documentation and owning Note agree. Complete the [pre-commit review](#before-committing) for main-repository changes and the [patch checks](#dsh-patches) for applied DSH changes. Rebuild affected artifacts and rerun affected checks after further edits; reuse passing results for unchanged content.
+5. **Delivery.** Summarize the completed behavior, changes and verification. Report checks actually run, distinguish skipped checks from passing results, and state relevant limitations and remaining verification gaps.
+
+Internal and documentation-only changes proceed from basic checks directly to final acceptance.
+
+### UI changes
+
+After basic checks pass, reassess information organization, visual hierarchy, control composition and interaction burden to identify improvements with a clear benefit. Follow the design and interaction principles in `dsh/.agents/skills/dsh-client-ui-ux/SKILL.md` within PaperMoon's maintenance and delivery scope.
+
+Apply improvements with a clear benefit within the requested behavior and affected surfaces. Retain a suitable implementation with concrete reasons. Final acceptance must cover the resulting interface and key interactions, with verification evidence matching the final change. Reuse existing checks and extend coverage as needed for changed behavior. Report the review conclusions and improvements, or reasons for retaining the design. The [process decision](../.agents/notes/implemented/process/2026-09-30-ui-design-review.md) records the timing and responsibility choices.
+
 ## Before committing
 
-The Agent making a main-repository change follows these steps before committing it. Applied DSH changes use the patch delivery scope below.
+During final acceptance, the Agent making a main-repository change follows these steps, completing the staged-diff review when committing. Applied DSH changes use the patch delivery scope below.
 
 1. Inspect the changes, including new files. Confirm that the code, documentation and owning Note describe the same behavior.
 2. If the change includes Chinese or English prose, read the [bilingual writing guide](../.agents/skills/bilingual-syntax-style-guide/SKILL.md). Review the changed passages with their surrounding paragraphs. This includes documentation, Notes, skill instructions, comments and user-facing text. Read each language on its own for natural phrasing. For paired documents, also compare meaning and technical details. Preserve identifiers, protocol values and text that must remain verbatim. A change without prose needs no language review.
 3. After revising and reviewing the text, update the affected bilingual records and run the relevant checks. Reuse passing results when the checked content has not changed; rerun affected checks after further edits.
-4. Inspect the staged diff and run `git diff --cached --check`. Confirm that the intended files are included and private data and build outputs are excluded. Review any text changed since the language review before committing.
+4. When committing, inspect the staged diff and run `git diff --cached --check`. Confirm that the intended files are included and private data and build outputs are excluded. Review any text changed since the language review before committing.
 
 The Agent performs the language review as part of its work. Automated document checks verify structure, links and hashes; they do not judge syntax or style. Report language review separately from command results, and only report what was actually reviewed.
 

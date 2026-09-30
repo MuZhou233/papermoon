@@ -18,7 +18,7 @@ Update the owning documentation and tests with behavior. Every non-trivial main-
 
 Human-facing documentation is bilingual. Follow [documentation rules](docs/AGENTS.md). Derived checker code retains its [provenance](tooling/checks/README.md) and license. Do not import historical product files, prompts, or data formats into this repository.
 
-Before committing, follow the [pre-commit review](docs/testing.md#before-committing) and report checks actually performed. CI checks the complete main repository. Product experience remains a separate user-feedback judgment; main-repository delivery does not require live-model recordings, GIFs or per-file coverage quotas. Select patch evidence under [testing and delivery](docs/testing.md#dsh-patches).
+Before committing or reporting that a change is ready, use [delivery checks](.agents/skills/papermoon-checks/SKILL.md) and follow the [delivery workflow](docs/testing.md#delivery-workflow). Report checks actually performed. CI checks the complete main repository. Product experience remains a separate user-feedback judgment; main-repository delivery does not require live-model recordings, GIFs or per-file coverage quotas. Select patch evidence under [testing and delivery](docs/testing.md#dsh-patches).
 
 Use explicit commands and CI; do not install a separate main-repository Git hook system. Never commit credentials, runtime data or generated dependency directories. Keep exactly one trailing newline in text files. Do not push unless requested.
 
@@ -26,4 +26,4 @@ Use explicit commands and CI; do not install a separate main-repository Git hook
 
 Use the [bilingual writing guide](.agents/skills/bilingual-syntax-style-guide/SKILL.md) when writing, rewriting or polishing Chinese and English prose.
 
-Use [documentation maintenance](.agents/skills/papermoon-docs/SKILL.md) for bilingual edits, [Note maintenance](.agents/skills/papermoon-notes/SKILL.md) for lifecycle decisions, and [delivery checks](.agents/skills/papermoon-checks/SKILL.md) to distinguish parent and patch evidence.
+Use [documentation maintenance](.agents/skills/papermoon-docs/SKILL.md) for bilingual edits, [Note maintenance](.agents/skills/papermoon-notes/SKILL.md) for lifecycle decisions, and [delivery checks](.agents/skills/papermoon-checks/SKILL.md) for change review, final verification and separately scoped parent and patch evidence.
